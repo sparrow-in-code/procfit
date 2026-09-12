@@ -39,6 +39,10 @@ func cmdStat(env Env, args []string) int {
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
+	if err := applyConfigDefaults(fs, qf); err != nil {
+		fmt.Fprintf(env.Stderr, "%v\n", err)
+		return ExitUsage
+	}
 
 	interval := *intervalFlag
 	if posInterval != "" {
@@ -133,7 +137,7 @@ func (a *assembly) streamEmitter(env Env, r queryspec.Resolved, cols []render.Co
 	default: // table / wide
 		return func(res *query.Result) error {
 			fmt.Fprintf(env.Stdout, "== %s ==\n", res.WallTime.Format(time.RFC3339))
-			return table.Render(env.Stdout, res, cols)
+			return table.Render(env.Stdout, res, cols, r.TargetWidth)
 		}, nil
 	}
 }

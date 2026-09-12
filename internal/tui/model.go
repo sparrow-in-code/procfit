@@ -118,7 +118,7 @@ func (m *Model) computeWidths() []int {
 func (m *Model) cellText(c render.Column, fr flatRow) string {
 	cell := c.Cell(fr.row)
 	if c.IsTarget {
-		cell = indent(fr.depth) + cell
+		cell = render.TruncateCell(indent(fr.depth)+cell, m.flags.TargetWidth)
 	}
 	return cell
 }

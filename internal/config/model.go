@@ -22,6 +22,7 @@ type rawConfig struct {
 	Daemon                     *rawDaemon           `toml:"daemon" yaml:"daemon" json:"daemon"`
 	Presets                    map[string]rawPreset `toml:"presets" yaml:"presets" json:"presets"`
 	Managed                    []rawManaged         `toml:"managed" yaml:"managed" json:"managed"`
+	TargetWidth                *int                 `toml:"target_width" yaml:"target_width" json:"target_width"`
 	AllowBuiltinPresetOverride *bool                `toml:"allow_builtin_preset_override" yaml:"allow_builtin_preset_override" json:"allow_builtin_preset_override"`
 }
 
@@ -91,6 +92,7 @@ type Config struct {
 	Daemon                     Daemon
 	Presets                    map[string]Preset
 	Managed                    []Managed
+	TargetWidth                int
 	AllowBuiltinPresetOverride bool
 }
 

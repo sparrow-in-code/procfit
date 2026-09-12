@@ -15,6 +15,10 @@ func cmdPS(env Env, args []string) int {
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
+	if err := applyConfigDefaults(fs, qf); err != nil {
+		fmt.Fprintf(env.Stderr, "%v\n", err)
+		return ExitUsage
+	}
 
 	a, err := newAssemblyFn()
 	if err != nil {
@@ -37,5 +41,5 @@ func cmdPS(env Env, args []string) int {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage
 	}
-	return a.renderResult(env, res, r.Format, r.Columns, r.Human)
+	return a.renderResult(env, res, r.Format, r.Columns, r.Human, r.TargetWidth)
 }

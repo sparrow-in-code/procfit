@@ -9,17 +9,20 @@ import (
 
 // queryFlags holds the shared observation flags (RFC §8.1) parsed for ps/stat.
 type queryFlags struct {
-	groupBy    string
-	leaf       string
-	sortSpec   string
-	columns    string
-	profile    string
-	metricOver stringList
-	format     string
-	selectExpr string
-	havingExpr string
-	number     int
-	human      bool
+	groupBy     string
+	leaf        string
+	sortSpec    string
+	columns     string
+	profile     string
+	metricOver  stringList
+	format      string
+	selectExpr  string
+	havingExpr  string
+	number      int
+	human       bool
+	targetWidth int
+	configPath  string
+	noConfig    bool
 }
 
 // stringList is a repeatable string flag (e.g. --metric).
@@ -46,6 +49,9 @@ func bindQueryFlags(fs *flag.FlagSet) *queryFlags {
 	fs.IntVar(&qf.number, "n", 0, "alias for --number")
 	fs.BoolVar(&qf.human, "human", false, "human-readable units (K/M/G); default prints raw bytes/numbers")
 	fs.BoolVar(&qf.human, "h", false, "alias for --human")
+	fs.IntVar(&qf.targetWidth, "target-width", 0, "cap the TARGET column width (0 = auto-size)")
+	fs.StringVar(&qf.configPath, "config", "", "config file to load (defaults: $PROCFIT_CONFIG or XDG)")
+	fs.BoolVar(&qf.noConfig, "no-config", false, "ignore any config file")
 	return qf
 }
 
@@ -62,6 +68,7 @@ func (qf *queryFlags) toSpecFlags() queryspec.Flags {
 		Having:          qf.havingExpr,
 		Number:          qf.number,
 		Human:           qf.human,
+		TargetWidth:     qf.targetWidth,
 	}
 }
 

@@ -46,6 +46,9 @@ func normalize(raw rawConfig) (Config, error) {
 	}
 	c.Managed = managed
 
+	if raw.TargetWidth != nil {
+		c.TargetWidth = *raw.TargetWidth
+	}
 	if raw.AllowBuiltinPresetOverride != nil {
 		c.AllowBuiltinPresetOverride = *raw.AllowBuiltinPresetOverride
 	}

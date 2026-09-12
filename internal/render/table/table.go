@@ -12,14 +12,20 @@ import (
 	"github.com/netikras/procfit/internal/render"
 )
 
-// Render writes the result as a table using the given resolved columns.
-func Render(w io.Writer, res *query.Result, cols []render.Column) error {
+// Render writes the result as a table using the given resolved columns. A
+// targetWidth > 0 caps the TARGET column (indent + label) to that many cells,
+// truncating with an ellipsis; 0 auto-sizes to content.
+func Render(w io.Writer, res *query.Result, cols []render.Column, targetWidth int) error {
 	rows := flatten(res.Rows, 0)
 	matrix := make([][]string, 0, len(rows)+1)
 
 	header := make([]string, len(cols))
 	for i, c := range cols {
-		header[i] = c.Header
+		h := c.Header
+		if c.IsTarget {
+			h = render.TruncateCell(h, targetWidth)
+		}
+		header[i] = h
 	}
 	matrix = append(matrix, header)
 
@@ -28,7 +34,7 @@ func Render(w io.Writer, res *query.Result, cols []render.Column) error {
 		for i, c := range cols {
 			cell := c.Cell(fr.row)
 			if c.IsTarget {
-				cell = strings.Repeat("  ", fr.depth) + cell
+				cell = render.TruncateCell(strings.Repeat("  ", fr.depth)+cell, targetWidth)
 			}
 			cells[i] = cell
 		}

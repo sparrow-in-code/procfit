@@ -31,16 +31,19 @@ type Flags struct {
 	Number int
 	// Human enables unit-scaled output (K/M/G); off means raw bytes/numbers.
 	Human bool
+	// TargetWidth caps the TARGET column width (0 = auto-size to content).
+	TargetWidth int
 }
 
 // Resolved is a compiled query plus the metrics it needs and the columns to
 // render.
 type Resolved struct {
-	Spec    query.QuerySpec
-	Needed  []model.MetricID
-	Columns []string
-	Format  string
-	Human   bool
+	Spec        query.QuerySpec
+	Needed      []model.MetricID
+	Columns     []string
+	Format      string
+	Human       bool
+	TargetWidth int
 }
 
 // DefaultColumns is the compact default column set.
@@ -58,6 +61,7 @@ func Build(reg *metrics.Registry, dims *query.Dimensions, f Flags) (Resolved, er
 	var r Resolved
 	r.Format = f.Format
 	r.Human = f.Human
+	r.TargetWidth = f.TargetWidth
 
 	selection, err := resolveSelection(reg, f)
 	if err != nil {

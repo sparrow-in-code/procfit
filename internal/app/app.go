@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/netikras/procfit/internal/meta"
 )
@@ -65,6 +66,16 @@ func run(env Env, args []string) int {
 		return ExitOK
 	case "-v", "--version":
 		return dispatch(cmds, env, "version", nil)
+	}
+	// Leading flags with no explicit command belong to the default command
+	// (RFC §7.1: TUI on a TTY), e.g. `procfit --leaf process`.
+	if strings.HasPrefix(name, "-") {
+		if env.IsTTY {
+			return dispatch(cmds, env, "tui", args)
+		}
+		fmt.Fprintf(env.Stderr, "%s: flags need a command; try '%s ps %s' (see '%s help')\n",
+			meta.Name, meta.Name, strings.Join(args, " "), meta.Name)
+		return ExitUsage
 	}
 	return dispatch(cmds, env, name, rest)
 }

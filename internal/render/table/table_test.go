@@ -33,7 +33,7 @@ func TestRender_TreeAndUnavailable(t *testing.T) {
 		t.Fatal(err)
 	}
 	var buf bytes.Buffer
-	if err := Render(&buf, res, cols); err != nil {
+	if err := Render(&buf, res, cols, 0); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()
@@ -52,5 +52,24 @@ func TestRender_TreeAndUnavailable(t *testing.T) {
 	}
 	if !strings.Contains(leafLine, "-") {
 		t.Fatalf("unavailable cpu should render as '-': %q", leafLine)
+	}
+}
+
+func TestRender_TargetWidthCap(t *testing.T) {
+	reg := metrics.NewDefault()
+	long := &query.Row{Kind: query.RowProcess, Label: "a-very-long-process-name-that-exceeds", Process: &model.Process{PID: 1}}
+	res := &query.Result{Rows: []*query.Row{long}}
+	cols, _ := render.ResolveColumns(reg, []string{"target", "pid"})
+
+	var buf bytes.Buffer
+	if err := Render(&buf, res, cols, 12); err != nil {
+		t.Fatal(err)
+	}
+	// The target cell must be truncated to 12 cells with an ellipsis.
+	if !strings.Contains(buf.String(), "a-very-long…") {
+		t.Fatalf("target not capped to width:\n%s", buf.String())
+	}
+	if strings.Contains(buf.String(), "exceeds") {
+		t.Fatalf("full label should not appear when capped:\n%s", buf.String())
 	}
 }

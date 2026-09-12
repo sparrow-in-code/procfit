@@ -30,6 +30,9 @@ func (v Validator) Validate(c Config) error {
 	if !validLeaf[c.Leaf] {
 		return fmt.Errorf("leaf: invalid value %q", c.Leaf)
 	}
+	if c.TargetWidth < 0 {
+		return fmt.Errorf("target_width: must be >= 0, got %d", c.TargetWidth)
+	}
 	if err := v.validateGroupBy(c.GroupBy); err != nil {
 		return err
 	}

@@ -21,6 +21,10 @@ func cmdTUI(env Env, args []string) int {
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
+	if err := applyConfigDefaults(fs, qf); err != nil {
+		fmt.Fprintf(env.Stderr, "%v\n", err)
+		return ExitUsage
+	}
 	if !env.IsTTY {
 		fmt.Fprintf(env.Stderr, "%s: the TUI needs an interactive terminal; use '%s ps' or '%s stat'\n", meta.Name, meta.Name, meta.Name)
 		return ExitUsage

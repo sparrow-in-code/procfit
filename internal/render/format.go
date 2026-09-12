@@ -25,6 +25,22 @@ func FormatMetric(desc metrics.Descriptor, v model.MetricValue) string {
 	return formatUnit(desc.Unit, v.V)
 }
 
+// TruncateCell shortens s to at most w display cells (runes), marking a cut with
+// a trailing '…'. w<=0 means no limit. Used to cap the TARGET column width.
+func TruncateCell(s string, w int) string {
+	if w <= 0 {
+		return s
+	}
+	r := []rune(s)
+	if len(r) <= w {
+		return s
+	}
+	if w == 1 {
+		return "…"
+	}
+	return string(r[:w-1]) + "…"
+}
+
 // FormatMetricRaw renders a metric value without unit scaling: raw bytes/counts
 // and plain numbers (like `free` without -h). Unavailable values still render as
 // a reason placeholder, never zero.
