@@ -57,6 +57,7 @@ var structuralColumns = map[string]Column{
 	"ppid":    {ID: "ppid", Header: "PPID", RightAlign: true, Cell: cellPPID},
 	"comm":    {ID: "comm", Header: "COMM", Cell: cellComm},
 	"uid":     {ID: "uid", Header: "UID", RightAlign: true, Cell: cellUID},
+	"user":    {ID: "user", Header: "USER", Cell: cellUser},
 	"pstate":  {ID: "pstate", Header: "PSTATE", Cell: cellPState},
 	"kind":    {ID: "kind", Header: "KIND", Cell: func(r *query.Row) string { return string(r.Kind) }},
 }
@@ -83,6 +84,13 @@ func cellComm(r *query.Row) string {
 func cellUID(r *query.Row) string {
 	if r.Process != nil {
 		return fmt.Sprintf("%d", r.Process.UID)
+	}
+	return ""
+}
+
+func cellUser(r *query.Row) string {
+	if r.Process != nil {
+		return r.Process.User
 	}
 	return ""
 }

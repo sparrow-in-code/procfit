@@ -80,6 +80,7 @@ func (a *assembly) streamLoop(ctx context.Context, env Env, r resolved, cols []r
 			fmt.Fprintf(env.Stderr, "%v\n", err)
 			return ExitRuntime
 		}
+		a.applyResolvers(snap.Processes)
 		res, err := a.engine.Build(query.Input{
 			Generation: snap.Generation, WallTime: snap.WallTime, Elapsed: snap.Elapsed, Processes: snap.Processes,
 		}, r.spec)

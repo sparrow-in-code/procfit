@@ -55,3 +55,7 @@ be stood up right after the module skeleton so every later ticket lands green.
 
 This ticket operationalizes DEVELOPMENT.md's testing + TDD policy. Keep it
 updated as new test categories (integration, perf) come online in later phases.
+
+## Status: mostly done (2026-09-12)
+
+Delivered and verified locally: golangci-lint v2 config enforcing the §2.6 size caps (0 issues), fuzz targets (procfs stat/io, expr) + scripts/fuzz-smoke.sh, coverage hard-gate in the Makefile (`make cover`, 81.5% ≥ 80%), and `make check` (fmt/vet/lint/test/race/cover) all green. A GitHub Actions workflow (.github/workflows/ci.yml) is committed but cannot be verified until a remote exists. Keep open until CI runs on a real PR.

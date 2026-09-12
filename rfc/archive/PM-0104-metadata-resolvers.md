@@ -1,7 +1,7 @@
 ---
 id: PM-0104
 title: Metadata resolvers (uid/gid, cgroup, systemd, app, namespace alias)
-state: TODO
+state: DONE
 phase: 1
 depends: ["PM-0101"]
 owner:
@@ -45,3 +45,7 @@ aliases) without altering native keys.
 Resolver ordering/precedence for app-id is an open question (RFC §30.2); pick a
 documented default and note deviations. Composition over inheritance: resolvers
 chain, each single-responsibility.
+
+## Status: DONE (2026-09-12)
+
+Implemented UserResolver (uid→login via passwd, cached, testable path) and SystemdResolver (unit from cgroup-v2 path heuristic), applied as a decorator chain in the app after sampling. Added the 'user' dimension and column. Verified: 'ps --group-by user' shows real login names. Container/Kubernetes resolvers remain future work.

@@ -18,6 +18,7 @@ type Process struct {
 	UID, EUID, GID, EGID       uint32
 
 	Comm         string
+	User         string
 	Cmdline      []string
 	CmdlineAvail Availability
 	Exe          string

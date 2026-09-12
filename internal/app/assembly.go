@@ -10,16 +10,18 @@ import (
 	"github.com/netikras/procfit/internal/ports"
 	"github.com/netikras/procfit/internal/procfs"
 	"github.com/netikras/procfit/internal/query"
+	"github.com/netikras/procfit/internal/resolve"
 )
 
 // assembly wires the observation stack. It is constructed per command so tests
 // can inject fakes for the source and clock.
 type assembly struct {
-	reg    *metrics.Registry
-	dims   *query.Dimensions
-	src    ports.ProcessSource
-	clk    ports.Clock
-	engine *query.Engine
+	reg       *metrics.Registry
+	dims      *query.Dimensions
+	src       ports.ProcessSource
+	clk       ports.Clock
+	engine    *query.Engine
+	resolvers []ports.Resolver
 	// wait returns a channel that fires after d; injectable so tests can avoid
 	// real sleeps and advance a fake clock instead.
 	wait func(d time.Duration) <-chan time.Time
@@ -42,7 +44,17 @@ func newAssembly() (*assembly, error) {
 func newAssemblyWith(src ports.ProcessSource, clk ports.Clock) *assembly {
 	reg := metrics.NewDefault()
 	dims := query.NewDimensions()
-	return &assembly{reg: reg, dims: dims, src: src, clk: clk, engine: query.NewEngine(reg, dims), wait: time.After}
+	resolvers := []ports.Resolver{resolve.NewUserResolver(""), resolve.NewSystemdResolver()}
+	return &assembly{reg: reg, dims: dims, src: src, clk: clk, engine: query.NewEngine(reg, dims), resolvers: resolvers, wait: time.After}
+}
+
+// applyResolvers decorates each process with derived labels (user, unit, …).
+func (a *assembly) applyResolvers(procs []model.Process) {
+	for i := range procs {
+		for _, r := range a.resolvers {
+			r.Resolve(&procs[i])
+		}
+	}
 }
 
 // warmup is the default delay between the two samples ps takes for rates.
@@ -67,6 +79,7 @@ func (a *assembly) sampleForResult(ctx context.Context, r resolved, instant bool
 			return query.Input{}, err
 		}
 	}
+	a.applyResolvers(snap.Processes)
 	return query.Input{
 		Generation: snap.Generation,
 		WallTime:   snap.WallTime,
