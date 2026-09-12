@@ -92,8 +92,15 @@ func (e *Engine) Tick(ctx context.Context) error {
 	e.elapsed = snap.Elapsed
 	e.lastScan = time.Since(start)
 	e.mu.Unlock()
+
+	// Continuous policy reconciliation over the fresh generation (RFC §15.7,
+	// §17.1). No-op when there are no config policy targets.
+	e.mgr.Reconcile(e.instancesBySelector)
 	return nil
 }
+
+// SetPolicies installs config-defined policy targets (RFC §6.6).
+func (e *Engine) SetPolicies(specs []control.PolicySpec) { e.mgr.SetPolicies(specs) }
 
 // Run samples continuously until the context is cancelled.
 func (e *Engine) Run(ctx context.Context) error {

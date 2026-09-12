@@ -1,7 +1,7 @@
 ---
 id: PM-0403
 title: Config managed selectors + continuous reconciliation
-state: TODO
+state: DONE
 phase: 4
 depends: ["PM-0402", "PM-0203"]
 owner:
@@ -47,3 +47,7 @@ matches and reconciles, capturing per-instance originals for new matches.
 
 Reconciliation is the reason the daemon exists (§17.1). Keep it in the control
 plane; it must not alter the observation pipeline.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the autonomous build: versioned newline-JSON AF_UNIX protocol with SO_PEERCRED same-UID auth and bounded frames; shared-collection engine (one sampler feeds all clients); client + `daemon run`/`daemon status`; continuous config-policy reconciliation (report/reapply/adopt/ignore) with capture-once originals; SIGHUP reload keeping prior policies on error; and `service install/uninstall` writing (never enabling) a user systemd unit. Tested end-to-end over a real socket.

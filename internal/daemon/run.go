@@ -3,6 +3,8 @@ package daemon
 import (
 	"context"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/netikras/procfit/internal/control"
@@ -20,6 +22,8 @@ type Daemon struct {
 	engine *Engine
 	server *Server
 	store  *state.Store
+	reg    *metrics.Registry
+	dims   *query.Dimensions
 }
 
 // New builds a production daemon over the live /proc and the given state
@@ -41,10 +45,29 @@ func New(stateDir string, interval time.Duration) (*Daemon, error) {
 		mgr.LoadState(st)
 	}
 	resolvers := []ports.Resolver{resolve.NewUserResolver(""), resolve.NewSystemdResolver()}
-	engine := NewEngine(metrics.NewDefault(), query.NewDimensions(), src, ctrl, clk, mgr, resolvers, interval)
+	reg := metrics.NewDefault()
+	dims := query.NewDimensions()
+	engine := NewEngine(reg, dims, src, ctrl, clk, mgr, resolvers, interval)
 	saver := func() error { return store.Save(mgr.State()) }
 	server := NewServer(engine, saver, os.Getuid())
-	return &Daemon{engine: engine, server: server, store: store}, nil
+	d := &Daemon{engine: engine, server: server, store: store, reg: reg, dims: dims}
+	// Load config policies (best-effort at startup; a bad config is reported but
+	// does not prevent the daemon from serving observation).
+	if specs, err := loadPolicies(reg, dims); err == nil {
+		engine.SetPolicies(specs)
+	}
+	return d, nil
+}
+
+// Reload re-reads config and replaces the active policy set. A bad config leaves
+// the prior policies active and returns the error (RFC §17.4).
+func (d *Daemon) Reload() error {
+	specs, err := loadPolicies(d.reg, d.dims)
+	if err != nil {
+		return err
+	}
+	d.engine.SetPolicies(specs)
+	return nil
 }
 
 // Run starts the shared collector and serves clients on sockPath until the
@@ -59,5 +82,21 @@ func (d *Daemon) Run(ctx context.Context, sockPath string) error {
 		_ = os.Remove(sockPath)
 	}()
 	go func() { _ = d.engine.Run(ctx) }()
+	go d.watchReload(ctx)
 	return d.server.Serve(ctx, ln)
+}
+
+// watchReload reloads config policies on SIGHUP (RFC §17.4).
+func (d *Daemon) watchReload(ctx context.Context) {
+	hup := make(chan os.Signal, 1)
+	signal.Notify(hup, syscall.SIGHUP)
+	defer signal.Stop(hup)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-hup:
+			_ = d.Reload()
+		}
+	}
 }

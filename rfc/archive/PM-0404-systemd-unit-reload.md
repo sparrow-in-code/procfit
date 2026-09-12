@@ -1,7 +1,7 @@
 ---
 id: PM-0404
 title: User systemd unit generation/install + safe daemon reload
-state: TODO
+state: DONE
 phase: 4
 depends: ["PM-0402"]
 owner:
@@ -43,3 +43,7 @@ Optional persistence helpers and safe live config reload for the daemon.
 
 **Phase 4 exit criterion (§27):** policy matches new processes after daemon
 start/reboot and two clients share one collector schedule (latter in PM-0402).
+
+## Status: DONE (2026-09-12)
+
+Implemented in the autonomous build: versioned newline-JSON AF_UNIX protocol with SO_PEERCRED same-UID auth and bounded frames; shared-collection engine (one sampler feeds all clients); client + `daemon run`/`daemon status`; continuous config-policy reconciliation (report/reapply/adopt/ignore) with capture-once originals; SIGHUP reload keeping prior policies on error; and `service install/uninstall` writing (never enabling) a user systemd unit. Tested end-to-end over a real socket.

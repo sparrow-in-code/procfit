@@ -87,8 +87,9 @@ type Target struct {
 	Selector    string                    `json:"selector,omitempty"`
 	SnapshotIDs []model.ProcessInstanceID `json:"snapshot_ids,omitempty"`
 
-	DesiredNice *int  `json:"desired_nice,omitempty"`
-	DesiredStop *bool `json:"desired_stop,omitempty"`
+	DesiredNice *int   `json:"desired_nice,omitempty"`
+	DesiredStop *bool  `json:"desired_stop,omitempty"`
+	OnDrift     string `json:"on_drift,omitempty"` // report|reapply|adopt|ignore
 
 	Bindings []Binding `json:"bindings"`
 	LastSeen time.Time `json:"last_seen"`

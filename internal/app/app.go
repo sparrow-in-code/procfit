@@ -93,6 +93,7 @@ func commands() []command {
 		{name: "unmanage", summary: "Remove managed membership", run: cmdUnmanage},
 		{name: "signal", summary: "Send a signal to a resolved target", run: cmdSignal},
 		{name: "daemon", summary: "Run/query the per-user engine daemon", run: cmdDaemon},
+		{name: "service", summary: "Install/remove the user systemd unit", run: cmdService},
 		{name: "tui", summary: "Interactive explorer (not yet implemented)", run: cmdTUIStub},
 		{name: "version", summary: "Print version", run: cmdVersion},
 	}

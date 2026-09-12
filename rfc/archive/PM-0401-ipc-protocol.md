@@ -1,7 +1,7 @@
 ---
 id: PM-0401
 title: AF_UNIX IPC protocol (versioned) with peer-credential auth
-state: TODO
+state: DONE
 phase: 4
 depends: ["PM-0201", "PM-0106"]
 owner:
@@ -45,3 +45,7 @@ authenticated by socket ownership and peer credentials.
 The client uses the same `Engine`/`Controller` interfaces (§25) whether embedded
 or over IPC — this ticket implements the remote transport behind those
 interfaces (dependency inversion).
+
+## Status: DONE (2026-09-12)
+
+Implemented in the autonomous build: versioned newline-JSON AF_UNIX protocol with SO_PEERCRED same-UID auth and bounded frames; shared-collection engine (one sampler feeds all clients); client + `daemon run`/`daemon status`; continuous config-policy reconciliation (report/reapply/adopt/ignore) with capture-once originals; SIGHUP reload keeping prior policies on error; and `service install/uninstall` writing (never enabling) a user systemd unit. Tested end-to-end over a real socket.
