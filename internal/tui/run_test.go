@@ -51,6 +51,21 @@ func TestRun_RefreshError(t *testing.T) {
 	}
 }
 
+func TestModel_UnitsToggle(t *testing.T) {
+	m := NewModel(queryspec.Flags{}) // default: raw
+	if m.Flags().Human {
+		t.Fatal("human must be off by default in the TUI")
+	}
+	m.Update(KeyEvent{Rune: 'u'})
+	if !m.Flags().Human || !m.Dirty() {
+		t.Fatal("'u' should enable human units and mark dirty")
+	}
+	m.Update(KeyEvent{Rune: 'u'})
+	if m.Flags().Human {
+		t.Fatal("'u' should toggle back to raw")
+	}
+}
+
 type errBoom struct{}
 
 func (errBoom) Error() string { return "boom" }

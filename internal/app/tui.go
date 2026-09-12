@@ -67,7 +67,7 @@ func (a *assembly) tuiRefresh(ctx context.Context) tui.RefreshFunc {
 		if err != nil {
 			return nil, nil, err
 		}
-		cols, err := render.ResolveColumns(a.reg, r.Columns)
+		cols, err := render.ResolveColumnsMode(a.reg, r.Columns, r.Human)
 		if err != nil {
 			return nil, nil, err
 		}

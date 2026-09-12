@@ -2,35 +2,54 @@ package tui
 
 import "fmt"
 
+// nameKeys / runeKeys map key events to handlers. Using dispatch tables (rather
+// than one large switch) keeps Update small and makes adding a key a one-line
+// entry (Open/Closed).
+var nameKeys = map[string]func(*Model){
+	"ctrl-c": (*Model).quitAction,
+	"up":     func(m *Model) { m.moveCursor(-1) },
+	"down":   func(m *Model) { m.moveCursor(1) },
+	"pgup":   func(m *Model) { m.moveCursor(-m.bodyHeight()) },
+	"pgdn":   func(m *Model) { m.moveCursor(m.bodyHeight()) },
+}
+
+var runeKeys = map[rune]func(*Model){
+	'q': (*Model).quitAction,
+	'k': func(m *Model) { m.moveCursor(-1) },
+	'j': func(m *Model) { m.moveCursor(1) },
+	'g': (*Model).cycleGroup,
+	's': (*Model).cycleSort,
+	'S': (*Model).toggleSortDir,
+	'r': (*Model).refreshAction,
+	'u': (*Model).toggleUnits,
+	'[': func(m *Model) { m.adjustInterval(-1) },
+	']': func(m *Model) { m.adjustInterval(1) },
+}
+
 // Update applies a key event, mutating view state. It sets dirty when the query
-// must be re-run (grouping/sort/interval changes). Navigation is local and does
-// not re-query.
+// must be re-run (grouping/sort/interval/units changes). Navigation is local and
+// does not re-query.
 func (m *Model) Update(ev KeyEvent) {
-	switch {
-	case ev.Name == "ctrl-c", ev.Rune == 'q':
-		m.quit = true
-	case ev.Name == "up", ev.Rune == 'k':
-		m.moveCursor(-1)
-	case ev.Name == "down", ev.Rune == 'j':
-		m.moveCursor(1)
-	case ev.Name == "pgup":
-		m.moveCursor(-m.bodyHeight())
-	case ev.Name == "pgdn":
-		m.moveCursor(m.bodyHeight())
-	case ev.Rune == 'g':
-		m.cycleGroup()
-	case ev.Rune == 's':
-		m.cycleSort()
-	case ev.Rune == 'S':
-		m.toggleSortDir()
-	case ev.Rune == 'r':
-		m.dirty = true
-		m.status = "refreshing"
-	case ev.Rune == '[':
-		m.adjustInterval(-1)
-	case ev.Rune == ']':
-		m.adjustInterval(1)
+	if h, ok := nameKeys[ev.Name]; ok && ev.Name != "" {
+		h(m)
+		return
 	}
+	if h, ok := runeKeys[ev.Rune]; ok {
+		h(m)
+	}
+}
+
+func (m *Model) quitAction() { m.quit = true }
+
+func (m *Model) refreshAction() {
+	m.dirty = true
+	m.status = "refreshing"
+}
+
+func (m *Model) toggleUnits() {
+	m.flags.Human = !m.flags.Human
+	m.status = "units: " + unitsLabel(m.flags.Human)
+	m.dirty = true
 }
 
 func (m *Model) moveCursor(delta int) {
@@ -100,6 +119,13 @@ func (m *Model) adjustInterval(step int) {
 	// IntervalHint. Kept simple: cycle common intervals.
 	m.intervalStep += step
 	m.status = fmt.Sprintf("interval: %s", m.IntervalHint())
+}
+
+func unitsLabel(human bool) string {
+	if human {
+		return "human (K/M/G)"
+	}
+	return "raw bytes"
 }
 
 func maxInt(a, b int) int {

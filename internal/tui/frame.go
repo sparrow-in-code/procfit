@@ -56,7 +56,7 @@ func (m *Model) statusBar() string {
 	if m.result != nil {
 		gen = m.result.Generation
 	}
-	return truncate(fmt.Sprintf("%s  gen=%d rows=%d  interval=%s  [g]roup [s]ort [S]dir [r]efresh [q]uit  %s",
+	return truncate(fmt.Sprintf("%s  gen=%d rows=%d  interval=%s  [g]roup [s]ort [S]dir [u]nits [r]efresh [q]uit  %s",
 		meta.Name, gen, procs, m.IntervalHint(), m.status), m.width)
 }
 
