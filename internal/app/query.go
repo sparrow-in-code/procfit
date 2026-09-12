@@ -57,6 +57,13 @@ type resolved struct {
 
 var defaultColumns = []string{"target", "pt", "cpu", "rss", "disk-rbps", "disk-wbps", "pstate"}
 
+// wideColumns is the expanded default column set for --format wide (RFC §18).
+var wideColumns = []string{
+	"target", "pt", "user", "pid", "cpu", "cpu-user", "cpu-system",
+	"rss", "vsz", "minor-faults", "major-faults",
+	"disk-rbps", "disk-wbps", "pstate", "pnice",
+}
+
 func (a *assembly) resolveQuery(qf *queryFlags) (resolved, error) {
 	var r resolved
 	r.format = qf.format
@@ -75,6 +82,9 @@ func (a *assembly) resolveQuery(qf *queryFlags) (resolved, error) {
 	}
 
 	cols := defaultColumns
+	if qf.format == "wide" {
+		cols = wideColumns
+	}
 	if qf.columns != "" {
 		cols = splitComma(qf.columns)
 	}

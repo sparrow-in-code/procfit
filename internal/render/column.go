@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/netikras/procfit/internal/metrics"
@@ -16,9 +17,12 @@ type Column struct {
 	ID         string
 	Header     string
 	RightAlign bool
-	// Cell renders the value for a row (without tree indentation, which the
+	// Cell renders the human value for a row (without tree indentation, which the
 	// table renderer applies to the target column).
 	Cell func(r *query.Row) string
+	// Machine renders the stable machine value (raw numbers, no unit scaling,
+	// empty string when unavailable) for CSV/NDJSON output.
+	Machine func(r *query.Row) string
 	// IsTarget marks the label column that receives tree indentation.
 	IsTarget bool
 }
@@ -29,6 +33,9 @@ func ResolveColumns(reg *metrics.Registry, ids []string) ([]Column, error) {
 	cols := make([]Column, 0, len(ids))
 	for _, id := range ids {
 		if c, ok := structuralColumn(id); ok {
+			if c.Machine == nil {
+				c.Machine = c.Cell // structural machine value == display value
+			}
 			cols = append(cols, c)
 			continue
 		}
@@ -39,10 +46,20 @@ func ResolveColumns(reg *metrics.Registry, ids []string) ([]Column, error) {
 		d := desc
 		cols = append(cols, Column{
 			ID: id, Header: strings.ToUpper(id), RightAlign: true,
-			Cell: func(r *query.Row) string { return FormatMetric(d, r.Metrics[d.ID]) },
+			Cell:    func(r *query.Row) string { return FormatMetric(d, r.Metrics[d.ID]) },
+			Machine: func(r *query.Row) string { return machineMetric(r.Metrics[d.ID]) },
 		})
 	}
 	return cols, nil
+}
+
+// machineMetric renders a metric's raw value for machine formats: the unscaled
+// float, or an empty field when unavailable (never a fabricated zero).
+func machineMetric(v model.MetricValue) string {
+	if val, ok := v.Get(); ok {
+		return strconv.FormatFloat(val, 'f', -1, 64)
+	}
+	return ""
 }
 
 // structuralColumns is the registry of non-metric columns. Keeping it as data

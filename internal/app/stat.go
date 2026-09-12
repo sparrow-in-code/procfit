@@ -13,6 +13,9 @@ import (
 	"github.com/netikras/procfit/internal/collect"
 	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/render"
+	"github.com/netikras/procfit/internal/render/csv"
+	jsonrender "github.com/netikras/procfit/internal/render/json"
+	"github.com/netikras/procfit/internal/render/ndjson"
 	"github.com/netikras/procfit/internal/render/table"
 )
 
@@ -70,6 +73,11 @@ func cmdStat(env Env, args []string) int {
 
 func (a *assembly) streamLoop(ctx context.Context, env Env, r resolved, cols []render.Column, interval time.Duration, count int) int {
 	sampler := collect.NewSampler(a.src, a.clk)
+	emit, err := a.streamEmitter(env, r, cols)
+	if err != nil {
+		fmt.Fprintf(env.Stderr, "%v\n", err)
+		return ExitRuntime
+	}
 	emitted := 0
 	for {
 		snap, err := sampler.Sample(ctx, r.needed)
@@ -88,8 +96,7 @@ func (a *assembly) streamLoop(ctx context.Context, env Env, r resolved, cols []r
 			fmt.Fprintf(env.Stderr, "%v\n", err)
 			return ExitUsage
 		}
-		fmt.Fprintf(env.Stdout, "== %s ==\n", snap.WallTime.Format(time.RFC3339))
-		if err := table.Render(env.Stdout, res, cols); err != nil {
+		if err := emit(res); err != nil {
 			fmt.Fprintf(env.Stderr, "%v\n", err)
 			return ExitRuntime
 		}
@@ -102,5 +109,29 @@ func (a *assembly) streamLoop(ctx context.Context, env Env, r resolved, cols []r
 			return ExitInterrupted
 		case <-a.wait(interval):
 		}
+	}
+}
+
+// streamEmitter returns a per-batch emit function for the chosen format. Table
+// output prefixes each batch with a timestamp header; csv emits its header once;
+// ndjson emits a metadata record then row records; each batch is append-only
+// (RFC §7.3).
+func (a *assembly) streamEmitter(env Env, r resolved, cols []render.Column) (func(*query.Result) error, error) {
+	switch r.format {
+	case "ndjson":
+		s := ndjson.NewStreamer(env.Stdout, a.reg)
+		return s.WriteResult, nil
+	case "csv":
+		if err := csv.WriteHeader(env.Stdout, cols); err != nil {
+			return nil, err
+		}
+		return func(res *query.Result) error { return csv.WriteRows(env.Stdout, res, cols) }, nil
+	case "json":
+		return func(res *query.Result) error { return jsonrender.Render(env.Stdout, res, a.reg) }, nil
+	default: // table / wide
+		return func(res *query.Result) error {
+			fmt.Fprintf(env.Stdout, "== %s ==\n", res.WallTime.Format(time.RFC3339))
+			return table.Render(env.Stdout, res, cols)
+		}, nil
 	}
 }

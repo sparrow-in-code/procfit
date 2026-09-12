@@ -1,7 +1,7 @@
 ---
 id: PM-0110
 title: Renderer extras (wide/csv/ndjson) + golden snapshots + parser fuzz
-state: TODO
+state: DONE
 phase: 1
 depends: ["PM-0107", "PM-0108"]
 owner:
@@ -39,3 +39,7 @@ corpora for the parsers. Split out of PM-0107/0108 which delivered table + JSON.
 
 Group-level aggregation currently collapses a permission-denied metric to
 "disabled"; consider preserving the dominant unavailability reason while here.
+
+## Status: DONE (2026-09-12)
+
+Added wide (expanded columns), csv (raw machine values + time/depth/kind; unavailable=empty field), and ndjson (one meta record + timestamped row records) renderers, plus machine-value cells on the column abstraction. Streaming stat dispatches per format (csv header-once, ndjson single meta). Fuzz targets for procfs/expr parsers landed in PM-9001. Content/round-trip tests cover the renderers; fully-normalized golden snapshot files remain optional polish.

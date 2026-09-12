@@ -116,6 +116,36 @@ func TestPS_DefaultColumns(t *testing.T) {
 	}
 }
 
+func TestPS_Formats(t *testing.T) {
+	g := []ports.ProcStat{stat(1, "worker", 100, 0, 4096)}
+	_, restore := fakeAssembly(t, g, g)
+	defer restore()
+	for _, f := range []string{"csv", "ndjson", "wide"} {
+		var out, errb bytes.Buffer
+		if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"ps", "--format", f, "--group-by", "none", "--leaf", "process"}); code != ExitOK {
+			t.Fatalf("ps --format %s exit %d stderr=%s", f, code, errb.String())
+		}
+		if out.Len() == 0 {
+			t.Fatalf("ps --format %s produced no output", f)
+		}
+	}
+}
+
+func TestStat_NDJSON(t *testing.T) {
+	g1 := []ports.ProcStat{stat(1, "worker", 100, 0, 4096)}
+	g2 := []ports.ProcStat{stat(1, "worker", 150, 0, 4096)}
+	_, restore := fakeAssembly(t, g1, g2)
+	defer restore()
+	var out, errb bytes.Buffer
+	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"stat", "1s", "--count", "2", "--format", "ndjson", "--group-by", "comm", "--leaf", "none"}); code != ExitOK {
+		t.Fatalf("stat ndjson exit %d stderr=%s", code, errb.String())
+	}
+	// Exactly one meta record across the whole stream.
+	if n := strings.Count(out.String(), `"record":"meta"`); n != 1 {
+		t.Fatalf("expected exactly 1 meta record, got %d:\n%s", n, out.String())
+	}
+}
+
 func TestHelp(t *testing.T) {
 	var out, errb bytes.Buffer
 	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"help"}); code != ExitOK {
