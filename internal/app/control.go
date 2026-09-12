@@ -17,6 +17,7 @@ import (
 	"github.com/netikras/procfit/internal/procfs"
 	"github.com/netikras/procfit/internal/queryspec"
 	"github.com/netikras/procfit/internal/state"
+	"github.com/netikras/procfit/internal/sysclock"
 )
 
 // ctlAsm wires the control plane: observation source (for resolution), the
@@ -38,7 +39,7 @@ func newControlAsm(stateDir string) (*ctlAsm, error) {
 		return nil, err
 	}
 	ctrl := procfs.NewController(src)
-	clk := newRealClock()
+	clk := sysclock.New()
 	bootID, _ := src.BootID()
 	store, err := state.Open(stateDir)
 	if err != nil {

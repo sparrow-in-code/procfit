@@ -12,6 +12,7 @@ import (
 	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/queryspec"
 	"github.com/netikras/procfit/internal/resolve"
+	"github.com/netikras/procfit/internal/sysclock"
 )
 
 // assembly wires the observation stack. It is constructed per command so tests
@@ -38,7 +39,7 @@ func newAssembly() (*assembly, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newAssemblyWith(src, newRealClock()), nil
+	return newAssemblyWith(src, sysclock.New()), nil
 }
 
 // newAssemblyWith builds an assembly over injected ports (for tests).

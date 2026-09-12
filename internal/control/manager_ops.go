@@ -139,6 +139,20 @@ func (m *Manager) applyStopBinding(b *Binding, stop bool, sig ports.Signal, res 
 	res.add(b.PID, StatusApplied, "")
 }
 
+// InstancesOf returns the concrete instances currently bound to a managed
+// target, for control operations that address it by name.
+func (m *Manager) InstancesOf(name string) ([]Instance, error) {
+	t := m.Find(name)
+	if t == nil {
+		return nil, fmt.Errorf("managed target %q not found", name)
+	}
+	out := make([]Instance, 0, len(t.Bindings))
+	for _, b := range t.Bindings {
+		out = append(out, Instance{ID: b.ID, PID: b.PID})
+	}
+	return out, nil
+}
+
 // Rebind refreshes a follow target's bindings from a freshly resolved instance
 // set, preserving captured control fields and retaining the target when the set
 // is empty (INACTIVE, RFC §16.6).
