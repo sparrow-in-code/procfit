@@ -1,7 +1,7 @@
 ---
 id: PM-0505
 title: Optional persistent audit/history
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0201"]
 owner:
@@ -40,3 +40,7 @@ Opt-in persistent history: audit events and inactive-target lifetime counters in
 
 Storage format + retention is an open question (§30.7) — record the decision in a
 PM-90NN note. Keep history strictly separate from runtime state (§16.1).
+
+## Status: DONE (2026-09-12)
+
+Opt-in audit history: internal/history FileRecorder appends non-sensitive NDJSON events (no cmdlines/paths) to $XDG_STATE_HOME-style history dir (0700 dir, 0600 file); default is a Nop recorder (disabled). The control manager records applied/restored/stopped/continued events via an injected Recorder; the daemon enables the file recorder only when config [state].history=true. Cross-boot no-rebind is already guaranteed by the boot-scoped runtime state (PM-0201).

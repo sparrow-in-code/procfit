@@ -2,7 +2,9 @@ package control
 
 import (
 	"fmt"
+	"strconv"
 
+	"github.com/netikras/procfit/internal/history"
 	"github.com/netikras/procfit/internal/model"
 	"github.com/netikras/procfit/internal/ports"
 )
@@ -41,9 +43,10 @@ type Manager struct {
 	sg     Safeguards
 	bootID string
 	state  *State
+	rec    history.Recorder
 }
 
-// NewManager constructs a manager with fresh state.
+// NewManager constructs a manager with fresh state and no-op audit history.
 func NewManager(ctrl ports.Controller, clk ports.Clock, sg Safeguards, bootID string) *Manager {
 	return &Manager{
 		ctrl:   ctrl,
@@ -51,7 +54,19 @@ func NewManager(ctrl ports.Controller, clk ports.Clock, sg Safeguards, bootID st
 		sg:     sg,
 		bootID: bootID,
 		state:  &State{SchemaVersion: SchemaVersion, BootID: bootID},
+		rec:    history.Nop{},
 	}
+}
+
+// SetRecorder installs an audit recorder (opt-in history, RFC §16.1).
+func (m *Manager) SetRecorder(r history.Recorder) {
+	if r != nil {
+		m.rec = r
+	}
+}
+
+func (m *Manager) audit(action string, pid int, field, from, to string) {
+	m.rec.Record(history.Event{Action: action, PID: pid, Field: field, From: from, To: to})
 }
 
 // State returns the current runtime state.
@@ -176,6 +191,9 @@ func (m *Manager) applyNiceBinding(b *Binding, desired int, dryRun bool, res *Ap
 	}
 	b.Nice.ChangedAt = m.clk.Now()
 	m.observeNice(b)
+	if b.Nice.Status == StatusApplied {
+		m.audit("applied", b.PID, "nice", strconv.Itoa(b.Nice.Original), strconv.Itoa(b.Nice.Desired))
+	}
 	res.add(b.PID, b.Nice.Status, b.Nice.Error)
 }
 

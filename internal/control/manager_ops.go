@@ -2,6 +2,7 @@ package control
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/netikras/procfit/internal/ports"
 )
@@ -51,6 +52,7 @@ func (m *Manager) restoreNiceBinding(b *Binding, force bool, res *ApplyResult) {
 	b.Nice.Desired = b.Nice.Original
 	m.observeNice(b)
 	b.Nice.Status = StatusRestored
+	m.audit("restored", b.PID, "nice", "", strconv.Itoa(b.Nice.Original))
 	res.add(b.PID, StatusRestored, "")
 }
 
@@ -136,6 +138,11 @@ func (m *Manager) applyStopBinding(b *Binding, stop bool, sig ports.Signal, res 
 	b.Stop.DesiredStop = stop
 	b.Stop.ChangedAt = m.clk.Now()
 	b.Stop.Status = StatusApplied
+	action := "stopped"
+	if !stop {
+		action = "continued"
+	}
+	m.audit(action, b.PID, "stop", "", strconv.FormatBool(stop))
 	res.add(b.PID, StatusApplied, "")
 }
 

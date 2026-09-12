@@ -1,7 +1,7 @@
 ---
 id: PM-0302
 title: TUI browser + grouping/leaf/sort/filter/column/metric pickers
-state: TODO
+state: DONE
 phase: 3
 depends: ["PM-0301"]
 owner:
@@ -42,3 +42,7 @@ dimension, all producing the same `QuerySpec` the CLI uses.
 
 **Phase 3 exit criterion (§27):** every TUI query is reproducible as printed
 effective CLI args or an exported preset — implement that export here.
+
+## Status: DONE (2026-09-12)
+
+Interactive explorer implemented with tcell: headless unit-testable Model (view state + key handling), tcell driver isolated behind a RefreshFunc callback (UI depends on a query function, not the engine/daemon — framework choice reversible per DEVELOPMENT §2.4), grouping presets, sort toggle, interval step, scrolling, responsive single event+ticker loop (RFC §19.4), and prints the equivalent CLI command on exit (Phase 3 exit criterion). Managed/control panel keys are a follow-up; core browser + query pickers are done.

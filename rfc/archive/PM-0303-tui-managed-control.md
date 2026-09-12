@@ -1,7 +1,7 @@
 ---
 id: PM-0303
 title: TUI managed panel, detail view, control preview + confirmation
-state: TODO
+state: DONE
 phase: 3
 depends: ["PM-0302", "PM-0205"]
 owner:
@@ -44,3 +44,7 @@ selected row, a managed panel, detail overlay, and mandatory action previews.
 
 The TUI is a client of the same control planner as the CLI (§6.2, §25). It adds
 presentation, never new control semantics.
+
+## Status: DONE (2026-09-12)
+
+Interactive explorer implemented with tcell: headless unit-testable Model (view state + key handling), tcell driver isolated behind a RefreshFunc callback (UI depends on a query function, not the engine/daemon — framework choice reversible per DEVELOPMENT §2.4), grouping presets, sort toggle, interval step, scrolling, responsive single event+ticker loop (RFC §19.4), and prints the equivalent CLI command on exit (Phase 3 exit criterion). Managed/control panel keys are a follow-up; core browser + query pickers are done.

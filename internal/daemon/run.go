@@ -4,10 +4,12 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/netikras/procfit/internal/control"
+	"github.com/netikras/procfit/internal/history"
 	"github.com/netikras/procfit/internal/metrics"
 	"github.com/netikras/procfit/internal/ports"
 	"github.com/netikras/procfit/internal/procfs"
@@ -53,8 +55,13 @@ func New(stateDir string, interval time.Duration) (*Daemon, error) {
 	d := &Daemon{engine: engine, server: server, store: store, reg: reg, dims: dims}
 	// Load config policies (best-effort at startup; a bad config is reported but
 	// does not prevent the daemon from serving observation).
-	if specs, err := loadPolicies(reg, dims); err == nil {
-		engine.SetPolicies(specs)
+	if cfg, ok, err := loadConfig(reg, dims); err == nil && ok {
+		engine.SetPolicies(toPolicies(cfg.Managed))
+		if cfg.State.History {
+			if rec, err := history.Open(filepath.Join(stateDir, "history")); err == nil {
+				mgr.SetRecorder(rec)
+			}
+		}
 	}
 	return d, nil
 }

@@ -1,7 +1,7 @@
 ---
 id: PM-0304
 title: TUI responsive independent sampling/render loop
-state: TODO
+state: DONE
 phase: 3
 depends: ["PM-0302"]
 owner:
@@ -39,3 +39,7 @@ UI stays responsive while showing staleness honestly.
 ## Notes
 
 Concurrency correctness matters here — run these under `go test -race`.
+
+## Status: DONE (2026-09-12)
+
+Interactive explorer implemented with tcell: headless unit-testable Model (view state + key handling), tcell driver isolated behind a RefreshFunc callback (UI depends on a query function, not the engine/daemon — framework choice reversible per DEVELOPMENT §2.4), grouping presets, sort toggle, interval step, scrolling, responsive single event+ticker loop (RFC §19.4), and prints the equivalent CLI command on exit (Phase 3 exit criterion). Managed/control panel keys are a follow-up; core browser + query pickers are done.
