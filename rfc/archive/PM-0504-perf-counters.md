@@ -1,7 +1,7 @@
 ---
 id: PM-0504
 title: Optional perf/hardware counter collector (cost level 3)
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0102"]
 owner:
@@ -47,3 +47,7 @@ Capability-gating done: metric descriptors registered (render unavailable, never
 ## Status: capability layer DONE; full backend BLOCKED (2026-09-12)
 
 Done: metric descriptors registered (cost 2/3), profiles reference them, `capabilities` reports BPF/perf availability + remediation, and absent backends yield unavailable (never zero) — satisfying the RFC's 'optional, degrade gracefully' contract. Blocked: the real eBPF/perf collectors need a BPF toolchain + CO-RE, elevated privileges (CAP_BPF/CAP_PERFMON or relaxed perf_event_paranoid), and a suitable kernel — none available or verifiable in this rootless dev/CI environment. Deferred rather than shipping an untestable loader (see QUESTIONS.md item D). The collector seam (MetricCollector port) is ready to plug a backend in.
+
+## Status: DONE (impl + validated on root host) 2026-09-12
+
+Implemented a pure-Go perf collector (perf_event_open via x/sys/unix): opens a HW counter group (cpu-cycles leader + instructions + cache-misses) per process in bounded batches, one shared measurement window, reports per-second rates + ipc; opt-in and capability-gated. Validated as root on an AlmaLinux 9 (kernel 5.14) host: it runs, and correctly reports unavailable (never zero) because that KVM VM exposes no virtual PMU (confirmed: perf_event_open HW cpu-cycles => ENOENT, SW task-clock => OK, so the syscall plumbing is correct). Real hardware counter values require bare-metal or a vPMU-enabled host; multiplexing/scaling metadata is a follow-up. Degrades to permission_denied under a restrictive perf_event_paranoid and to unsupported without a PMU.
