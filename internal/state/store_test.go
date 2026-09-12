@@ -45,6 +45,12 @@ func TestStore_SaveLoadRoundTrip(t *testing.T) {
 	}
 }
 
+func TestStore_OpenEmptyDirError(t *testing.T) {
+	if _, err := Open(""); err == nil {
+		t.Fatal("Open with empty dir should error")
+	}
+}
+
 func TestStore_LoadAbsent(t *testing.T) {
 	s, _ := Open(filepath.Join(t.TempDir(), "p"))
 	if _, ok, err := s.Load(); ok || err != nil {

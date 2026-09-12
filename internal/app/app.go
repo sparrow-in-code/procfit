@@ -86,6 +86,12 @@ func commands() []command {
 		{name: "metrics", summary: "List metrics (metrics list)", run: cmdMetrics},
 		{name: "capabilities", summary: "Explain available/missing collectors", run: cmdCapabilities},
 		{name: "config", summary: "Validate/convert/dump configuration", run: cmdConfig},
+		{name: "managed", summary: "List managed targets and bindings", run: cmdManaged},
+		{name: "manage", summary: "Add managed membership, optionally control", run: cmdManage},
+		{name: "set", summary: "Apply/update control on a target", run: cmdSet},
+		{name: "restore", summary: "Restore captured original control fields", run: cmdRestore},
+		{name: "unmanage", summary: "Remove managed membership", run: cmdUnmanage},
+		{name: "signal", summary: "Send a signal to a resolved target", run: cmdSignal},
 		{name: "tui", summary: "Interactive explorer (not yet implemented)", run: cmdTUIStub},
 		{name: "version", summary: "Print version", run: cmdVersion},
 	}
