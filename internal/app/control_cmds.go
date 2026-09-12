@@ -132,6 +132,8 @@ func cmdSet(env Env, args []string) int {
 	setNice := fs.Bool("set-nice", false, "apply --nice")
 	stop := fs.Bool("stop", false, "apply SIGSTOP intent")
 	cont := fs.Bool("continue", false, "clear procfit SIGSTOP intent")
+	freeze := fs.Bool("freeze", false, "freeze the target's cgroup(s)")
+	thaw := fs.Bool("thaw", false, "thaw the target's cgroup(s)")
 	dryRun := fs.Bool("dry-run", false, "show what would change without acting")
 	spec, rest := extractPositional(args)
 	if err := fs.Parse(rest); err != nil {
@@ -149,9 +151,29 @@ func cmdSet(env Env, args []string) int {
 	if code != ExitOK {
 		return code
 	}
+	ops := setOps{nice: *nice, setNice: *setNice, stop: *stop, cont: *cont, freeze: *freeze, thaw: *thaw, dryRun: *dryRun}
+	exit := c.applySetOps(env, tname, ops)
+	if !*dryRun {
+		if err := c.save(); err != nil {
+			fmt.Fprintf(env.Stderr, "save state: %v\n", err)
+			return ExitRuntime
+		}
+	}
+	return exit
+}
+
+// setOps captures the mutations requested by `set`.
+type setOps struct {
+	nice                                      int
+	setNice, stop, cont, freeze, thaw, dryRun bool
+}
+
+// applySetOps applies the requested control mutations to a target and returns
+// the aggregate exit code.
+func (c *ctlAsm) applySetOps(env Env, tname string, o setOps) int {
 	exit := ExitOK
-	if *setNice {
-		res, err := c.mgr.SetNice(tname, *nice, *dryRun)
+	if o.setNice {
+		res, err := c.mgr.SetNice(tname, o.nice, o.dryRun)
 		if err != nil {
 			fmt.Fprintf(env.Stderr, "%v\n", err)
 			return ExitNotFound
@@ -159,16 +181,15 @@ func cmdSet(env Env, args []string) int {
 		printResult(env, res)
 		exit = maxExit(exit, exitForResult(res))
 	}
-	if *stop || *cont {
-		res, _ := c.mgr.SetStop(tname, *stop)
+	if o.stop || o.cont {
+		res, _ := c.mgr.SetStop(tname, o.stop)
 		printResult(env, res)
 		exit = maxExit(exit, exitForResult(res))
 	}
-	if !*dryRun {
-		if err := c.save(); err != nil {
-			fmt.Fprintf(env.Stderr, "save state: %v\n", err)
-			return ExitRuntime
-		}
+	if o.freeze || o.thaw {
+		res, _ := c.mgr.SetFreeze(tname, o.freeze)
+		printResult(env, res)
+		exit = maxExit(exit, exitForResult(res))
 	}
 	return exit
 }

@@ -146,6 +146,51 @@ func (m *Manager) applyStopBinding(b *Binding, stop bool, sig ports.Signal, res 
 	res.add(b.PID, StatusApplied, "")
 }
 
+// SetFreeze freezes or thaws the cgroup(s) backing a target's bindings (RFC
+// §15.5). It operates on existing cgroups only; each distinct cgroup is acted on
+// once. Freeze intent is tracked on the target.
+func (m *Manager) SetFreeze(target string, freeze bool) (*ApplyResult, error) {
+	t := m.Find(target)
+	if t == nil {
+		return nil, fmt.Errorf("target %q not found", target)
+	}
+	t.DesiredFreeze = &freeze
+	res := newApplyResult()
+	done := map[string]bool{}
+	for i := range t.Bindings {
+		m.freezeBinding(&t.Bindings[i], freeze, done, res)
+	}
+	m.state.UpdatedAt = m.clk.Now()
+	return res, nil
+}
+
+func (m *Manager) freezeBinding(b *Binding, freeze bool, done map[string]bool, res *ApplyResult) {
+	if ok, _ := m.sg.CheckPID(b.PID); !ok {
+		res.add(b.PID, StatusSkipped, "protected")
+		return
+	}
+	cg, ok := m.ctrl.ReadCgroupOf(b.PID)
+	if !ok || cg == "" {
+		res.add(b.PID, StatusUnavailable, "no cgroup")
+		return
+	}
+	if done[cg] {
+		res.add(b.PID, StatusUnchanged, "cgroup already handled")
+		return
+	}
+	done[cg] = true
+	if err := m.ctrl.FreezeCgroup(cg, freeze); err != nil {
+		res.add(b.PID, StatusFailed, err.Error())
+		return
+	}
+	action := "frozen"
+	if !freeze {
+		action = "thawed"
+	}
+	m.audit(action, b.PID, "freeze", "", cg)
+	res.add(b.PID, StatusApplied, "")
+}
+
 // InstancesOf returns the concrete instances currently bound to a managed
 // target, for control operations that address it by name.
 func (m *Manager) InstancesOf(name string) ([]Instance, error) {

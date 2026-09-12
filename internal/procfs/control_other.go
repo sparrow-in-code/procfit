@@ -36,3 +36,15 @@ func (c *Controller) ReadIdentity(pid int) (ports.ProcessInstanceIdentity, bool)
 	}
 	return st.ID, true
 }
+
+func (c *Controller) ReadCgroupOf(pid int) (string, bool) {
+	st, ok := c.s.readProcess(pid)
+	if !ok || st.CgroupPath == "" {
+		return "", false
+	}
+	return st.CgroupPath, true
+}
+
+func (c *Controller) FreezeCgroup(rel string, freeze bool) error {
+	return fmt.Errorf("procfs: cgroup control unsupported on this platform")
+}

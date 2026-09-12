@@ -14,18 +14,39 @@ type FakeController struct {
 	Nice       map[int]int
 	Identity   map[int]ports.ProcessInstanceIdentity
 	Signals    map[int][]ports.Signal
-	SetNiceErr map[int]error // optional per-pid error (e.g. permission denied)
+	SetNiceErr map[int]error   // optional per-pid error (e.g. permission denied)
+	Cgroups    map[int]string  // pid -> cgroup rel path
+	Frozen     map[string]bool // cgroup rel path -> frozen
+	FreezeErr  map[string]error
 }
 
 // NewFakeController returns a controller with nice+signal capabilities.
 func NewFakeController() *FakeController {
 	return &FakeController{
-		Caps:       ports.ControlCaps{Nice: true, Signal: true},
+		Caps:       ports.ControlCaps{Nice: true, Signal: true, Freeze: true},
 		Nice:       map[int]int{},
 		Identity:   map[int]ports.ProcessInstanceIdentity{},
 		Signals:    map[int][]ports.Signal{},
 		SetNiceErr: map[int]error{},
+		Cgroups:    map[int]string{},
+		Frozen:     map[string]bool{},
+		FreezeErr:  map[string]error{},
 	}
+}
+
+// ReadCgroupOf returns the configured cgroup path for a pid.
+func (f *FakeController) ReadCgroupOf(pid int) (string, bool) {
+	p, ok := f.Cgroups[pid]
+	return p, ok
+}
+
+// FreezeCgroup records the frozen state of a cgroup path.
+func (f *FakeController) FreezeCgroup(rel string, freeze bool) error {
+	if err := f.FreezeErr[rel]; err != nil {
+		return err
+	}
+	f.Frozen[rel] = freeze
+	return nil
 }
 
 // Add registers a process with a nice value and identity.

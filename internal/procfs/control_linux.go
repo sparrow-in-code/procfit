@@ -4,6 +4,8 @@ package procfs
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"syscall"
 
 	"github.com/netikras/procfit/internal/ports"
@@ -13,15 +15,51 @@ import (
 // Source for identity re-reads and uses setpriority/kill for mutations. It never
 // runs setuid; permission is whatever the kernel already grants (RFC §20.1).
 type Controller struct {
-	s *Source
+	s          *Source
+	cgroupRoot string
 }
 
 // NewController builds a controller backed by the given Source.
-func NewController(s *Source) *Controller { return &Controller{s: s} }
+func NewController(s *Source) *Controller {
+	return &Controller{s: s, cgroupRoot: "/sys/fs/cgroup"}
+}
+
+// WithCgroupRoot overrides the cgroup v2 mount root (for tests).
+func (c *Controller) WithCgroupRoot(root string) *Controller {
+	c.cgroupRoot = root
+	return c
+}
 
 // Capabilities reports supported operations (permission is checked per call).
+// Freeze is available when a cgroup v2 hierarchy is present.
 func (c *Controller) Capabilities() ports.ControlCaps {
-	return ports.ControlCaps{Nice: true, Signal: true}
+	freeze := false
+	if _, err := os.Stat(filepath.Join(c.cgroupRoot, "cgroup.controllers")); err == nil {
+		freeze = true
+	}
+	return ports.ControlCaps{Nice: true, Signal: true, Freeze: freeze}
+}
+
+// ReadCgroupOf returns the cgroup v2 relative path of a pid.
+func (c *Controller) ReadCgroupOf(pid int) (string, bool) {
+	st, ok := c.s.readProcess(pid)
+	if !ok || st.CgroupPath == "" {
+		return "", false
+	}
+	return st.CgroupPath, true
+}
+
+// FreezeCgroup writes cgroup.freeze in an existing cgroup (RFC §15.5).
+func (c *Controller) FreezeCgroup(rel string, freeze bool) error {
+	path := filepath.Join(c.cgroupRoot, filepath.Clean("/"+rel), "cgroup.freeze")
+	val := "0"
+	if freeze {
+		val = "1"
+	}
+	if err := os.WriteFile(path, []byte(val), 0o644); err != nil {
+		return fmt.Errorf("cgroup freeze %s: %w", rel, err)
+	}
+	return nil
 }
 
 // GetNice reads the observed nice value from /proc (the actual value, not the

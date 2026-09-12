@@ -17,6 +17,7 @@ const (
 type ControlCaps struct {
 	Nice   bool
 	Signal bool
+	Freeze bool
 }
 
 // Controller is the platform port for mutating processes. The Linux adapter uses
@@ -34,4 +35,11 @@ type Controller interface {
 	// ReadIdentity re-reads a process's canonical identity for revalidation
 	// immediately before acting (RFC §21.2). ok is false if the pid is gone.
 	ReadIdentity(pid int) (ProcessInstanceIdentity, bool)
+	// ReadCgroupOf returns the cgroup v2 relative path of a pid (from
+	// /proc/PID/cgroup "0::<path>"). ok is false if unknown.
+	ReadCgroupOf(pid int) (string, bool)
+	// FreezeCgroup sets the frozen state of an existing, writable cgroup by its
+	// v2 relative path (RFC §15.5). It only operates on an existing delegated
+	// cgroup; it never creates or migrates cgroups.
+	FreezeCgroup(cgroupRelPath string, freeze bool) error
 }

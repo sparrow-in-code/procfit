@@ -1,7 +1,7 @@
 ---
 id: PM-0502
 title: cgroup v2 freeze/thaw, CPU, and I/O controllers
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0204"]
 owner:
@@ -45,3 +45,7 @@ side plane with the same original/desired/observed discipline.
 
 Migration changing cgroup membership conflicts with systemd/containers (§15.5)
 — explicitly out of scope; needs its own RFC before implementation (§30.10).
+
+## Status: DONE (2026-09-12, freeze/thaw)
+
+cgroup v2 freeze/thaw implemented: Controller port gained ReadCgroupOf + FreezeCgroup (writes cgroup.freeze) with a configurable cgroup root (fixture-testable); Capabilities().Freeze detects a v2 hierarchy. Manager.SetFreeze freezes each distinct bound cgroup once, with safeguards + freeze intent + audit; wired to 'set --freeze/--thaw' (CLI) and daemon 'freeze/thaw' ops. Operates only on existing/delegated cgroups (RFC §15.5); no migration. CPU-weight/IO/affinity controls remain follow-ups but slot into the same Controller port.
