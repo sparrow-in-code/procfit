@@ -20,37 +20,38 @@ func (e entityEnv) Lookup(field string) expr.Value {
 	return entityField(e.p, field)
 }
 
+// entityNumFields / entityStrFields map field names to accessors so entityField
+// is a simple data-driven lookup rather than a large switch (keeps cyclomatic
+// complexity within the §2.6 cap and is Open/Closed for new fields).
+var entityNumFields = map[string]func(*model.Process) float64{
+	"pid":     func(p *model.Process) float64 { return float64(p.PID) },
+	"ppid":    func(p *model.Process) float64 { return float64(p.PPID) },
+	"pgid":    func(p *model.Process) float64 { return float64(p.PGID) },
+	"sid":     func(p *model.Process) float64 { return float64(p.SID) },
+	"session": func(p *model.Process) float64 { return float64(p.SID) },
+	"uid":     func(p *model.Process) float64 { return float64(p.UID) },
+	"gid":     func(p *model.Process) float64 { return float64(p.GID) },
+}
+
+var entityStrFields = map[string]func(*model.Process) string{
+	"comm":         func(p *model.Process) string { return p.Comm },
+	"exe":          func(p *model.Process) string { return p.Exe },
+	"app":          func(p *model.Process) string { return p.AppID },
+	"cgroup":       func(p *model.Process) string { return p.CgroupPath },
+	"systemd-unit": func(p *model.Process) string { return p.SystemdUnit },
+	"container":    func(p *model.Process) string { return p.ContainerID },
+	"pod":          func(p *model.Process) string { return p.PodUID },
+	"state":        func(p *model.Process) string { return string(p.State.Code) },
+}
+
 func entityField(p *model.Process, field string) expr.Value {
-	switch field {
-	case "pid":
-		return expr.Num(float64(p.PID))
-	case "ppid":
-		return expr.Num(float64(p.PPID))
-	case "pgid":
-		return expr.Num(float64(p.PGID))
-	case "sid", "session":
-		return expr.Num(float64(p.SID))
-	case "uid":
-		return expr.Num(float64(p.UID))
-	case "gid":
-		return expr.Num(float64(p.GID))
-	case "comm":
-		return expr.Str(p.Comm)
-	case "exe":
-		return expr.Str(p.Exe)
-	case "app":
-		return expr.Str(p.AppID)
-	case "cgroup":
-		return expr.Str(p.CgroupPath)
-	case "systemd-unit":
-		return expr.Str(p.SystemdUnit)
-	case "container":
-		return expr.Str(p.ContainerID)
-	case "pod":
-		return expr.Str(p.PodUID)
-	case "state":
-		return expr.Str(string(p.State.Code))
-	case "nice":
+	if g, ok := entityNumFields[field]; ok {
+		return expr.Num(g(p))
+	}
+	if g, ok := entityStrFields[field]; ok {
+		return expr.Str(g(p))
+	}
+	if field == "nice" {
 		if p.NiceAvail == model.Available {
 			return expr.Num(float64(p.Nice))
 		}

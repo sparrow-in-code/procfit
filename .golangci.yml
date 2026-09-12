@@ -1,0 +1,37 @@
+# golangci-lint (v2) configuration for procfit.
+# Enforces the clean-code size caps from DEVELOPMENT.md §2.6 alongside the usual
+# correctness linters. Tests are exempt from size/length caps.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: standard   # govet, errcheck, ineffassign, staticcheck, unused
+  disable:
+    - errcheck        # many intentional best-effort/ignored writes; revisit later
+  enable:
+    - funlen
+    - gocyclo
+    - gocognit
+    - nestif
+    - misspell
+    - unconvert
+  settings:
+    funlen:
+      lines: 60          # hard cap (DEVELOPMENT.md §2.6)
+      statements: 45
+    gocyclo:
+      min-complexity: 12 # hard cap
+    gocognit:
+      min-complexity: 20
+    nestif:
+      min-complexity: 5  # ~ nesting depth 4
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - funlen
+          - gocyclo
+          - gocognit
+          - nestif

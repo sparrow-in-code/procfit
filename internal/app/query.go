@@ -91,24 +91,9 @@ func (a *assembly) resolveQuery(qf *queryFlags) (resolved, error) {
 		leaf = query.LeafProcess
 	}
 
-	var selPred query.EntityPredicate
-	var havPred query.RowPredicate
-	var exprFields []string
-	if qf.selectExpr != "" {
-		prog, err := compileValidated(qf.selectExpr, a.entityAllowedFields())
-		if err != nil {
-			return r, err
-		}
-		selPred = selectPred{prog: prog}
-		exprFields = append(exprFields, prog.Fields()...)
-	}
-	if qf.havingExpr != "" {
-		prog, err := compileValidated(qf.havingExpr, a.rowAllowedFields())
-		if err != nil {
-			return r, err
-		}
-		havPred = havingPred{prog: prog}
-		exprFields = append(exprFields, prog.Fields()...)
+	selPred, havPred, exprFields, err := a.compilePredicates(qf)
+	if err != nil {
+		return r, err
 	}
 
 	needed := a.neededMetrics(selection, append(cols, exprFields...), sortKeys)
@@ -123,6 +108,32 @@ func (a *assembly) resolveQuery(qf *queryFlags) (resolved, error) {
 		Columns: cols,
 	}
 	return r, nil
+}
+
+// compilePredicates compiles and validates the optional --select/--having
+// expressions and returns them plus the referenced fields (so needed metrics can
+// include them).
+func (a *assembly) compilePredicates(qf *queryFlags) (query.EntityPredicate, query.RowPredicate, []string, error) {
+	var selPred query.EntityPredicate
+	var havPred query.RowPredicate
+	var fields []string
+	if qf.selectExpr != "" {
+		prog, err := compileValidated(qf.selectExpr, a.entityAllowedFields())
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		selPred = selectPred{prog: prog}
+		fields = append(fields, prog.Fields()...)
+	}
+	if qf.havingExpr != "" {
+		prog, err := compileValidated(qf.havingExpr, a.rowAllowedFields())
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		havPred = havingPred{prog: prog}
+		fields = append(fields, prog.Fields()...)
+	}
+	return selPred, havPred, fields, nil
 }
 
 func compileValidated(src string, allowed map[string]bool) (*expr.Program, error) {

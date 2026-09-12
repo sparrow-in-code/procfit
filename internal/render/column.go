@@ -45,47 +45,46 @@ func ResolveColumns(reg *metrics.Registry, ids []string) ([]Column, error) {
 	return cols, nil
 }
 
+// structuralColumns is the registry of non-metric columns. Keeping it as data
+// (a map) rather than a switch keeps lookups simple and makes adding a column a
+// one-line entry (Open/Closed).
+var structuralColumns = map[string]Column{
+	"target":  {ID: "target", Header: "TARGET", IsTarget: true, Cell: func(r *query.Row) string { return r.Label }},
+	"pt":      {ID: "pt", Header: "P/T", RightAlign: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d/%d", r.Procs, r.Threads) }},
+	"procs":   {ID: "procs", Header: "PROCS", RightAlign: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Procs) }},
+	"threads": {ID: "threads", Header: "THREADS", RightAlign: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Threads) }},
+	"pid":     {ID: "pid", Header: "PID", RightAlign: true, Cell: cellPID},
+	"ppid":    {ID: "ppid", Header: "PPID", RightAlign: true, Cell: cellPPID},
+	"comm":    {ID: "comm", Header: "COMM", Cell: cellComm},
+	"uid":     {ID: "uid", Header: "UID", RightAlign: true, Cell: cellUID},
+	"pstate":  {ID: "pstate", Header: "PSTATE", Cell: cellPState},
+	"kind":    {ID: "kind", Header: "KIND", Cell: func(r *query.Row) string { return string(r.Kind) }},
+}
+
 func structuralColumn(id string) (Column, bool) {
-	switch id {
-	case "target":
-		return Column{ID: id, Header: "TARGET", IsTarget: true, Cell: func(r *query.Row) string { return r.Label }}, true
-	case "pt":
-		return Column{ID: id, Header: "P/T", RightAlign: true, Cell: func(r *query.Row) string {
-			return fmt.Sprintf("%d/%d", r.Procs, r.Threads)
-		}}, true
-	case "procs":
-		return Column{ID: id, Header: "PROCS", RightAlign: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Procs) }}, true
-	case "threads":
-		return Column{ID: id, Header: "THREADS", RightAlign: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Threads) }}, true
-	case "pid":
-		return Column{ID: id, Header: "PID", RightAlign: true, Cell: cellPID}, true
-	case "ppid":
-		return Column{ID: id, Header: "PPID", RightAlign: true, Cell: func(r *query.Row) string {
-			if r.Process != nil {
-				return fmt.Sprintf("%d", r.Process.PPID)
-			}
-			return ""
-		}}, true
-	case "comm":
-		return Column{ID: id, Header: "COMM", Cell: func(r *query.Row) string {
-			if r.Process != nil {
-				return r.Process.Comm
-			}
-			return ""
-		}}, true
-	case "uid":
-		return Column{ID: id, Header: "UID", RightAlign: true, Cell: func(r *query.Row) string {
-			if r.Process != nil {
-				return fmt.Sprintf("%d", r.Process.UID)
-			}
-			return ""
-		}}, true
-	case "pstate":
-		return Column{ID: id, Header: "PSTATE", Cell: cellPState}, true
-	case "kind":
-		return Column{ID: id, Header: "KIND", Cell: func(r *query.Row) string { return string(r.Kind) }}, true
+	c, ok := structuralColumns[id]
+	return c, ok
+}
+
+func cellPPID(r *query.Row) string {
+	if r.Process != nil {
+		return fmt.Sprintf("%d", r.Process.PPID)
 	}
-	return Column{}, false
+	return ""
+}
+
+func cellComm(r *query.Row) string {
+	if r.Process != nil {
+		return r.Process.Comm
+	}
+	return ""
+}
+
+func cellUID(r *query.Row) string {
+	if r.Process != nil {
+		return fmt.Sprintf("%d", r.Process.UID)
+	}
+	return ""
 }
 
 func cellPID(r *query.Row) string {

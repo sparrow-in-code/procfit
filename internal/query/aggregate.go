@@ -27,48 +27,62 @@ func aggregateMetrics(reg *metrics.Registry, procs []*model.Process, ids []model
 }
 
 func aggregateOne(agg metrics.Aggregation, id model.MetricID, procs []*model.Process) model.MetricValue {
-	var acc float64
-	var count int
-	var haveMinMax bool
-	var uniform = true
-	var first float64
-	for _, p := range procs {
-		v := p.Metric(id)
-		val, ok := v.Get()
-		if !ok {
-			continue
-		}
-		if count == 0 {
-			first = val
-		} else if val != first {
-			uniform = false
-		}
-		switch agg {
-		case metrics.AggMin:
-			if !haveMinMax || val < acc {
-				acc = val
-			}
-		case metrics.AggMax:
-			if !haveMinMax || val > acc {
-				acc = val
-			}
-		default: // sum, sum-once-per-process, and fallbacks
-			acc += val
-		}
-		haveMinMax = true
-		count++
-	}
-	if count == 0 {
+	vals := presentValues(procs, id)
+	if len(vals) == 0 {
 		return model.Unavailable[float64](model.Disabled, "aggregate")
 	}
-	if agg == metrics.AggMixed {
-		if uniform {
-			return model.NewValue(first, model.Derived, "aggregate")
-		}
-		// Mixed group: no single numeric value is meaningful; renderers show
-		// "mixed" (RFC §12.3, §15.3). Surface as unavailable-with-reason so it
-		// is never mistaken for a real number.
-		return model.Value[float64]{V: first, Availability: model.Available, Quality: "mixed", Source: "aggregate"}
+	switch agg {
+	case metrics.AggMin:
+		return model.NewValue(reduce(vals, minf), model.Derived, "aggregate")
+	case metrics.AggMax:
+		return model.NewValue(reduce(vals, maxf), model.Derived, "aggregate")
+	case metrics.AggMixed:
+		return mixedValue(vals)
+	default: // sum, sum-once-per-process, and fallbacks
+		return model.NewValue(reduce(vals, addf), model.Derived, "aggregate")
 	}
-	return model.NewValue(acc, model.Derived, "aggregate")
+}
+
+func presentValues(procs []*model.Process, id model.MetricID) []float64 {
+	var out []float64
+	for _, p := range procs {
+		if val, ok := p.Metric(id).Get(); ok {
+			out = append(out, val)
+		}
+	}
+	return out
+}
+
+func reduce(vals []float64, f func(a, b float64) float64) float64 {
+	acc := vals[0]
+	for _, v := range vals[1:] {
+		acc = f(acc, v)
+	}
+	return acc
+}
+
+func addf(a, b float64) float64 { return a + b }
+func minf(a, b float64) float64 {
+	if b < a {
+		return b
+	}
+	return a
+}
+func maxf(a, b float64) float64 {
+	if b > a {
+		return b
+	}
+	return a
+}
+
+// mixedValue returns the uniform value, or a "mixed" marker when a group holds
+// differing values (RFC §12.3, §15.3): rendered as "mixed", never a fake number.
+func mixedValue(vals []float64) model.MetricValue {
+	first := vals[0]
+	for _, v := range vals[1:] {
+		if v != first {
+			return model.Value[float64]{V: first, Availability: model.Available, Quality: "mixed", Source: "aggregate"}
+		}
+	}
+	return model.NewValue(first, model.Derived, "aggregate")
 }

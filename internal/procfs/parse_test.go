@@ -17,8 +17,9 @@ func TestParseStat_SimpleComm(t *testing.T) {
 	if info.MinFlt != 100 || info.UTime != 5 || info.STime != 3 {
 		t.Fatalf("counters wrong: minflt=%d utime=%d stime=%d", info.MinFlt, info.UTime, info.STime)
 	}
-	if info.Nice != 20 { // field 19 = priority(20)?; verify mapping below
-		// note: in this crafted line field18=priority=20, field19=nice=0
+	// In this crafted line field 18 (priority) = 20 and field 19 (nice) = 0.
+	if info.Nice != 0 {
+		t.Fatalf("nice = %d, want 0", info.Nice)
 	}
 	if info.NumThreads != 1 || info.StartTime != 987654 || info.VSize != 12345678 {
 		t.Fatalf("threads/start/vsize wrong: %+v", info)

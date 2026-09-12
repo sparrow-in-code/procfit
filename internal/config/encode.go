@@ -94,7 +94,7 @@ func toOut(c Config) outConfig {
 		o.Metrics = &outMetrics{Profile: c.Metrics.Profile, Enable: c.Metrics.Enable, Disable: c.Metrics.Disable}
 	}
 	for _, s := range c.Sort {
-		o.Sort = append(o.Sort, outSort{Field: s.Field, Direction: s.Direction})
+		o.Sort = append(o.Sort, outSort(s))
 	}
 	o.State = &outState{RuntimeDir: c.State.RuntimeDir, History: c.State.History}
 	o.Daemon = &outDaemon{Use: c.Daemon.Use, Socket: c.Daemon.Socket}
@@ -114,7 +114,7 @@ func presetsToOut(in map[string]Preset) map[string]outPreset {
 			op.Metrics = &outMetrics{Profile: p.Metrics.Profile, Enable: p.Metrics.Enable, Disable: p.Metrics.Disable}
 		}
 		for _, s := range p.Sort {
-			op.Sort = append(op.Sort, outSort{Field: s.Field, Direction: s.Direction})
+			op.Sort = append(op.Sort, outSort(s))
 		}
 		out[name] = op
 	}

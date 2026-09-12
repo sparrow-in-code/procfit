@@ -19,3 +19,6 @@ coverage.*
 # Local scratch
 /tmp/
 *.local
+
+# Go fuzz corpus cache
+**/testdata/fuzz/

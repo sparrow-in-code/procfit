@@ -61,7 +61,7 @@ func (c *ctlAsm) resolveInstances(spec string) ([]control.Instance, error) {
 		if n, err := strconv.Atoi(spec); err == nil {
 			return c.instancesForPID(n)
 		}
-		return nil, fmt.Errorf("ambiguous target %q; use pid:, managed:, selector:, or group:", spec)
+		return nil, fmt.Errorf("ambiguous target %q; use a pid:, managed:, selector: or group: prefix", spec)
 	}
 	switch kind {
 	case "pid":

@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: build / test / cover / lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          check-latest: true
+
+      - name: Format check
+        run: |
+          out=$(gofmt -s -l .)
+          if [ -n "$out" ]; then echo "not gofmt-clean:"; echo "$out"; exit 1; fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./...
+
+      - name: Race
+        run: go test -race ./...
+
+      - name: Coverage (>=80% gate)
+        run: make cover
+
+      - name: Fuzz smoke
+        run: FUZZTIME=8s ./scripts/fuzz-smoke.sh
+
+      - name: golangci-lint (size caps + static analysis)
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest

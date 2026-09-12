@@ -70,47 +70,54 @@ func decodeRaw(data []byte, format Format) (rawConfig, error) {
 // silently accepts (last wins). JSON must get JSON-appropriate strictness
 // (RFC §9.1).
 func checkJSONDuplicates(data []byte) error {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	var walk func() error
-	walk = func() error {
-		tok, err := dec.Token()
+	return walkJSONValue(json.NewDecoder(bytes.NewReader(data)))
+}
+
+func walkJSONValue(dec *json.Decoder) error {
+	tok, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	d, ok := tok.(json.Delim)
+	if !ok {
+		return nil
+	}
+	switch d {
+	case '{':
+		return walkJSONObject(dec)
+	case '[':
+		return walkJSONArray(dec)
+	default:
+		return nil
+	}
+}
+
+func walkJSONObject(dec *json.Decoder) error {
+	seen := map[string]bool{}
+	for dec.More() {
+		kt, err := dec.Token()
 		if err != nil {
 			return err
 		}
-		switch d := tok.(type) {
-		case json.Delim:
-			switch d {
-			case '{':
-				seen := map[string]bool{}
-				for dec.More() {
-					kt, err := dec.Token()
-					if err != nil {
-						return err
-					}
-					key := kt.(string)
-					if seen[key] {
-						return fmt.Errorf("duplicate key %q", key)
-					}
-					seen[key] = true
-					if err := walk(); err != nil { // value
-						return err
-					}
-				}
-				if _, err := dec.Token(); err != nil { // closing }
-					return err
-				}
-			case '[':
-				for dec.More() {
-					if err := walk(); err != nil {
-						return err
-					}
-				}
-				if _, err := dec.Token(); err != nil { // closing ]
-					return err
-				}
-			}
+		key := kt.(string)
+		if seen[key] {
+			return fmt.Errorf("duplicate key %q", key)
 		}
-		return nil
+		seen[key] = true
+		if err := walkJSONValue(dec); err != nil {
+			return err
+		}
 	}
-	return walk()
+	_, err := dec.Token() // consume closing }
+	return err
+}
+
+func walkJSONArray(dec *json.Decoder) error {
+	for dec.More() {
+		if err := walkJSONValue(dec); err != nil {
+			return err
+		}
+	}
+	_, err := dec.Token() // consume closing ]
+	return err
 }

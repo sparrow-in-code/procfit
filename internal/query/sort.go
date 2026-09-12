@@ -35,30 +35,38 @@ func sortRows(rows []*Row, keys []SortKey) {
 func lessByKey(a, b *Row, k SortKey) (decided, aFirst bool) {
 	an, aOK, as, aStr := fieldValue(a, k.Field)
 	bn, bOK, bs, bStr := fieldValue(b, k.Field)
-
 	if aStr || bStr {
-		c := cmpString(as, bs)
-		if c == 0 {
-			return false, false
-		}
-		if k.Descending {
-			return true, c > 0
-		}
-		return true, c < 0
+		return lessString(as, bs, k.Descending)
 	}
+	return lessNumeric(an, aOK, bn, bOK, k.Descending)
+}
 
+func lessString(as, bs string, desc bool) (decided, aFirst bool) {
+	c := cmpString(as, bs)
+	if c == 0 {
+		return false, false
+	}
+	if desc {
+		return true, c > 0
+	}
+	return true, c < 0
+}
+
+// lessNumeric orders numbers, always placing unavailable values last regardless
+// of direction (availability precedence is applied before direction).
+func lessNumeric(an float64, aOK bool, bn float64, bOK bool, desc bool) (decided, aFirst bool) {
 	switch {
 	case !aOK && !bOK:
 		return false, false
 	case aOK && !bOK:
-		return true, true // available first
+		return true, true
 	case !aOK && bOK:
 		return true, false
 	}
 	if an == bn {
 		return false, false
 	}
-	if k.Descending {
+	if desc {
 		return true, an > bn
 	}
 	return true, an < bn
