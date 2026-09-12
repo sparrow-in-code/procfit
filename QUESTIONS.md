@@ -20,9 +20,11 @@ going. Override any of them and I'll adjust.
    rebrand to `PF-####`.
 5. **Canonical disk metric ids → `disk-rbps` / `disk-wbps`** (RFC §30.3 rec.),
    with `disk-read-bytes` / `disk-write-bytes` as aliases.
-6. **Go toolchain provisioned via `nix profile add nixpkgs#go`** (go 1.26.7).
-   Lint tools (golangci-lint, staticcheck) are not installed; the Makefile calls
-   them but degrades gracefully if absent so `make` still works.
+6. **Toolchain provisioned via nix** (not preinstalled on the box):
+   `nix profile add nixpkgs#go nixpkgs#gnumake nixpkgs#gcc nixpkgs#golangci-lint`
+   (go 1.26.7, golangci-lint 2.x). Put them on PATH per shell:
+   `export PATH="$HOME/.nix-profile/bin:$PATH"`. Race tests need `CC=gcc`.
+   `make check` is green (fmt/vet/lint/test/race/cover 81.5%).
 
 ## Genuinely want your input (non-blocking; I proceed with the default)
 

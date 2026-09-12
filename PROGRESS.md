@@ -54,8 +54,9 @@ golden snapshots (§28.17 / PM-0110).
 | 1 | Query pipeline (group/aggregate/leaves/having/sort/project) | **done** |
 | 1 | Renderers: table + JSON (schema v1) | **done**; wide/csv/ndjson + golden → PM-0110 |
 | 1 | `ps`, `stat`, `metrics list`, `capabilities` | **done** (stat: basic append-only) |
+| 1 | Metadata resolvers (uid→user, systemd-unit from cgroup) + user dimension/column | **done** |
 | 1 | Collector scheduler + multi-interval + full capability probe | todo (PM-0102) |
-| 1 | Metadata resolvers (uid/app/systemd/cgroup labels) | todo (PM-0104) |
+| — | CI (GitHub Actions) + golangci-lint size caps + fuzz targets + coverage gate | **done** (PM-9001; workflow unverified w/o remote) |
 | 2 | Runtime state (atomic, boot-scoped, 0600/0700, quarantine) | **done** |
 | 2 | Managed targets (snapshot/follow, inactive retention) | **done** |
 | 2 | Nice + stop/cont controllers (original/desired/observed, drift, restore, stale-refusal, safeguards) | **done** |
@@ -66,16 +67,30 @@ golden snapshots (§28.17 / PM-0110).
 
 ## Quality gates (current)
 
+`make check` runs the whole gate and passes:
+
 - `go test ./...` green; `go test -race ./...` green.
-- Total statement coverage ≥ 80% (the enforced floor, DEVELOPMENT.md §3.2).
+- Total statement coverage **81.5% ≥ 80%** (enforced floor, DEVELOPMENT.md §3.2).
 - `go vet` clean; `gofmt -s` clean.
-- `make cover` enforces the 80% floor locally.
+- `golangci-lint run` — **0 issues**, including the §2.6 size-cap linters
+  (funlen/gocyclo/gocognit/nestif) and staticcheck.
+- Fuzz targets (procfs stat/io parsers, expr compiler) run crash-free
+  (`./scripts/fuzz-smoke.sh`).
 
 ## Toolchain notes
 
 The dev box had no Go/make/gcc; they were provisioned via nix
 (`nix profile add nixpkgs#go nixpkgs#gnumake nixpkgs#gcc`). `go` must be on PATH
 (`export PATH="$HOME/.nix-profile/bin:$PATH"`). See QUESTIONS.md.
+
+## What's next (largest remaining)
+
+- **Phase 3 — TUI** (PM-0301..0304): needs a framework choice + rendering
+  benchmark, then the interactive browser/pickers/control panel.
+- **Phase 4 — daemon** (PM-0401..0404): AF_UNIX protocol, shared engine,
+  continuous policy reconciliation, user systemd unit + reload.
+- **Phase 5 — extended collectors** (PM-0501..0505): FD/socket, cgroup v2
+  freeze/CPU/IO, eBPF, perf, history.
 
 ## Known gaps / deferred
 
@@ -86,3 +101,4 @@ The dev box had no Go/make/gcc; they were provisioned via nix
   work standalone; view presets not yet applied to live queries).
 - Group-level aggregation of a permission-denied metric collapses to
   "unavailable/disabled" rather than carrying the specific reason.
+- Light-profile performance benchmark against the §22 budget (§28.16).
