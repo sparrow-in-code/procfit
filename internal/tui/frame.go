@@ -8,13 +8,20 @@ import (
 	"github.com/netikras/procfit/internal/meta"
 )
 
-var intervals = []time.Duration{500 * time.Millisecond, time.Second, 2 * time.Second, 5 * time.Second}
+var intervals = []time.Duration{250 * time.Millisecond, 500 * time.Millisecond, time.Second, 2 * time.Second, 5 * time.Second}
 
-// IntervalHint returns the currently selected refresh interval.
+// defaultIntervalIdx selects the initial refresh interval (1s).
+const defaultIntervalIdx = 2
+
+// IntervalHint returns the currently selected refresh interval. The step is
+// clamped to the available range (it does not wrap).
 func (m *Model) IntervalHint() time.Duration {
-	i := m.intervalStep % len(intervals)
+	i := m.intervalStep
 	if i < 0 {
-		i += len(intervals)
+		i = 0
+	}
+	if i >= len(intervals) {
+		i = len(intervals) - 1
 	}
 	return intervals[i]
 }
@@ -55,34 +62,50 @@ func (m *Model) statusBar() string {
 
 func (m *Model) header() string {
 	var b strings.Builder
+	b.WriteString("  ") // align with the row cursor marker
 	for i, c := range m.cols {
 		if i > 0 {
 			b.WriteString("  ")
 		}
-		b.WriteString(c.Header)
+		b.WriteString(pad(c.Header, m.widthOf(i), c.RightAlign))
 	}
-	return truncate(b.String(), m.width)
+	return truncate(strings.TrimRight(b.String(), " "), m.width)
 }
 
 func (m *Model) rowLine(idx int) string {
 	fr := m.rows[idx]
 	var b strings.Builder
-	marker := "  "
 	if idx == m.cursor {
-		marker = "> "
+		b.WriteString("> ")
+	} else {
+		b.WriteString("  ")
 	}
-	b.WriteString(marker)
 	for i, c := range m.cols {
 		if i > 0 {
 			b.WriteString("  ")
 		}
-		cell := c.Cell(fr.row)
-		if c.IsTarget {
-			cell = strings.Repeat("  ", fr.depth) + cell
-		}
-		b.WriteString(cell)
+		b.WriteString(pad(m.cellText(c, fr), m.widthOf(i), c.RightAlign))
 	}
-	return truncate(b.String(), m.width)
+	return truncate(strings.TrimRight(b.String(), " "), m.width)
+}
+
+func (m *Model) widthOf(i int) int {
+	if i < len(m.colWidths) {
+		return m.colWidths[i]
+	}
+	return 0
+}
+
+// pad left- or right-justifies s to width w.
+func pad(s string, w int, right bool) string {
+	if len(s) >= w {
+		return s
+	}
+	fill := strings.Repeat(" ", w-len(s))
+	if right {
+		return fill + s
+	}
+	return s + fill
 }
 
 // SelectedRow returns the row under the cursor, if any.

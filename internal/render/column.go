@@ -27,9 +27,16 @@ type Column struct {
 	IsTarget bool
 }
 
-// ResolveColumns turns column ids into Columns, using the metric registry for
-// metric columns. Unknown ids are errors.
+// ResolveColumns turns column ids into Columns with human-readable metric
+// formatting (K/M/G). Unknown ids are errors.
 func ResolveColumns(reg *metrics.Registry, ids []string) ([]Column, error) {
+	return ResolveColumnsMode(reg, ids, true)
+}
+
+// ResolveColumnsMode is like ResolveColumns but chooses metric cell formatting:
+// human=true scales units (K/M/G); human=false prints raw bytes/numbers (like
+// `free` without -h). Machine output (csv/ndjson) is always raw regardless.
+func ResolveColumnsMode(reg *metrics.Registry, ids []string, human bool) ([]Column, error) {
 	cols := make([]Column, 0, len(ids))
 	for _, id := range ids {
 		if c, ok := structuralColumn(id); ok {
@@ -44,9 +51,13 @@ func ResolveColumns(reg *metrics.Registry, ids []string) ([]Column, error) {
 			return nil, fmt.Errorf("unknown column %q", id)
 		}
 		d := desc
+		cell := func(r *query.Row) string { return FormatMetricRaw(d, r.Metrics[d.ID]) }
+		if human {
+			cell = func(r *query.Row) string { return FormatMetric(d, r.Metrics[d.ID]) }
+		}
 		cols = append(cols, Column{
 			ID: id, Header: strings.ToUpper(id), RightAlign: true,
-			Cell:    func(r *query.Row) string { return FormatMetric(d, r.Metrics[d.ID]) },
+			Cell:    cell,
 			Machine: func(r *query.Row) string { return machineMetric(r.Metrics[d.ID]) },
 		})
 	}
@@ -73,6 +84,7 @@ var structuralColumns = map[string]Column{
 	"pid":     {ID: "pid", Header: "PID", RightAlign: true, Cell: cellPID},
 	"ppid":    {ID: "ppid", Header: "PPID", RightAlign: true, Cell: cellPPID},
 	"comm":    {ID: "comm", Header: "COMM", Cell: cellComm},
+	"name":    {ID: "name", Header: "NAME", Cell: cellName},
 	"uid":     {ID: "uid", Header: "UID", RightAlign: true, Cell: cellUID},
 	"user":    {ID: "user", Header: "USER", Cell: cellUser},
 	"pstate":  {ID: "pstate", Header: "PSTATE", Cell: cellPState},
@@ -94,6 +106,13 @@ func cellPPID(r *query.Row) string {
 func cellComm(r *query.Row) string {
 	if r.Process != nil {
 		return r.Process.Comm
+	}
+	return ""
+}
+
+func cellName(r *query.Row) string {
+	if r.Process != nil {
+		return r.Process.DisplayName()
 	}
 	return ""
 }

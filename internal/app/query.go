@@ -18,6 +18,8 @@ type queryFlags struct {
 	format     string
 	selectExpr string
 	havingExpr string
+	number     int
+	human      bool
 }
 
 // stringList is a repeatable string flag (e.g. --metric).
@@ -40,6 +42,10 @@ func bindQueryFlags(fs *flag.FlagSet) *queryFlags {
 	fs.StringVar(&qf.format, "format", "table", "output: table|wide|json|ndjson|csv")
 	fs.StringVar(&qf.selectExpr, "select", "", "entity selector expression")
 	fs.StringVar(&qf.havingExpr, "having", "", "aggregate/row filter expression")
+	fs.IntVar(&qf.number, "number", 0, "show only the top N rows after sorting (0 = all)")
+	fs.IntVar(&qf.number, "n", 0, "alias for --number")
+	fs.BoolVar(&qf.human, "human", false, "human-readable units (K/M/G); default prints raw bytes/numbers")
+	fs.BoolVar(&qf.human, "h", false, "alias for --human")
 	return qf
 }
 
@@ -54,6 +60,8 @@ func (qf *queryFlags) toSpecFlags() queryspec.Flags {
 		Format:          qf.format,
 		Select:          qf.selectExpr,
 		Having:          qf.havingExpr,
+		Number:          qf.number,
+		Human:           qf.human,
 	}
 }
 

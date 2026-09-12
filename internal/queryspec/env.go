@@ -34,6 +34,7 @@ var entityNumFields = map[string]func(*model.Process) float64{
 
 var entityStrFields = map[string]func(*model.Process) string{
 	"comm":         func(p *model.Process) string { return p.Comm },
+	"name":         func(p *model.Process) string { return p.DisplayName() },
 	"user":         func(p *model.Process) string { return p.User },
 	"exe":          func(p *model.Process) string { return p.Exe },
 	"app":          func(p *model.Process) string { return p.AppID },
@@ -120,7 +121,7 @@ func (h HavingPred) EvalRow(r *query.Row) bool { return h.Prog.Eval(RowEnv{R: r}
 func AllowedEntityFields(reg *metrics.Registry) map[string]bool {
 	allowed := map[string]bool{
 		"pid": true, "ppid": true, "pgid": true, "sid": true, "session": true,
-		"uid": true, "gid": true, "comm": true, "user": true, "exe": true, "app": true,
+		"uid": true, "gid": true, "comm": true, "name": true, "user": true, "exe": true, "app": true,
 		"cgroup": true, "systemd-unit": true, "container": true, "pod": true,
 		"state": true, "nice": true, "pidns": true, "netns": true, "mntns": true,
 		"userns": true, "cgroupns": true,

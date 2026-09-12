@@ -13,10 +13,10 @@ import (
 
 // renderResult writes a query result in the requested format. Renderers are pure
 // presentation (RFC §6.1); this only selects one.
-func (a *assembly) renderResult(env Env, res *query.Result, format string, cols []string) int {
+func (a *assembly) renderResult(env Env, res *query.Result, format string, cols []string, human bool) int {
 	switch format {
 	case "", "table", "wide":
-		return a.renderTable(env, res, cols)
+		return a.renderTable(env, res, cols, human)
 	case "csv":
 		return a.renderCSV(env, res, cols)
 	case "json":
@@ -36,8 +36,8 @@ func (a *assembly) renderResult(env Env, res *query.Result, format string, cols 
 	return ExitOK
 }
 
-func (a *assembly) renderTable(env Env, res *query.Result, cols []string) int {
-	resolved, err := render.ResolveColumns(a.reg, cols)
+func (a *assembly) renderTable(env Env, res *query.Result, cols []string, human bool) int {
+	resolved, err := render.ResolveColumnsMode(a.reg, cols, human)
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage

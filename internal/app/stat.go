@@ -60,7 +60,7 @@ func cmdStat(env Env, args []string) int {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage
 	}
-	cols, err := render.ResolveColumns(a.reg, r.Columns)
+	cols, err := render.ResolveColumnsMode(a.reg, r.Columns, r.Human)
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage

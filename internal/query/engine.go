@@ -52,6 +52,9 @@ func (e *Engine) Build(in Input, spec QuerySpec) (*Result, error) {
 
 	rows = applyHaving(rows, spec.Having)
 	e.sortTree(rows, spec.Sort)
+	if spec.Limit > 0 && len(rows) > spec.Limit {
+		rows = rows[:spec.Limit] // top-N after sorting (RFC: filter+order already applied)
+	}
 
 	return &Result{
 		Generation: in.Generation,

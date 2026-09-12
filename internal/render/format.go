@@ -7,6 +7,7 @@ package render
 import (
 	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/netikras/procfit/internal/metrics"
 	"github.com/netikras/procfit/internal/model"
@@ -22,6 +23,28 @@ func FormatMetric(desc metrics.Descriptor, v model.MetricValue) string {
 		return placeholder(v.Availability)
 	}
 	return formatUnit(desc.Unit, v.V)
+}
+
+// FormatMetricRaw renders a metric value without unit scaling: raw bytes/counts
+// and plain numbers (like `free` without -h). Unavailable values still render as
+// a reason placeholder, never zero.
+func FormatMetricRaw(desc metrics.Descriptor, v model.MetricValue) string {
+	if v.Quality == "mixed" {
+		return "mixed"
+	}
+	if !v.Present() {
+		return placeholder(v.Availability)
+	}
+	switch desc.Unit {
+	case metrics.UnitBytes, metrics.UnitBytesPerSec, metrics.UnitCount, metrics.UnitPerSec, metrics.UnitInteger:
+		return strconv.FormatInt(int64(math.Round(v.V)), 10) // raw bytes/counts, like `free` without -h
+	case metrics.UnitPercentOneCPU, metrics.UnitPercentHost:
+		return fmt.Sprintf("%.1f", v.V)
+	case metrics.UnitDuration:
+		return strconv.FormatInt(int64(v.V), 10) // seconds
+	default:
+		return strconv.FormatFloat(v.V, 'f', -1, 64)
+	}
 }
 
 func placeholder(a model.Availability) string {

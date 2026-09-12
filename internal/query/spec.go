@@ -44,6 +44,9 @@ type QuerySpec struct {
 	Having  RowPredicate
 	Sort    []SortKey
 	Columns []string
+	// Limit caps the number of top-level rows kept after sorting (top-N
+	// offenders). Zero means unlimited. Subtrees of kept rows are retained.
+	Limit int
 }
 
 // RowKind identifies what a row represents.

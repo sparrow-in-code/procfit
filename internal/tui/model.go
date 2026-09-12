@@ -5,6 +5,8 @@
 package tui
 
 import (
+	"strings"
+
 	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/queryspec"
 	"github.com/netikras/procfit/internal/render"
@@ -35,6 +37,7 @@ type Model struct {
 	flags        queryspec.Flags
 	result       *query.Result
 	cols         []render.Column
+	colWidths    []int
 	rows         []flatRow
 	width        int
 	height       int
@@ -54,9 +57,9 @@ type flatRow struct {
 	depth int
 }
 
-// NewModel builds a model with initial flags.
+// NewModel builds a model with initial flags and a 1s default refresh interval.
 func NewModel(flags queryspec.Flags) *Model {
-	m := &Model{flags: flags, height: 24, width: 100}
+	m := &Model{flags: flags, height: 24, width: 100, intervalStep: defaultIntervalIdx}
 	if flags.Sort != "" {
 		m.status = "sorted by " + flags.Sort
 	}
@@ -79,15 +82,52 @@ func (m *Model) Dirty() bool {
 // SetSize updates the viewport dimensions.
 func (m *Model) SetSize(w, h int) { m.width, m.height = w, h }
 
-// SetResult stores the latest query result and its columns.
+// SetResult stores the latest query result and its columns, recomputing the
+// per-column display widths so the header and rows stay aligned.
 func (m *Model) SetResult(res *query.Result, cols []render.Column) {
 	m.result = res
 	m.cols = cols
 	m.rows = flatten(res.Rows, 0)
+	m.colWidths = m.computeWidths()
 	if m.cursor >= len(m.rows) {
 		m.cursor = maxInt(0, len(m.rows)-1)
 	}
 	m.clampScroll()
+}
+
+// computeWidths returns the display width of each column: the max of the header
+// and every row's cell (target cells include their tree indentation).
+func (m *Model) computeWidths() []int {
+	w := make([]int, len(m.cols))
+	for i, c := range m.cols {
+		w[i] = len(c.Header)
+	}
+	for _, fr := range m.rows {
+		for i, c := range m.cols {
+			n := len(m.cellText(c, fr))
+			if n > w[i] {
+				w[i] = n
+			}
+		}
+	}
+	return w
+}
+
+// cellText renders a column's cell for a flat row, applying tree indentation to
+// the target column.
+func (m *Model) cellText(c render.Column, fr flatRow) string {
+	cell := c.Cell(fr.row)
+	if c.IsTarget {
+		cell = indent(fr.depth) + cell
+	}
+	return cell
+}
+
+func indent(depth int) string {
+	if depth <= 0 {
+		return ""
+	}
+	return strings.Repeat("  ", depth)
 }
 
 func flatten(rows []*query.Row, depth int) []flatRow {

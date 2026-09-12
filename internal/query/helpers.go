@@ -41,8 +41,8 @@ func bucketLabel(dim Dimension, procs []*model.Process, key string) string {
 }
 
 func leafLabel(p *model.Process) string {
-	if p.Comm != "" {
-		return p.Comm
+	if n := p.DisplayName(); n != "" {
+		return n
 	}
 	return fmt.Sprintf("pid:%d", p.PID)
 }

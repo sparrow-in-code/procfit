@@ -212,6 +212,40 @@ func TestEngine_ThreadLeafWithoutThreads(t *testing.T) {
 	}
 }
 
+func TestEngine_LimitTopN(t *testing.T) {
+	e := newEngine()
+	res, err := e.Build(
+		input(proc(1, "a", 1, 1, 1), proc(2, "b", 9, 1, 1), proc(3, "c", 5, 1, 1), proc(4, "d", 3, 1, 1)),
+		QuerySpec{Metrics: []model.MetricID{"cpu"}, GroupBy: []string{"none"}, Leaf: LeafProcess,
+			Sort: []SortKey{{Field: "cpu", Descending: true}}, Limit: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Rows) != 2 {
+		t.Fatalf("limit 2 should keep 2 rows, got %d", len(res.Rows))
+	}
+	// Top-2 by cpu desc: b(9), c(5).
+	if res.Rows[0].Label != "b" || res.Rows[1].Label != "c" {
+		t.Fatalf("top-N wrong: %q,%q", res.Rows[0].Label, res.Rows[1].Label)
+	}
+}
+
+func TestEngine_GroupByName(t *testing.T) {
+	e := newEngine()
+	// Two procs with the same 15-char comm but a fuller argv[0] name.
+	p1 := proc(1, "google-chrome-s", 1, 1, 1)
+	p1.Cmdline = []string{"/usr/bin/google-chrome-stable"}
+	p2 := proc(2, "google-chrome-s", 2, 1, 1)
+	p2.Cmdline = []string{"/usr/bin/google-chrome-stable"}
+	res, err := e.Build(input(p1, p2), QuerySpec{Metrics: []model.MetricID{"cpu"}, GroupBy: []string{"name"}, Leaf: LeafNone})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Rows) != 1 || res.Rows[0].Label != "google-chrome-stable" {
+		t.Fatalf("group by name should use fuller argv[0] basename, got %+v", res.Rows)
+	}
+}
+
 func TestEngine_GroupByValidation(t *testing.T) {
 	e := newEngine()
 	cases := [][]string{{"none", "comm"}, {"comm", "comm"}, {"bogus"}}

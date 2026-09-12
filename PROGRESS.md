@@ -12,6 +12,11 @@ _Last updated: 2026-09-12._
 
 ```bash
 make build
+./bin/procfit ps --group-by name --leaf none --sort cpu:desc -n 20   # top-20, fuller names
+./bin/procfit ps -h --group-by comm --leaf none --sort cpu:desc      # -h: human units (K/M/G)
+# Units: raw bytes/counts by default (like `free`); pass -h/--human for K/M/G.
+# -n/--number N shows the top-N rows after sorting (ps, stat, tui).
+# group/leaf: `--leaf process` expands groups (children indented); `--leaf none` = groups only.
 ./bin/procfit ps --group-by comm --leaf none --sort cpu:desc
 ./bin/procfit ps --group-by none --leaf process --format json
 ./bin/procfit ps --select 'uid == 0' --having 'cpu > 0.1' --group-by comm --leaf none

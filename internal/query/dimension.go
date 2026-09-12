@@ -77,6 +77,7 @@ func NewDimensions() *Dimensions {
 	dims := []Dimension{
 		{ID: "host", Label: "HOST", extract: func(*model.Process) (string, string, bool) { return "host", "HOST", true }},
 		strField("comm", "COMM", func(p *model.Process) string { return p.Comm }),
+		strField("name", "NAME", func(p *model.Process) string { return p.DisplayName() }),
 		strField("user", "USER", func(p *model.Process) string { return p.User }),
 		strField("exe", "EXE", func(p *model.Process) string { return p.Exe }),
 		strField("app", "APP", func(p *model.Process) string { return p.AppID }),

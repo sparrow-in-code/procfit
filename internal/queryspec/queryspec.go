@@ -27,6 +27,10 @@ type Flags struct {
 	Format          string
 	Select          string
 	Having          string
+	// Number caps the top-level rows shown after sorting (0 = unlimited).
+	Number int
+	// Human enables unit-scaled output (K/M/G); off means raw bytes/numbers.
+	Human bool
 }
 
 // Resolved is a compiled query plus the metrics it needs and the columns to
@@ -36,6 +40,7 @@ type Resolved struct {
 	Needed  []model.MetricID
 	Columns []string
 	Format  string
+	Human   bool
 }
 
 // DefaultColumns is the compact default column set.
@@ -52,6 +57,7 @@ var WideColumns = []string{
 func Build(reg *metrics.Registry, dims *query.Dimensions, f Flags) (Resolved, error) {
 	var r Resolved
 	r.Format = f.Format
+	r.Human = f.Human
 
 	selection, err := resolveSelection(reg, f)
 	if err != nil {
@@ -82,6 +88,7 @@ func Build(reg *metrics.Registry, dims *query.Dimensions, f Flags) (Resolved, er
 		Having:  havPred,
 		Sort:    sortKeys,
 		Columns: cols,
+		Limit:   f.Number,
 	}
 	return r, nil
 }

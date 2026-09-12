@@ -37,5 +37,5 @@ func cmdPS(env Env, args []string) int {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage
 	}
-	return a.renderResult(env, res, r.Format, r.Columns)
+	return a.renderResult(env, res, r.Format, r.Columns, r.Human)
 }
