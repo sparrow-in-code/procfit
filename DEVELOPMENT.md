@@ -17,6 +17,43 @@ follow.
 
 ---
 
+## 0. Prime directives (read twice)
+
+These five are **not aspirational** — they are merge-blocking acceptance
+criteria for every single change. A PR that ships a feature but breaks one of
+these is *not done* and must not be merged. Full detail follows in §2 and §3;
+this is the short, loud version.
+
+1. **SOLID, always.** Every type has one reason to change; every extension point
+   is an interface; we depend on abstractions, not concretions. If you cannot
+   name which SOLID principle a new type serves, stop and redesign. See §2.2.
+2. **Design-pattern-driven extensibility, everywhere.** This codebase *will* be
+   extended, overridden, and swapped at many layers — new metrics, collectors,
+   resolvers, controllers, renderers, decoders, transports, config/output formats,
+   **and whole new operating-system backends (Windows, macOS, other Unix/BSD)**.
+   Build those seams with explicit, named patterns (Strategy, Registry/Factory,
+   Decorator, Adapter, Facade, Template Method, Observer, …) inside a
+   **ports-and-adapters** core. Adding a variant — including a new OS — must mean
+   *adding an adapter package + registering it*, **never editing core logic or a
+   central switch**. See §2.3 and §2.4.
+3. **Clean code, capped size.** Small, single-purpose, well-named units. The hard
+   size caps in §2.6 are enforced, not suggested. Big files/structs/functions are
+   a design failure, not a formatting nit.
+4. **≥ 80% test coverage, TDD first.** 80% is the **floor**, enforced in CI as a
+   hard gate (§3.2). Core logic packages are expected far higher. Write the
+   failing test before the code. Coverage below 80% fails the build the same way a
+   compile error does.
+5. **Docs move with code.** The `.md` for a feature changes in the same commit as
+   the feature (§6).
+
+> If you are coming from Java: yes, bring the discipline. Program to interfaces,
+> favour composition, use the Gang-of-Four patterns where they fit, keep classes
+> (structs) small and cohesive. Go's idioms differ in spelling (small interfaces,
+> embedding, functional options) but the design intent is identical — §2.3 maps
+> the patterns to their Go form so we stay idiomatic *and* disciplined.
+
+---
+
 ## 1. What we are building (one screen)
 
 `pm` normalizes Linux processes/threads into a stable model, then runs a single
@@ -71,31 +108,138 @@ These are correctness, not style. Violating one is a bug even if tests pass:
 10. **Never setuid; never require root by default.** Degrade by capability with
     explicit reasons. (§20)
 
-### 2.2 SOLID, applied to this codebase
+### 2.2 SOLID, applied to this codebase (mandatory)
 
-- **Single Responsibility.** Each package in the layout (§4) owns one concern:
-  `procfs` reads, `collect` schedules, `query` transforms, `render` presents,
-  `control` mutates, `state` persists. No `util` dumping ground (RFC §24).
-- **Open/Closed.** Growth happens by *registration*, not editing switch
-  statements:
+SOLID is the first thing a reviewer checks. Each principle below has a concrete
+"what this means here" and a "you are violating it if…" test.
+
+- **S — Single Responsibility.** Each package in the layout (§4) owns exactly one
+  concern: `procfs` reads, `collect` schedules, `query` transforms, `render`
+  presents, `control` mutates, `state` persists. Same at the type level: a struct
+  has one reason to change. No `util` dumping ground (RFC §24).
+  *Violating it if:* a type both parses and renders; a function both decides and
+  performs I/O; you reach for a "misc"/"helpers"/"common" package.
+- **O — Open/Closed.** Growth happens by *adding a type and registering it*, never
+  by editing a `switch`/`if-else` ladder over a kind:
   - a new metric = a new `MetricDescriptor` + collector;
   - a new column = a new column descriptor;
-  - a new renderer/collector/controller = one interface implementation + a
-    registry entry.
-  Adding these must not touch the query engine.
-- **Liskov.** Every collector, resolver, controller, renderer, and decoder is
-  substitutable behind its interface. Fakes (`internal/testutil`) are first-class
-  substitutes and must satisfy the same contracts as production types.
-- **Interface Segregation.** Small interfaces (`Collector`, `Resolver`,
-  `Controller`, `Engine`, `Decoder`). The TUI/CLI depend on the client-facing
-  `Engine`/`Controller` interfaces (RFC §25), never on concrete daemon or
-  collector packages.
-- **Dependency Inversion.** High-level policy (query, control planning) depends
-  on abstractions. Linux syscalls, the clock, procfs, and IPC transport sit
-  behind interfaces so they can be faked. The embedded engine and the daemon-
-  over-IPC client implement the *same* interfaces (RFC §17, §25).
+  - a new renderer / collector / controller / resolver / decoder / transport =
+    one interface implementation + one registry entry.
+  Adding any of these must touch **zero** existing query/render/control logic.
+  *Violating it if:* supporting a new variant means editing a central switch, or a
+  core package imports a concrete variant.
+- **L — Liskov Substitution.** Every collector, resolver, controller, renderer,
+  and decoder is fully substitutable behind its interface — including the fakes in
+  `internal/testutil`, which must honour the same contract (same error/availability
+  semantics) as production types. A test passing against the fake but failing
+  against the real type means the contract is under-specified — fix the contract.
+- **I — Interface Segregation.** Interfaces stay small and role-specific
+  (`Collector`, `Resolver`, `Controller`, `Engine`, `Decoder`, `Renderer`). No
+  "fat" interface that forces implementers to stub methods they don't use. The
+  TUI/CLI depend on the client-facing `Engine`/`Controller` interfaces (RFC §25),
+  never on concrete daemon or collector packages.
+- **D — Dependency Inversion.** High-level policy (query, control planning)
+  depends only on abstractions. Linux syscalls, the clock, procfs, and the IPC
+  transport all sit behind interfaces defined by the *consumer* and injected in.
+  The embedded engine and the daemon-over-IPC client implement the *same*
+  interfaces (RFC §17, §25). *Violating it if:* a business-logic package imports
+  `os`, `syscall`, or a concrete transport directly.
 
-### 2.3 Clean-code rules we actually enforce
+**Dependency direction rule:** dependencies point inward toward `model`/policy.
+`model` imports nothing project-specific. Renderers, transports, and syscall
+adapters are the outermost ring and may be swapped without touching the core.
+
+### 2.3 Design patterns we use deliberately (Java → Go map)
+
+This codebase is explicitly built to be extended and overridden at many layers.
+Use these named patterns for those seams; a reviewer may ask "which pattern is
+this seam?" and "how do I add a variant without editing existing code?".
+
+| Need / seam | Pattern | Go form in `pm` |
+|---|---|---|
+| Swap algorithm/behaviour behind a stable contract | **Strategy** | `Collector`, `Controller`, `Renderer`, `Resolver`, `Decoder` interfaces |
+| Discover/construct variants by id without a switch | **Registry + Factory** | metric/dimension/column registries; collector/controller registration at `init` |
+| Enrich an entity without subclassing | **Decorator** | `Resolver` chain decorating `*Process` |
+| Uniform API over TOML/YAML/JSON differences | **Adapter** | per-format `Decoder` → one canonical DTO |
+| Hide subsystem complexity from clients | **Facade** | `internal/client` engine facade; `internal/app` command orchestration |
+| Fixed pipeline skeleton, pluggable steps | **Template Method / Pipeline** | the query pipeline stages (§1); collector `Collect` skeleton |
+| Notify subscribers of new snapshots | **Observer / Pub-Sub** | `Engine.Subscribe` snapshot stream; daemon events |
+| Configurable construction without telescoping ctors | **Functional options** | `New(...Option)` constructors |
+| One behaviour, many concrete kinds | **Interpreter / Visitor** | `expr` AST evaluation and type-checking |
+| Encapsulate a mutation as a reversible unit | **Command + Memento** | control `Plan`/`Apply`/`Restore` with captured original state |
+
+Guidance: **program to interfaces, favour composition over inheritance** (Go has
+no inheritance — use embedding + interfaces), and prefer a small interface + many
+implementations over one type with mode flags. Do not add a pattern where a plain
+function suffices; do not hand-roll a switch where the Registry seam already
+exists.
+
+### 2.4 Extensibility & platform portability are global requirements
+
+Extensibility is not a per-feature nicety here — it is the **default posture of
+the whole codebase**, expressed as a **ports-and-adapters (hexagonal)**
+architecture.
+
+```text
+                 ┌─────────────────────────────────────────────┐
+   adapters →    │  OS-AGNOSTIC CORE                            │   ← adapters
+ (outer ring)    │  model · expr · query · control-planning ·  │  (outer ring)
+                 │  config-semantics · metric/dim/column        │
+  Linux procfs   │  registries · state logic                   │  table/json/tui
+  Windows API    │                                             │  renderers
+  macOS/BSD      │  defines PORTS (interfaces), depends on      │  TOML/YAML/JSON
+  eBPF/perf      │  nothing platform-specific                  │  decoders
+  cgroup ctl     └─────────────────────────────────────────────┘  IPC transports
+```
+
+**The core is OS-agnostic and never imports OS-specific packages.** Nothing in
+`model`, `expr`, `query`, `control` planning, config *semantics*, or the
+registries may import `syscall`/`golang.org/x/sys`, assume `/proc`, or reference
+a specific OS concept. All platform specifics live behind **ports** — interfaces
+owned by the core — implemented by **adapter packages** in the outer ring.
+
+Representative ports (names illustrative, contracts normative):
+
+```text
+ProcessSource     enumerate + read normalized entities/identity for this OS
+CapabilityProbe   report what this platform/build/privilege level supports
+Controller        nice / suspend-resume / freeze / priority per platform
+SignalSender      deliver signals/terminations by validated identity
+GroupController    cgroup-like / job-object-like resource control
+Clock, Transport, Renderer, Decoder, Collector, Resolver, ...
+```
+
+Rules that make new backends *additive, not invasive*:
+
+1. **Linux is the first shipped adapter, not a baked-in assumption.** RFC §32's
+   "Linux-only" is a **shipping-scope** decision (what we release now), *not* an
+   architectural one. Adding Windows/macOS/BSD/other-Unix later must be a new
+   adapter package (e.g. `internal/procfs` ↔ a sibling `internal/procsrc/<os>`)
+   implementing the same ports — **zero changes to the core**. If any real
+   conflict with RFC scope surfaces, raise a `PM-90NN` amendment (tracked by
+   `PM-9003`); do not smear OS specifics into the core.
+2. **Isolate OS specifics** behind build-tagged files (`*_linux.go`,
+   `*_windows.go`, `*_darwin.go`, `*_bsd.go`) and/or separate adapter packages,
+   selected by a factory/registry at startup. Shared behaviour stays in tag-free
+   files.
+3. **Same global pattern for every extension axis**, not just OS: metrics,
+   collectors, resolvers, controllers, renderers, output formats, config formats,
+   IPC transports, target kinds, dimensions, columns. Each is a **port + a
+   registry**; adding support = writing an adapter and registering it.
+4. **Graceful degradation is built in.** The capability model + "unknown ≠ zero"
+   (§2.1) means a port with no adapter on the current platform reports
+   `unsupported`, and inherently-Linux concepts (namespaces, cgroups) become
+   optional capabilities that render unavailable elsewhere — never fabricated.
+5. **Keep the vocabulary neutral.** Prefer OS-neutral names in the core model;
+   where a concept is intrinsically platform-specific, model it as an optional,
+   capability-gated attribute behind a port rather than a mandatory field.
+
+*You are violating this section if:* a core package imports `x/sys` or hardcodes
+`/proc`; a new capability requires editing a switch in the core; or supporting a
+second OS would require touching anything but new adapter packages and their
+registration.
+
+### 2.5 Clean-code rules we actually enforce
 
 - Prefer composition over inheritance; decorate entities via `Resolver`s.
 - Functions do one thing; keep cyclomatic complexity low; extract parsers.
@@ -104,12 +248,34 @@ These are correctness, not style. Violating one is a bug even if tests pass:
   outcomes (process vanished) are not errors to log per-occurrence (§21.1).
 - No global mutable state except registries populated at `init` and never
   mutated afterward.
-- No direct `time.Now()` / `/proc` access in business logic — go through the
-  injected clock / procfs reader (enables TDD and determinism).
+- No direct `time.Now()` / `/proc` / `syscall` access in business logic — go
+  through the injected clock / procfs reader / controller (enables TDD and
+  determinism, and satisfies DIP).
 - Concurrency: immutable sample generations; share by communicating; everything
   concurrent is exercised under `-race`.
 
-### 2.4 Dependency policy (RFC §31.8)
+### 2.6 Size caps (hard limits, enforced in review)
+
+Small units are how SOLID stays real. These are **caps, not targets** — most code
+should be well under them. Exceeding a cap is a signal to split, and requires an
+explicit, justified `//nolint`-style note in the PR *and* reviewer sign-off.
+
+| Unit | Soft target | **Hard cap** |
+|---|---|---|
+| Function / method body | ≤ 40 lines | **60 lines** |
+| Function parameters | ≤ 4 | **5** (beyond → options struct) |
+| Cyclomatic complexity / function | ≤ 8 | **12** |
+| Struct fields | ≤ 10 | **15** (beyond → compose sub-structs) |
+| Interface methods | ≤ 4 | **6** (beyond → segregate, see ISP) |
+| Source file | ≤ 400 lines | **600 lines** |
+| Nesting depth | ≤ 3 | **4** (use early returns/guard clauses) |
+| Package exported surface | keep minimal | review if it sprawls |
+
+If a unit wants to exceed a cap, the correct move is almost always to extract a
+type or function — which usually surfaces a missing abstraction anyway. Linters
+(`funlen`, `gocyclo`, `gocognit`, `nestif`, `lll`) enforce these in CI (`PM-9001`).
+
+### 2.7 Dependency policy (RFC §31.8)
 
 Add dependencies conservatively. Each new module dependency must be justified in
 the PR/ticket ("why not stdlib?"). Prefer the standard library for parsing,
@@ -136,14 +302,22 @@ specifically so TDD is possible from the first collector (RFC §31.3).
 | **Golden** | Stable output: tables, trees, JSON schema v1, capability reports, effective-config dumps. Normalize timestamps/PIDs/boot-ids/colors. | always |
 | **Perf/Bench** | Synthetic procfs fixtures (100/1k/10k procs); enforce the §22 budgets. | benchmarks tracked; regressions reviewed |
 
-### 3.2 Coverage expectations
+### 3.2 Coverage — ≥ 80% is a hard gate
 
-- Core logic packages (`config`, `expr`, `query`, `control`, `state`,
-  `procfs`, `metrics`) target **high** unit coverage — these are pure and
-  fully fakeable, so low coverage there is a smell.
-- Every RFC §28 MVP criterion and every ticket acceptance criterion must map to
-  at least one test.
+- **≥ 80% statement coverage is the floor for the whole module and is enforced in
+  CI (`PM-9001`).** A PR that drops total coverage below 80%, or that adds code
+  materially below 80% for its package, **fails the build** — same severity as a
+  compile error. This is not negotiable per the project owner.
+- Core logic packages (`config`, `expr`, `query`, `control`, `state`, `procfs`,
+  `metrics`, `collect`) are pure and fully fakeable — they are expected **well
+  above** the floor (target ≥ 90%). Low coverage there is a design smell, usually
+  a missing seam.
+- Coverage is a floor, not the goal: tests must assert behaviour and invariants,
+  not merely execute lines. Every RFC §28 MVP criterion and every ticket
+  acceptance criterion maps to at least one test.
 - Every bug fix starts with a failing regression test.
+- Exclusions are narrow and explicit (e.g. generated code, thin `main`); they are
+  listed in the coverage config and reviewed, never ad hoc.
 
 ### 3.3 Running tests
 
@@ -151,44 +325,59 @@ specifically so TDD is possible from the first collector (RFC §31.3).
 go build ./...
 go test ./...
 go test -race ./...
+go test -coverprofile=coverage.out ./... && go tool cover -func=coverage.out   # must be ≥ 80%
 go vet ./...
 staticcheck ./...          # or the chosen analyzer
+golangci-lint run          # incl. funlen/gocyclo/gocognit/nestif (size caps §2.6)
 go test -run TestGolden ./... -update   # regenerate golden files (review diffs!)
 go test -tags integration ./...         # gated, needs a suitable environment
 ```
 
-CI (`PM-9001`) runs build, test, `-race`, fuzz smoke, `vet`, static analysis,
-gofmt/goimports, and golden verification on every PR. Merges are blocked on
-failure.
+CI (`PM-9001`) runs build, test, `-race`, **coverage (≥ 80% hard gate)**, fuzz
+smoke, `vet`, static analysis, size-cap linters, gofmt/goimports, and golden
+verification on every PR. Merges are blocked on any failure.
 
 ---
 
 ## 4. Repository layout (RFC §24)
 
+Read this as concentric rings (§2.4): `model` and the policy packages are the
+**OS-agnostic core**; `procfs`, syscall adapters, transports, and renderers are
+the **outer ring** implementing core-defined ports.
+
 ```text
-cmd/pm/                   entry point
-internal/app/             command orchestration / routing
+cmd/pm/                   entry point (thin)
+internal/app/             command orchestration / routing (Facade)
 internal/config/          adapters, canonical DTO, merge, normalize, validate
-internal/expr/            lexer, parser, type checker, evaluator
-internal/model/           entities, identities, metric/control values
-internal/procfs/          safe procfs reading and parsing
-internal/collect/         registry, scheduler, collectors
-internal/resolve/         app/systemd/cgroup/namespace label resolvers
-internal/query/           select, grouping, aggregate, having, sort, projection
-internal/metrics/         metric descriptors and profiles
-internal/control/         planner, safeguards, controllers, restore/reconcile
+internal/expr/            lexer, parser, type checker, evaluator      ── core
+internal/model/           entities, identities, metric/control values ── core (imports nothing OS-specific)
+internal/ports/           port interfaces the core owns (ProcessSource, Controller, CapabilityProbe, ...)
+internal/collect/         registry, scheduler, collectors             ── core policy over ports
+internal/resolve/         app/systemd/cgroup/namespace label resolvers (Decorator chain)
+internal/query/           select, grouping, aggregate, having, sort, projection ── core
+internal/metrics/         metric descriptors and profiles (Registry)
+internal/control/         planner, safeguards, restore/reconcile      ── core policy over Controller ports
 internal/state/           runtime persistence, locks, history interface
 internal/daemon/          engine lifecycle and IPC server
-internal/client/          IPC and embedded-engine facade
-internal/render/table/    one-shot and streaming tables
-internal/render/json/     versioned machine formats
+internal/client/          IPC and embedded-engine facade (Facade)
+internal/render/table/    one-shot and streaming tables (Renderer adapter)
+internal/render/json/     versioned machine formats (Renderer adapter)
 internal/tui/             interactive UI
-internal/testutil/        fake clock, proc fixtures, fake controllers
+internal/testutil/        fake clock, proc fixtures, fake controllers (test adapters)
 docs/                     user and architecture documentation
 rfc/                      tickets (backlog/wip/archive) — see rfc/README.md
 ```
 
-Keep Linux syscalls behind small interfaces. No package named `util`.
+Platform adapters live behind the ports and are selected at startup by a
+factory/registry. Today only the Linux adapter (`internal/procfs` + Linux
+controllers) exists; a future OS is a **sibling adapter package** (e.g.
+`internal/platform/<os>/`) implementing the same `internal/ports` interfaces —
+**no core edits** (§2.4). Use build tags (`*_linux.go`, `*_windows.go`,
+`*_darwin.go`, `*_bsd.go`) for OS-specific files.
+
+Hard rules: the core (`model`, `expr`, `query`, `control` planning,
+config-semantics, registries) must not import `syscall`/`x/sys` or assume `/proc`.
+Keep OS syscalls behind small port interfaces. No package named `util`.
 
 ---
 
@@ -242,6 +431,12 @@ Docs are part of "done", not an afterthought:
 
 A feature/ticket is **not done** until all apply:
 
+- [ ] **SOLID honoured** (§2.2): new variability sits behind an interface + registry
+      (Open/Closed); no core `switch` edited to add a variant.
+- [ ] **Extensibility/ports respected** (§2.4): no OS-specific import in the core;
+      platform/tool specifics live behind ports; new backends would be additive.
+- [ ] **Size caps met** (§2.6) or an explicitly justified, signed-off exception.
+- [ ] **Coverage ≥ 80%** for changed code and module total not regressed (§3.2).
 - [ ] Canonical model / registry metadata added where relevant.
 - [ ] CLI and config representation where applicable.
 - [ ] Capability / permission behaviour implemented and reported.
@@ -262,7 +457,7 @@ Detailed, dependency-ordered tickets live in `rfc/`. Summary (RFC §27):
 
 | Phase | Theme | Tickets |
 |---|---|---|
-| 0 | Skeleton & contracts | PM-0001..0005, PM-9001, PM-9002 |
+| 0 | Skeleton & contracts | PM-0001..0005, PM-9001, PM-9002, PM-9003 |
 | 1 | Useful read-only core | PM-0101..0109 |
 | 2 | Runtime management & basic control (**MVP = Phases 0–2**) | PM-0201..0205 |
 | 3 | TUI | PM-0301..0304 |

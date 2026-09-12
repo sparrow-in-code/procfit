@@ -52,24 +52,39 @@ Respect `depends:` — do not start a ticket whose dependencies are not yet in
 
 ## 3. Golden rules (violating these is a bug, not a style nit)
 
-From RFC §6/§32 — the full list and rationale are in `DEVELOPMENT.md §2`:
+The project owner stresses these hardest — **SOLID, clean code, ≥80% coverage,
+capped unit sizes, and pervasive extensibility (including future OS backends)**.
+Details in `DEVELOPMENT.md §0` (prime directives), §2 (architecture), §3
+(testing). Domain invariants come from RFC §6/§32.
 
-1. **PID is never identity** — use `boot_id + pidns_inode + pid + starttime`;
+**How we build (enforced in CI):**
+
+1. **SOLID, always** — one reason to change per type; extension points are
+   interfaces; depend on abstractions. Adding a variant = *adding a type +
+   registering it*, never editing a `switch`. (`DEVELOPMENT.md §2.2–2.3`)
+2. **Extensible & portable by default** — ports-and-adapters core (§2.4). The
+   core imports nothing OS-specific; new metrics/collectors/renderers/formats/
+   transports **and new OSes (Windows/macOS/BSD)** are additive adapters. If a
+   change would need a core edit or a central switch to support a variant, redesign.
+3. **Clean code, capped size** — honour the hard caps in `DEVELOPMENT.md §2.6`
+   (func ≤60 lines, file ≤600, ≤6 interface methods, etc.). Big units = split.
+4. **≥ 80% coverage, TDD first** — failing test, then code, then refactor; 80% is
+   a hard CI gate (§3.2). Fakes live in `internal/testutil`.
+5. **Docs move with code** — update the relevant `.md` in the same change; JSON
+   schema is a versioned public interface.
+
+**Domain invariants (RFC §6/§32):**
+
+6. **PID is never identity** — use `boot_id + pidns_inode + pid + starttime`;
    revalidate before every control action.
-2. **Unknown is never zero** — carry availability/quality; render `-`/`?`.
-3. **Renderers don't compute** — all collect/filter/group/aggregate lives in the
-   engine.
-4. **Control is a side plane** — never a precondition for observation.
-5. **`select` (pre-group) ≠ `having` (post-aggregate).**
-6. **Config: three formats, one canonical DTO, strict parsing, identical
-   semantics.**
-7. **Managed membership ≠ control; restore ≠ unmanage; drift is reported, not
-   fought.**
-8. **Never setuid; never require root by default** — degrade by capability.
-9. **TDD first** — failing test, then code, then refactor. Fakes live in
-   `internal/testutil`.
-10. **Docs move with code** — update the relevant `.md` in the same change; JSON
-    schema is a versioned public interface.
+7. **Unknown is never zero** — carry availability/quality; render `-`/`?`.
+8. **Renderers don't compute; control is a side plane** — all
+   collect/filter/group/aggregate lives in the engine; observation works without
+   control.
+9. **`select` (pre-group) ≠ `having` (post-aggregate); config = 3 formats, one
+   canonical DTO, strict, identical semantics.**
+10. **Managed membership ≠ control; restore ≠ unmanage; drift is reported, not
+    fought. Never setuid; never require root** — degrade by capability.
 
 ---
 

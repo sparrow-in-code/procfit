@@ -3,7 +3,7 @@ id: PM-0101
 title: Safe procfs reader, PID/starttime identity, and parsers
 state: TODO
 phase: 1
-depends: ["PM-0004"]
+depends: ["PM-0004", "PM-9003"]
 owner:
 rfc: ["§6.3", "§11", "§14.1", "§21.1", "§26.1", "§26.2"]
 ---
@@ -12,7 +12,9 @@ rfc: ["§6.3", "§11", "§14.1", "§21.1", "§26.1", "§26.2"]
 
 The foundation of all observation: an abstracted procfs reader rooted at a
 configurable path, robust parsers for `stat`/`status`/`io`/etc., and the
-canonical process identity (`boot_id + pidns_inode + pid + starttime`).
+canonical process identity (`boot_id + pidns_inode + pid + starttime`). This is
+the **Linux `ProcessSource` adapter** — it implements the `internal/ports`
+interface from PM-9003, not a Linux-coupled core type.
 
 ## Scope
 

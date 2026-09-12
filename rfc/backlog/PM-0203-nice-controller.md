@@ -3,7 +3,7 @@ id: PM-0203
 title: Nice controller — original/desired/observed, drift, restore
 state: TODO
 phase: 2
-depends: ["PM-0202"]
+depends: ["PM-0202", "PM-9003"]
 owner:
 rfc: ["§6.2", "§15.1", "§15.2", "§15.3", "§15.6", "§15.7", "§15.8", "§21.2"]
 ---

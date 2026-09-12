@@ -18,10 +18,18 @@ be stood up right after the module skeleton so every later ticket lands green.
 - CI running (§31.9): `go build ./...`, `go test ./...`, `go test -race ./...`,
   fuzz smoke (short `-fuzz` runs on registered corpora), `go vet ./...`, and a
   chosen static analyzer (e.g. staticcheck).
+- **Coverage hard gate ≥ 80%** (DEVELOPMENT.md §3.2): fail the build when module
+  total drops below 80% or changed packages regress materially. Narrow, listed
+  exclusions only (generated code, thin `main`).
+- **Size-cap linters** (DEVELOPMENT.md §2.6) via golangci-lint: funlen, gocyclo,
+  gocognit, nestif, lll — configured to the documented caps; fail on violation.
+- **Architecture guard**: lint/deny-import rule so core packages (`model`,
+  `expr`, `query`, `control` planning, config-semantics, registries) cannot
+  import `syscall`/`x/sys` or OS-specific adapters (DEVELOPMENT.md §2.4, PM-9003).
 - Golden-test verification + a `-update` mode convention (§26.4).
-- Coverage reporting (informational threshold, not a hard gate initially).
 - `gofmt`/`goimports` check.
-- Linux runner (project is Linux-only, §32).
+- Linux runner now (Linux is the first adapter, §32); keep the matrix ready to
+  add OS runners when adapters land (PM-9003).
 
 ## Out of scope
 
@@ -30,8 +38,12 @@ be stood up right after the module skeleton so every later ticket lands green.
 ## Acceptance criteria
 
 - [ ] All listed checks run on every PR and block merge on failure.
-- [ ] Race detector runs green.
-- [ ] Fuzz smoke executes registered fuzz targets briefly.
+- [ ] Coverage below 80% fails the build; the threshold + exclusions are in
+      committed config.
+- [ ] Size-cap linters fail on caps being exceeded (proven by a deliberate
+      violation branch).
+- [ ] Core-imports-OS guard fails when a core package imports a syscall/adapter.
+- [ ] Race detector runs green; fuzz smoke executes registered targets briefly.
 - [ ] Golden update workflow is documented in DEVELOPMENT.md.
 
 ## Tests required
