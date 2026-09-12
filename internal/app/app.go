@@ -94,7 +94,7 @@ func commands() []command {
 		{name: "signal", summary: "Send a signal to a resolved target", run: cmdSignal},
 		{name: "daemon", summary: "Run/query the per-user engine daemon", run: cmdDaemon},
 		{name: "service", summary: "Install/remove the user systemd unit", run: cmdService},
-		{name: "tui", summary: "Interactive explorer (not yet implemented)", run: cmdTUIStub},
+		{name: "tui", summary: "Interactive explorer (default on a TTY)", run: cmdTUI},
 		{name: "version", summary: "Print version", run: cmdVersion},
 	}
 }
@@ -109,9 +109,4 @@ func printUsage(env Env, cmds []command) {
 func cmdVersion(env Env, _ []string) int {
 	fmt.Fprintf(env.Stdout, "%s %s (commit %s, built %s)\n", meta.Name, meta.Version, meta.Commit, meta.BuildDate)
 	return ExitOK
-}
-
-func cmdTUIStub(env Env, _ []string) int {
-	fmt.Fprintf(env.Stderr, "%s: the TUI is not yet implemented; use '%s ps' or '%s stat'\n", meta.Name, meta.Name, meta.Name)
-	return ExitUnavailable
 }
