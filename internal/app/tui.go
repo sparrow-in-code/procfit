@@ -18,8 +18,9 @@ func cmdTUI(env Env, args []string) int {
 	fs := flag.NewFlagSet("tui", flag.ContinueOnError)
 	fs.SetOutput(env.Stderr)
 	qf := bindQueryFlags(fs)
+	setupUsage(env, fs, "tui", "interactive explorer")
 	if err := fs.Parse(args); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	if err := applyConfigDefaults(fs, qf); err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)

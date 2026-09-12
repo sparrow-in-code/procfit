@@ -62,6 +62,9 @@ func run(env Env, args []string) int {
 	rest := args[1:]
 	switch name {
 	case "-h", "--help", "help":
+		if name == "help" && len(rest) >= 1 {
+			return dispatch(cmds, env, rest[0], []string{"--help"})
+		}
 		printUsage(env, cmds)
 		return ExitOK
 	case "-v", "--version":
@@ -115,7 +118,28 @@ func printUsage(env Env, cmds []command) {
 	for _, c := range cmds {
 		fmt.Fprintf(env.Stdout, "  %-14s %s\n", c.name, c.summary)
 	}
+	fmt.Fprint(env.Stdout, commonFlagsHelp)
+	fmt.Fprintf(env.Stdout, "\nRun '%s <command> --help' for a command's full flags.\n", meta.Name)
 }
+
+// commonFlagsHelp summarizes the shared view flags (ps/stat/tui) so they are
+// discoverable from the top-level help.
+const commonFlagsHelp = `
+Common view flags (ps, stat, tui):
+  --group-by DIM[,DIM]   group by dimensions (comm, name, user, app, pidns, ...) or 'none'
+  --leaf process|thread|none   terminal rows under groups (process = expand groups)
+  --sort FIELD[:asc|desc][,...]   multi-key sort (e.g. cpu:desc)
+  --columns COL[,COL]    explicit columns
+  --metrics PROFILE      metric profile (light|io|process|all|...)
+  --metric [+|-]NAME     add/remove a metric (repeatable)
+  --select EXPR          filter entities (e.g. 'uid == 0')
+  --having EXPR          filter aggregated rows (e.g. 'cpu > 5')
+  -n, --number N         show only the top N rows after sorting
+  -h, --human            human-readable units (K/M/G); default is raw bytes
+  --target-width N       cap the TARGET column width (0 = auto)
+  --format FMT           table|wide|json|ndjson|csv
+  --config PATH          load a config file (--no-config to ignore)
+`
 
 func cmdVersion(env Env, _ []string) int {
 	fmt.Fprintf(env.Stdout, "%s %s (commit %s, built %s)\n", meta.Name, meta.Version, meta.Commit, meta.BuildDate)

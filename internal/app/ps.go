@@ -12,8 +12,9 @@ func cmdPS(env Env, args []string) int {
 	fs.SetOutput(env.Stderr)
 	qf := bindQueryFlags(fs)
 	instant := fs.Bool("instant", false, "skip the warm-up second sample; rate metrics render unavailable")
+	setupUsage(env, fs, "ps", "one-shot snapshot/table")
 	if err := fs.Parse(args); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	if err := applyConfigDefaults(fs, qf); err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)

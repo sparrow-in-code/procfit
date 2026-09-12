@@ -28,6 +28,7 @@ func cmdStat(env Env, args []string) int {
 	qf := bindQueryFlags(fs)
 	intervalFlag := fs.Duration("interval", time.Second, "sample interval")
 	count := fs.Int("count", 0, "number of sample batches to emit (0 = until interrupted)")
+	setupUsage(env, fs, "stat", "repeated append-only samples")
 
 	// The interval may be given as a leading positional (e.g. `stat 2s --preset io`).
 	// Go's flag parser stops at the first non-flag, so pull it out before parsing.
@@ -37,7 +38,7 @@ func cmdStat(env Env, args []string) int {
 		args = args[1:]
 	}
 	if err := fs.Parse(args); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	if err := applyConfigDefaults(fs, qf); err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
