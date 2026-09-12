@@ -85,6 +85,7 @@ func commands() []command {
 		{name: "stat", summary: "Repeated append-only samples", run: cmdStat},
 		{name: "metrics", summary: "List metrics (metrics list)", run: cmdMetrics},
 		{name: "capabilities", summary: "Explain available/missing collectors", run: cmdCapabilities},
+		{name: "config", summary: "Validate/convert/dump configuration", run: cmdConfig},
 		{name: "tui", summary: "Interactive explorer (not yet implemented)", run: cmdTUIStub},
 		{name: "version", summary: "Print version", run: cmdVersion},
 	}

@@ -100,6 +100,22 @@ func TestPS_UnknownMetricAndFormatErrors(t *testing.T) {
 	}
 }
 
+func TestPS_DefaultColumns(t *testing.T) {
+	g := []ports.ProcStat{stat(1, "worker", 100, 0, 4096)}
+	_, restore := fakeAssembly(t, g, g)
+	defer restore()
+	var out, errb bytes.Buffer
+	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"ps"}); code != ExitOK {
+		t.Fatalf("ps default exit %d stderr=%s", code, errb.String())
+	}
+	// Default columns include target, pt, cpu, rss headers.
+	for _, h := range []string{"TARGET", "P/T", "CPU", "RSS"} {
+		if !strings.Contains(out.String(), h) {
+			t.Fatalf("default header %q missing:\n%s", h, out.String())
+		}
+	}
+}
+
 func TestHelp(t *testing.T) {
 	var out, errb bytes.Buffer
 	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"help"}); code != ExitOK {
