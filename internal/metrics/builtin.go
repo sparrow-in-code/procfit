@@ -1,0 +1,46 @@
+package metrics
+
+// builtinLight are the cost-level-0 metrics collected from cheap /proc reads
+// (RFC §13.1). Canonical disk ids are the interactive short forms disk-rbps /
+// disk-wbps (RFC §30.3 recommendation; see QUESTIONS.md), with the long forms
+// kept as aliases.
+var builtinLight = []Descriptor{
+	{ID: "cpu", Unit: UnitPercentOneCPU, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "CPU usage as percent of one CPU (user+system); may exceed 100 for multithreaded processes"},
+	{ID: "cpu-normalized", Unit: UnitPercentHost, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "CPU usage as percent of total host capacity (cpu / online CPUs)"},
+	{ID: "cpu-user", Unit: UnitPercentOneCPU, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "User-mode CPU percent of one CPU (delta of utime)"},
+	{ID: "cpu-system", Unit: UnitPercentOneCPU, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "Kernel-mode CPU percent of one CPU (delta of stime)"},
+	{ID: "rss", Unit: UnitBytes, Scope: ScopeProcess, Kind: KindGauge, Cost: Cost0Light, Collector: "proc", Aggregation: AggSumOncePerProc,
+		Description: "Resident set size in bytes"},
+	{ID: "vsz", Unit: UnitBytes, Scope: ScopeProcess, Kind: KindGauge, Cost: Cost0Light, Collector: "proc", Aggregation: AggSumOncePerProc,
+		Description: "Virtual memory size in bytes"},
+	{ID: "threads", Unit: UnitCount, Scope: ScopeProcess, Kind: KindGauge, Cost: Cost0Light, Collector: "proc", Aggregation: AggSumOncePerProc,
+		Description: "Number of threads"},
+	{ID: "minor-faults", Unit: UnitPerSec, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "Minor page faults per second"},
+	{ID: "major-faults", Unit: UnitPerSec, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "Major page faults per second"},
+	{ID: "ctxsw-voluntary", Unit: UnitPerSec, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "Voluntary context switches per second"},
+	{ID: "ctxsw-involuntary", Unit: UnitPerSec, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "Involuntary context switches per second"},
+	{ID: "disk-rbps", Aliases: []string{"disk-read-bytes"}, Unit: UnitBytesPerSec, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "Storage-accounted read bytes per second (delta of /proc/PID/io read_bytes)"},
+	{ID: "disk-wbps", Aliases: []string{"disk-write-bytes"}, Unit: UnitBytesPerSec, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "Storage-accounted write bytes per second (delta of write_bytes)"},
+	{ID: "io-rchar", Unit: UnitBytesPerSec, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "Bytes read via syscalls per second (includes cache); delta of rchar"},
+	{ID: "io-wchar", Unit: UnitBytesPerSec, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "Bytes written via syscalls per second (includes cache); delta of wchar"},
+	{ID: "read-syscalls", Unit: UnitPerSec, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "Read syscalls per second (delta of syscr); not physical disk ops"},
+	{ID: "write-syscalls", Unit: UnitPerSec, Scope: ScopeProcess, Kind: KindRate, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum, Rate: true,
+		Description: "Write syscalls per second (delta of syscw); not physical disk ops"},
+	{ID: "pnice", Unit: UnitInteger, Scope: ScopeProcess, Kind: KindGauge, Cost: Cost0Light, Collector: "proc", Aggregation: AggMixed,
+		Description: "Observed process nice value"},
+	{ID: "age", Unit: UnitDuration, Scope: ScopeProcess, Kind: KindGauge, Cost: Cost0Light, Collector: "proc", Aggregation: AggMax,
+		Description: "Process age derived from start time"},
+}
