@@ -26,7 +26,7 @@ side plane with the same original/desired/observed discipline.
 
 ## Out of scope
 
-- Automatic process migration into pm-owned cgroups (open question §30.10).
+- Automatic process migration into procfit-owned cgroups (open question §30.10).
 
 ## Acceptance criteria
 

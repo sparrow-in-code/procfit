@@ -1,6 +1,6 @@
 # docs/
 
-User- and architecture-facing documentation for `pm`. These files are part of
+User- and architecture-facing documentation for `procfit`. These files are part of
 "done" (see [`../DEVELOPMENT.md`](../DEVELOPMENT.md) §6) and must stay in lockstep
 with the code.
 
@@ -16,4 +16,4 @@ Planned documents (created by the tickets that introduce the feature):
 | `architecture.md` | ongoing | Deep dive into the two-plane design and package boundaries. |
 
 The authoritative product spec remains
-[`../RFC-pm-linux-process-observer-controller.md`](../RFC-pm-linux-process-observer-controller.md).
+[`../RFC-procfit-linux-process-observer-controller.md`](../RFC-procfit-linux-process-observer-controller.md).

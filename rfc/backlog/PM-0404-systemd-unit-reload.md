@@ -14,10 +14,10 @@ Optional persistence helpers and safe live config reload for the daemon.
 
 ## Scope
 
-- `pm service install` / `service uninstall` (§8): write/remove a **user**
+- `procfit service install` / `service uninstall` (§8): write/remove a **user**
   systemd unit. The TUI/CLI may show the enable command but must never silently
   install/enable persistence (§17.2).
-- `pm daemon reload` / SIGHUP (§17.4): parse+normalize+validate before swapping
+- `procfit daemon reload` / SIGHUP (§17.4): parse+normalize+validate before swapping
   config; a bad new config leaves the prior active and reports the error.
 - Removed policy rules become unmanaged but are NOT implicitly restored (§17.4).
 - Config trust in daemon mode (§20.4): refuse config writable by another user

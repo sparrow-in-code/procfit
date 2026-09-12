@@ -1,12 +1,12 @@
-# DEVELOPMENT.md — How we build `pm`
+# DEVELOPMENT.md — How we build `procfit`
 
-This is the engineering handbook for `pm`, a low-overhead Linux process observer
+This is the engineering handbook for `procfit`, a low-overhead Linux process observer
 and workload controller (Go). It defines the architecture, the coding and
 testing discipline, and the workflow every contributor — human or agent — must
 follow.
 
 > **Read these first, in order:**
-> 1. [`RFC-pm-linux-process-observer-controller.md`](RFC-pm-linux-process-observer-controller.md) — the product spec and single source of truth.
+> 1. [`RFC-procfit-linux-process-observer-controller.md`](RFC-procfit-linux-process-observer-controller.md) — the product spec and single source of truth.
 > 2. This file (`DEVELOPMENT.md`) — how we build it.
 > 3. [`rfc/README.md`](rfc/README.md) — the ticket/work-tracking system.
 > 4. Whatever ticket is in [`rfc/wip/`](rfc/wip/) — the current task.
@@ -56,7 +56,7 @@ this is the short, loud version.
 
 ## 1. What we are building (one screen)
 
-`pm` normalizes Linux processes/threads into a stable model, then runs a single
+`procfit` normalizes Linux processes/threads into a stable model, then runs a single
 query pipeline that powers a TUI, a `ps`-like table, a `vmstat`-like stream, and
 JSON/NDJSON output. A **separate** control plane manages workloads (nice,
 stop/continue, freeze, …) while preserving original/desired/observed state for
@@ -155,7 +155,7 @@ This codebase is explicitly built to be extended and overridden at many layers.
 Use these named patterns for those seams; a reviewer may ask "which pattern is
 this seam?" and "how do I add a variant without editing existing code?".
 
-| Need / seam | Pattern | Go form in `pm` |
+| Need / seam | Pattern | Go form in `procfit` |
 |---|---|---|
 | Swap algorithm/behaviour behind a stable contract | **Strategy** | `Collector`, `Controller`, `Renderer`, `Resolver`, `Decoder` interfaces |
 | Discover/construct variants by id without a switch | **Registry + Factory** | metric/dimension/column registries; collector/controller registration at `init` |
@@ -346,7 +346,7 @@ Read this as concentric rings (§2.4): `model` and the policy packages are the
 the **outer ring** implementing core-defined ports.
 
 ```text
-cmd/pm/                   entry point (thin)
+cmd/procfit/                   entry point (thin)
 internal/app/             command orchestration / routing (Facade)
 internal/config/          adapters, canonical DTO, merge, normalize, validate
 internal/expr/            lexer, parser, type checker, evaluator      ── core

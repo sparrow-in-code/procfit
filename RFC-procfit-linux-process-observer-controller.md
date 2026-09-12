@@ -1,4 +1,4 @@
-# RFC: `pm` — Linux Process Observer and Workload Controller
+# RFC: `procfit` — Linux Process Observer and Workload Controller
 
 | Field | Value |
 |---|---|
@@ -7,15 +7,15 @@
 | Date | 2026-09-12 |
 | Target platform | Linux |
 | Reference implementation | Go |
-| Working binary name | `pm` |
+| Working binary name | `procfit` |
 | Primary audience | Implementers, reviewers, and early users |
 
-> `pm` is a working name. The implementation must keep the command name easy to
-> change because `pm` is generic and may collide with an existing executable.
+> `procfit` is a working name. The implementation must keep the command name easy to
+> change because `procfit` is generic and may collide with an existing executable.
 
 ## 1. Abstract
 
-`pm` is a low-overhead Linux process explorer, metrics sampler, and interactive
+`procfit` is a low-overhead Linux process explorer, metrics sampler, and interactive
 workload controller. It combines the useful parts of `ps`, `pidstat`, `vmstat`,
 `htop`, `powertop`, and simple cgroup/process-control tooling while keeping the
 following concepts independent:
@@ -26,7 +26,7 @@ following concepts independent:
 4. whether leaves are processes, threads, or omitted;
 5. how metrics are aggregated, filtered, sorted, and rendered;
 6. which logical targets are managed;
-7. which changes `pm` applied, what the original values were, and whether the
+7. which changes `procfit` applied, what the original values were, and whether the
    live system has drifted.
 
 The same normalized snapshot pipeline powers:
@@ -77,7 +77,7 @@ while a separate state manager can say:
 ```text
 this logical target is managed
 → these concrete process instances currently match it
-→ this is what pm changed
+→ this is what procfit changed
 → this is the captured original value
 → this is the desired value
 → this is what the kernel currently reports
@@ -102,7 +102,7 @@ this logical target is managed
 - Provide an expression language for entity selection and aggregate filtering.
 - Provide multi-column sorting.
 - Persist custom presets and managed selectors in TOML, YAML, or JSON.
-- Track runtime manual management and every `pm`-applied control change.
+- Track runtime manual management and every `procfit`-applied control change.
 - Preserve original, desired, and observed values for safe restore and drift
   detection.
 - Allow a managed logical target to remain visible while it has zero matching
@@ -159,9 +159,9 @@ The first stable release does not aim to:
 | Policy | Persistent user intent from configuration. |
 | Manual target | A runtime-only target created interactively or from CLI. |
 | Observed state | What the kernel reports now. |
-| Desired state | What `pm` intends a controlled field to be. |
-| Original state | The value captured before `pm` first changed that field for that instance. |
-| Drift | Observed state differs from desired state after `pm` applied or reconciled it. |
+| Desired state | What `procfit` intends a controlled field to be. |
+| Original state | The value captured before `procfit` first changed that field for that instance. |
+| Drift | Observed state differs from desired state after `procfit` applied or reconciled it. |
 | Restore | Attempt to return fields to their captured original values. |
 | Unmanage | Stop tracking/enforcing a target; does not imply restore. |
 | Collector | A component producing entity attributes or metrics. |
@@ -260,22 +260,22 @@ action is present.
 ### 7.1 Default command: TUI
 
 ```bash
-pm
-pm tui
-pm tui --preset battery
+procfit
+procfit tui
+procfit tui --preset battery
 ```
 
-If stdout is not a terminal, bare `pm` must fail with a helpful message rather
-than emit terminal control sequences. `pm ps` and `pm stat` are the explicit
+If stdout is not a terminal, bare `procfit` must fail with a helpful message rather
+than emit terminal control sequences. `procfit ps` and `procfit stat` are the explicit
 non-interactive modes.
 
 ### 7.2 One-shot table
 
 ```bash
-pm ps
-pm ps --group-by comm --leaf none --sort cpu:desc
-pm ps --group-by none --leaf process
-pm ps --select 'uid == 1000' --having 'disk-rbps > 20K'
+procfit ps
+procfit ps --group-by comm --leaf none --sort cpu:desc
+procfit ps --group-by none --leaf process
+procfit ps --select 'uid == 1000' --having 'disk-rbps > 20K'
 ```
 
 The command takes two samples when any requested metric is a rate. The default
@@ -285,9 +285,9 @@ second sample and renders rate metrics unavailable.
 ### 7.3 Streaming, vmstat-like mode
 
 ```bash
-pm stat 2s
-pm stat --interval 500ms --preset io
-pm stat 2s --group-by pidns,comm --leaf none \
+procfit stat 2s
+procfit stat --interval 500ms --preset io
+procfit stat 2s --group-by pidns,comm --leaf none \
   --having 'disk-rbps > 20K && disk-wbps < 600K'
 ```
 
@@ -306,9 +306,9 @@ Requirements:
 ### 7.4 Managed view
 
 ```bash
-pm managed
-pm managed --all
-pm inspect managed:browsers
+procfit managed
+procfit managed --all
+procfit inspect managed:browsers
 ```
 
 Inactive logical targets remain visible:
@@ -322,10 +322,10 @@ pod:foo       0/0     F    -        INACTIVE  06:44:17
 ### 7.5 Machine output
 
 ```bash
-pm ps --format json
-pm stat 1s --format ndjson
-pm capabilities --format json
-pm metrics list --format json
+procfit ps --format json
+procfit stat 1s --format ndjson
+procfit capabilities --format json
+procfit metrics list --format json
 ```
 
 JSON output is a versioned public interface. TUI/table labels are not.
@@ -335,7 +335,7 @@ JSON output is a versioned public interface. TUI/table labels are not.
 The examples below are normative behavior; exact flag parsing library is not.
 
 ```text
-pm [global flags] [command]
+procfit [global flags] [command]
 
 Commands:
   tui                     Interactive explorer (default on a TTY)
@@ -390,8 +390,8 @@ help and documentation should prefer the explicit pair `--select` and
 ### 8.2 Metric override semantics
 
 ```bash
-pm --metrics light --metric +disk-rbps --metric -vsz
-pm --metrics none --metric cpu --metric rss --metric disk-wbps
+procfit --metrics light --metric +disk-rbps --metric -vsz
+procfit --metrics none --metric cpu --metric rss --metric disk-wbps
 ```
 
 Overrides are evaluated from left to right after expanding the selected
@@ -401,10 +401,10 @@ errors.
 ### 8.3 Grouping and leaf semantics
 
 ```bash
-pm ps --group-by namespace-set,app,session --leaf process
-pm ps --group-by comm --leaf none
-pm ps --group-by none --leaf process
-pm ps --group-by pidns --leaf none
+procfit ps --group-by namespace-set,app,session --leaf process
+procfit ps --group-by comm --leaf none
+procfit ps --group-by none --leaf process
+procfit ps --group-by pidns --leaf none
 ```
 
 Rules:
@@ -425,8 +425,8 @@ Rules:
 Accepted forms:
 
 ```bash
-pm ps --sort cpu:desc,wakeups:desc
-pm ps --sort -cpu,+comm
+procfit ps --sort cpu:desc,wakeups:desc
+procfit ps --sort -cpu,+comm
 ```
 
 Canonical config representation is an ordered array of `{field, direction}`.
@@ -456,15 +456,15 @@ For shell safety, selectors should normally be single-quoted.
 ### 8.6 Control commands
 
 ```bash
-pm manage group:app=google-chrome
-pm manage group:app=google-chrome --follow --nice 10
-pm manage pid:1234 --snapshot --stop
-pm set managed:browsers --nice 15
-pm set managed:browsers --freeze
-pm restore managed:browsers
-pm restore managed:browsers --field nice
-pm unmanage managed:browsers
-pm signal TERM pid:1234
+procfit manage group:app=google-chrome
+procfit manage group:app=google-chrome --follow --nice 10
+procfit manage pid:1234 --snapshot --stop
+procfit set managed:browsers --nice 15
+procfit set managed:browsers --freeze
+procfit restore managed:browsers
+procfit restore managed:browsers --field nice
+procfit unmanage managed:browsers
+procfit signal TERM pid:1234
 ```
 
 Flags:
@@ -472,9 +472,9 @@ Flags:
 ```text
 --nice N                 Linux nice value -20..19
 --stop                   Desired execution control SIGSTOP
---continue               Clear pm-owned SIGSTOP intent
+--continue               Clear procfit-owned SIGSTOP intent
 --freeze                 Desired cgroup frozen state
---thaw                   Clear pm-owned cgroup freeze intent
+--thaw                   Clear procfit-owned cgroup freeze intent
 --snapshot               Bind only instances resolved now
 --follow                 Re-resolve a logical target continuously
 --dry-run
@@ -536,12 +536,12 @@ Precedence for selecting a config file:
 
 1. `--no-config`: load none;
 2. `--config PATH`;
-3. `$PM_CONFIG` if set;
+3. `$PROCFIT_CONFIG` if set;
 4. exactly one of:
-   - `$XDG_CONFIG_HOME/pm/config.toml`;
-   - `$XDG_CONFIG_HOME/pm/config.yaml`;
-   - `$XDG_CONFIG_HOME/pm/config.yml`;
-   - `$XDG_CONFIG_HOME/pm/config.json`;
+   - `$XDG_CONFIG_HOME/procfit/config.toml`;
+   - `$XDG_CONFIG_HOME/procfit/config.yaml`;
+   - `$XDG_CONFIG_HOME/procfit/config.yml`;
+   - `$XDG_CONFIG_HOME/procfit/config.json`;
    - with `~/.config` as the XDG fallback.
 
 If multiple default config files exist, return an error listing them. Never
@@ -682,10 +682,10 @@ Custom presets may override built-ins by name only if
 ### 9.7 Config utilities
 
 ```bash
-pm config check
-pm config check ./config.yaml
-pm config convert config.yaml --to toml
-pm --preset battery --interval 500ms config dump --effective
+procfit config check
+procfit config check ./config.yaml
+procfit config convert config.yaml --to toml
+procfit --preset battery --interval 500ms config dump --effective
 ```
 
 `dump --effective` must show the fully resolved canonical configuration after
@@ -747,7 +747,7 @@ Initial functions:
 ```text
 exists(field)        value is available in this row
 missing(field)       value is unavailable
-changed(field)       pm has changed this controlled field
+changed(field)       procfit has changed this controlled field
 drifted(field)       desired and observed differ
 age()                process/group age
 last_seen()          managed target's last-seen age
@@ -1222,7 +1222,7 @@ Probe once at startup and refresh after relevant errors. Report:
 - namespace types present;
 - daemon/socket availability.
 
-`pm capabilities` must include a human explanation and remediation hints without
+`procfit capabilities` must include a human explanation and remediation hints without
 requiring the user to run as root by default.
 
 ## 15. Control model
@@ -1256,7 +1256,7 @@ type ControlledField[T comparable] struct {
 ```
 
 Capture `Original` exactly once per target-binding instance and field, before
-the first successful `pm` mutation. Updating desired state must not overwrite
+the first successful `procfit` mutation. Updating desired state must not overwrite
 original.
 
 ### 15.3 Nice semantics
@@ -1272,19 +1272,19 @@ For a mixed group, `NICE` renders `mixed`; inspection lists values and counts.
 
 Increasing numeric nice (reducing priority) is usually allowed for owned
 processes. Restoring to a smaller number may require `CAP_SYS_NICE`; therefore a
-change can succeed while later restore is permission denied. `pm` must warn
+change can succeed while later restore is permission denied. `procfit` must warn
 before applying a change when it predicts restore may require privileges not
 currently available.
 
 ### 15.4 STOP/CONT semantics
 
-`CONT` is an action, not a process state. `pm` tracks its own stop intent as
+`CONT` is an action, not a process state. `procfit` tracks its own stop intent as
 control state while `PSTATE` remains the observed kernel state.
 
 Important limitation: Linux does not expose a clean ownership count for
-SIGSTOP reasons. If a task was already stopped before `pm`, `pm` must record that
+SIGSTOP reasons. If a task was already stopped before `procfit`, `procfit` must record that
 and must not blindly send SIGCONT during restore. If another actor stops it
-after `pm`, ownership is ambiguous. Default drift policy is report and require
+after `procfit`, ownership is ambiguous. Default drift policy is report and require
 confirmation, not force-continue.
 
 ### 15.5 Cgroup freeze semantics
@@ -1293,7 +1293,7 @@ Arbitrary process groups do not necessarily correspond to an existing writable
 cgroup. A cgroup controller must declare whether it:
 
 - controls an existing cgroup in place; or
-- creates a delegated `pm` cgroup and migrates processes.
+- creates a delegated `procfit` cgroup and migrates processes.
 
 Migration changes cgroup membership and can conflict with systemd/container
 managers. The first cgroup-freeze implementation should operate only on an
@@ -1350,7 +1350,7 @@ By default refuse control of:
 
 - PID 1;
 - kernel threads;
-- the `pm` daemon, current client, and their ancestor chain;
+- the `procfit` daemon, current client, and their ancestor chain;
 - the user's session manager and critical systemd manager processes;
 - a target resolving to more than a configurable safety limit, default 256,
   without confirmation;
@@ -1366,25 +1366,25 @@ checks. Never implement a setuid path.
 
 | Class | Default location | Contents | Lifetime |
 |---|---|---|---|
-| Config / intent | `$XDG_CONFIG_HOME/pm/config.{toml,yaml,yml,json}` | Defaults, presets, managed selectors, policies | Persistent |
-| Runtime state | `$XDG_RUNTIME_DIR/pm/` | Live bindings, manual targets, captured originals, desired/observed values, actions | Login session / reboot |
-| Optional history | `$XDG_STATE_HOME/pm/` | Audit events and inactive target counters | Persistent, opt-in |
+| Config / intent | `$XDG_CONFIG_HOME/procfit/config.{toml,yaml,yml,json}` | Defaults, presets, managed selectors, policies | Persistent |
+| Runtime state | `$XDG_RUNTIME_DIR/procfit/` | Live bindings, manual targets, captured originals, desired/observed values, actions | Login session / reboot |
+| Optional history | `$XDG_STATE_HOME/procfit/` | Audit events and inactive target counters | Persistent, opt-in |
 
-Fallback runtime path is `/run/user/<uid>/pm` only when ownership and mode are
+Fallback runtime path is `/run/user/<uid>/procfit` only when ownership and mode are
 correct. If `XDG_RUNTIME_DIR` is absent and no safe `/run/user/<uid>` exists,
 standalone mode may create a private temporary directory and warn that restore
 metadata is not durable across invocations. It must never default to a shared,
-predictable `/tmp/pm` path.
+predictable `/tmp/procfit` path.
 
 ### 16.2 Runtime files
 
 Recommended layout:
 
 ```text
-$XDG_RUNTIME_DIR/pm/
+$XDG_RUNTIME_DIR/procfit/
   state.json
   state.lock
-  pm.sock
+  procfit.sock
   events.ndjson          optional bounded debug log
 ```
 
@@ -1509,7 +1509,7 @@ different UID by default. Bound request and response sizes.
 
 ### 17.4 Daemon reload
 
-SIGHUP or `pm daemon reload` performs parse/normalize/validate before replacing
+SIGHUP or `procfit daemon reload` performs parse/normalize/validate before replacing
 the active config. A bad new config leaves the prior config active and reports
 the error. Removed policy rules become unmanaged but are not implicitly
 restored; an optional future rule may request restore-on-removal.
@@ -1675,7 +1675,7 @@ into exit code 3/4; default operation continues with unavailable values.
 
 ### 20.3 Sensitive output
 
-Command lines, environment, CWD, and file paths may contain secrets. `pm` does
+Command lines, environment, CWD, and file paths may contain secrets. `procfit` does
 not collect process environments by default. Machine output should provide
 `--redact cmdline|paths|all`. The daemon socket and state directory are
 user-private.
@@ -1740,7 +1740,7 @@ Budgets are measured on a representative Linux laptop with 300 processes and
   proc directory scans in flight;
 - disabled collectors perform no periodic work;
 - daemon with two clients performs one shared collection, not two;
-- self-metrics are visible in `pm capabilities --verbose` or debug inspection.
+- self-metrics are visible in `procfit capabilities --verbose` or debug inspection.
 
 These are initial engineering targets, not a reason to corrupt or omit data.
 Benchmark results should accompany significant collector changes.
@@ -1765,7 +1765,7 @@ file. The daemon exposes:
 - reconcile actions, failures, and drift;
 - connected clients and protocol versions.
 
-An optional `pm doctor` command may later package non-sensitive diagnostic
+An optional `procfit doctor` command may later package non-sensitive diagnostic
 metadata. It must redact cmdlines and paths by default.
 
 ## 24. Internal package layout
@@ -1773,7 +1773,7 @@ metadata. It must redact cmdlines and paths by default.
 Recommended repository structure:
 
 ```text
-cmd/pm/                   entry point
+cmd/procfit/                   entry point
 internal/app/             command orchestration
 internal/config/          adapters, canonical DTO, merge, normalize, validate
 internal/expr/            lexer, parser, type checker, evaluator
@@ -1929,7 +1929,7 @@ Exit criterion: config equivalence and strictness tests pass; `config check`,
 - Light process metrics and rate sampler.
 - Entity selector DSL.
 - Arbitrary grouping pipeline, aggregation, leaves, having, sort, columns.
-- `pm ps`, `pm stat`, JSON/NDJSON/table output.
+- `procfit ps`, `procfit stat`, JSON/NDJSON/table output.
 - Built-in presets and capability reporting.
 
 Exit criterion: the tool is already useful as a grouped `ps`/`pidstat` and meets
@@ -1982,10 +1982,10 @@ light-profile work when disabled.
 
 The MVP is Phases 0–2 and is complete when all are true:
 
-1. `pm ps --group-by comm --leaf none --sort cpu:desc` reports correct aggregate
+1. `procfit ps --group-by comm --leaf none --sort cpu:desc` reports correct aggregate
    CPU without double counting process memory.
-2. `pm ps --group-by none --leaf process` produces a flat process list.
-3. `pm stat 1s --count 3` prints three timestamped, append-only sample batches.
+2. `procfit ps --group-by none --leaf process` produces a flat process list.
+3. `procfit stat 1s --count 3` prints three timestamped, append-only sample batches.
 4. TOML, YAML, and JSON versions of the same configuration resolve to identical
    canonical config.
 5. Unknown config keys and duplicate keys fail in all three formats.
@@ -2027,7 +2027,7 @@ A feature is not done until it includes:
 
 These are intentionally not blockers for Phases 0–2:
 
-1. Final project/binary name; `pm` remains provisional.
+1. Final project/binary name; `procfit` remains provisional.
 2. Exact app-ID resolver precedence across desktop environments and Flatpak/Snap.
 3. Whether canonical disk metric names are long
    (`disk-read-bytes`) or interactive (`disk-rbps`).
@@ -2041,7 +2041,7 @@ These are intentionally not blockers for Phases 0–2:
    operations. It is excluded until a separate security RFC.
 9. Dynamic metric-triggered control policies with hysteresis. They require a
    separate policy RFC.
-10. Automatic process migration into `pm`-owned cgroups. It requires explicit
+10. Automatic process migration into `procfit`-owned cgroups. It requires explicit
     systemd/container interaction rules.
 
 ## 31. Implementation guidance for an autonomous coding agent
@@ -2081,7 +2081,7 @@ PR 11 daemon and config policies
 ## 32. Summary of normative decisions
 
 - Linux-only, Go reference implementation.
-- `pm` is a replaceable working name.
+- `procfit` is a replaceable working name.
 - Collection/query and control/state are separate planes.
 - PID plus starttime and boot scope define instance identity.
 - Grouping is an ordered list of dimensions; leaves are independently

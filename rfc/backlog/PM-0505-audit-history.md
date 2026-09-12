@@ -11,7 +11,7 @@ rfc: ["§16.1", "§16.6", "§23", "§30.7"]
 ## Summary
 
 Opt-in persistent history: audit events and inactive-target lifetime counters in
-`$XDG_STATE_HOME/pm/`, kept separate from runtime state.
+`$XDG_STATE_HOME/procfit/`, kept separate from runtime state.
 
 ## Scope
 
@@ -19,7 +19,7 @@ Opt-in persistent history: audit events and inactive-target lifetime counters in
   (`[state].history`).
 - History must NOT rebind by numeric PID or namespace inode alone across boots
   (§16.5/§16.6).
-- Optional `pm doctor` groundwork: redact cmdlines/paths by default (§23).
+- Optional `procfit doctor` groundwork: redact cmdlines/paths by default (§23).
 
 ## Out of scope
 

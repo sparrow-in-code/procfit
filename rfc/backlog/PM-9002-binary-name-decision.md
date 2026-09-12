@@ -11,7 +11,7 @@ rfc: ["§13", "§30.1", "§30.3"]
 ## Summary
 
 Track and resolve the naming open questions so they do not block, but are decided
-before v1: the binary name (`pm` is provisional and may collide) and canonical
+before v1: the binary name (`procfit` is provisional and may collide) and canonical
 disk-metric names.
 
 ## Scope
@@ -29,7 +29,7 @@ disk-metric names.
 
 ## Acceptance criteria
 
-- [ ] A recorded decision for the binary name (or explicit "keep `pm` for now").
+- [ ] A recorded decision for the binary name (or explicit "keep `procfit` for now").
 - [ ] A recorded decision fixing canonical disk-metric ids + aliases before v1.
 - [ ] Master RFC updated to reflect both decisions.
 

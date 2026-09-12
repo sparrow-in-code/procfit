@@ -18,9 +18,9 @@ readable metric and capability metadata.
 - Built-in read-only presets (§9.6): default, battery, io, churn, namespaces,
   managed, all. Custom presets may only override built-ins when
   `allow_builtin_preset_override = true`.
-- `pm metrics list [--format json]`: id, cost, source, availability from registry
+- `procfit metrics list [--format json]`: id, cost, source, availability from registry
   (§8, §13).
-- `pm capabilities [--format json] [--verbose]`: available/missing collectors and
+- `procfit capabilities [--format json] [--verbose]`: available/missing collectors and
   controllers with human explanation + remediation, no root required (§14.3,
   §20.2); `--strict-capabilities` turns explicitly-requested-but-unavailable
   metrics into exit 3/4 (§20.2).

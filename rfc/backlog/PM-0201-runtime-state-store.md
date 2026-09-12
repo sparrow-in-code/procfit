@@ -17,8 +17,8 @@ desired/observed values — atomically written, boot-scoped, single-writer.
 
 - Three state classes + XDG locations (§16.1); runtime dir resolution with safe
   `/run/user/<uid>` fallback and private-temp last resort (never shared
-  `/tmp/pm`).
-- Layout (§16.2): `state.json`, `state.lock`, `pm.sock` placeholder,
+  `/tmp/procfit`).
+- Layout (§16.2): `state.json`, `state.lock`, `procfit.sock` placeholder,
   `events.ndjson`; dir `0700`, files `0600`; refuse foreign-UID/unsafe-symlink;
   `openat2`/safe-open where practical.
 - Versioned JSON state schema (§16.3) with atomic write: temp → fsync → rename →

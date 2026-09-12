@@ -42,7 +42,7 @@ capability requirements live here — never in renderers or the query engine.
 - [ ] Canonical vs alias ids resolve (e.g. `disk-rbps` alias handling per §13.1).
 - [ ] Registry exposes cost, scope, and aggregation so double-counting rules
       (§12.4) are expressible without renderer logic.
-- [ ] `pm metrics list` and `pm capabilities` (PM-0109) can be built purely from
+- [ ] `procfit metrics list` and `procfit capabilities` (PM-0109) can be built purely from
       registry metadata.
 
 ## Tests required

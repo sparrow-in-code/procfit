@@ -6,7 +6,7 @@ state field in its front matter. Tickets are physically located in the
 subdirectory that matches their state.
 
 The canonical product specification lives outside this directory in
-[`../RFC-pm-linux-process-observer-controller.md`](../RFC-pm-linux-process-observer-controller.md).
+[`../RFC-procfit-linux-process-observer-controller.md`](../RFC-procfit-linux-process-observer-controller.md).
 Tickets are *derived from* that spec and must cite the RFC sections they
 implement. When a ticket and the RFC disagree, the RFC wins — unless the ticket
 records an approved amendment (see below).

@@ -15,14 +15,14 @@ separation, plus the shared safeguard module protecting critical processes.
 
 ## Scope
 
-- Stop/continue backend via pidfd signal or kill (§15.1); pm tracks its own stop
+- Stop/continue backend via pidfd signal or kill (§15.1); procfit tracks its own stop
   *intent* as control state while `PSTATE` stays the observed kernel state
   (§15.4).
-- Pre-stopped detection: if a task was already stopped before pm, record it and
+- Pre-stopped detection: if a task was already stopped before procfit, record it and
   do NOT blindly SIGCONT on restore; ambiguous external stop ⇒ report + confirm
   (§15.4).
-- Arbitrary `pm signal <sig> <target>` with confirmation safeguards (§8.6).
-- Shared safeguard module (§15.9): refuse PID 1, kernel threads, the pm
+- Arbitrary `procfit signal <sig> <target>` with confirmation safeguards (§8.6).
+- Shared safeguard module (§15.9): refuse PID 1, kernel threads, the procfit
   daemon/client + ancestor chain, session/systemd manager, >safety-limit (256)
   targets without confirm, out-of-permission-boundary, cross-boot ambiguous
   identities. `--force-system` is explicit/noisy and still cannot bypass kernel
@@ -38,7 +38,7 @@ separation, plus the shared safeguard module protecting critical processes.
 
 - [ ] SIGSTOP intent shown separately from observed `PSTATE`; pre-stopped tasks
       not auto-continued on restore (MVP §28.12).
-- [ ] Safeguards refuse PID 1, kernel threads, and pm's own chain by default.
+- [ ] Safeguards refuse PID 1, kernel threads, and procfit's own chain by default.
 - [ ] Signals revalidate identity immediately before delivery (§21.2).
 - [ ] Non-interactive destructive action without `--yes` is refused.
 - [ ] `--force-system` cannot bypass kernel permission errors.

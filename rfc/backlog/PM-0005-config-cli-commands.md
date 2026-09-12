@@ -15,10 +15,10 @@ and portable across formats. This is the Phase 0 exit criterion.
 
 ## Scope
 
-- `pm config check [file]`: strict validation, exit code 2 on failure.
-- `pm config convert <file> --to toml|yaml|json`: lossless conversion via the
+- `procfit config check [file]`: strict validation, exit code 2 on failure.
+- `procfit config convert <file> --to toml|yaml|json`: lossless conversion via the
   canonical model (not text munging).
-- `pm config dump --effective [--explain]`: fully resolved config after
+- `procfit config dump --effective [--explain]`: fully resolved config after
   defaults + config + preset inheritance + CLI overrides; `--explain` annotates
   each value's source (§9.7).
 

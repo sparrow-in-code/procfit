@@ -15,7 +15,7 @@ for all clients, plus the client facade selecting embedded vs daemon transport.
 
 ## Scope
 
-- `pm daemon run` engine lifecycle (§17.1): continuous collection, authoritative
+- `procfit daemon run` engine lifecycle (§17.1): continuous collection, authoritative
   single runtime-state writer (§16.4), event-driven notifications.
 - Modes (§17.2): `auto` (connect if socket exists else embedded), `require`
   (fail without daemon), `never` (embedded). `--standalone` forces embedded.

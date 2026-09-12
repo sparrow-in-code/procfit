@@ -1,9 +1,9 @@
-# pm — Linux Process Observer and Workload Controller
+# procfit — Linux Process Observer and Workload Controller
 
-> `pm` is a working name and may change (RFC §30.1); it is kept behind a single
+> `procfit` is a working name and may change (RFC §30.1); it is kept behind a single
 > constant so renaming is trivial.
 
-`pm` is a low-overhead Linux process explorer, metrics sampler, and interactive
+`procfit` is a low-overhead Linux process explorer, metrics sampler, and interactive
 workload controller. It unifies the useful parts of `ps`, `pidstat`, `vmstat`,
 `htop`, `powertop`, and simple cgroup/process control behind one normalized
 snapshot pipeline that powers a TUI, a one-shot table, a streaming view, and
@@ -22,7 +22,7 @@ build plan**; code is delivered ticket by ticket per the roadmap.
 
 | Path | What |
 |---|---|
-| [`RFC-pm-linux-process-observer-controller.md`](RFC-pm-linux-process-observer-controller.md) | The product specification — single source of truth. |
+| [`RFC-procfit-linux-process-observer-controller.md`](RFC-procfit-linux-process-observer-controller.md) | The product specification — single source of truth. |
 | [`AGENTS.md`](AGENTS.md) / `CLAUDE.md` | Start-here onboarding for contributors/agents. |
 | [`DEVELOPMENT.md`](DEVELOPMENT.md) | Engineering handbook: architecture, SOLID, TDD, testing, workflow, Definition of Done. |
 | [`rfc/`](rfc/) | Tickets, tracked by state in `backlog/` (TODO), `wip/` (WIP), `archive/` (DONE). See [`rfc/README.md`](rfc/README.md). |

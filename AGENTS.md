@@ -1,6 +1,6 @@
 # AGENTS.md — Start here
 
-This file orients any agent (or human) working on **`pm`**, a low-overhead Linux
+This file orients any agent (or human) working on **`procfit`**, a low-overhead Linux
 process observer and workload controller written in Go.
 
 `CLAUDE.md` is a symlink to this file. Read it fully before doing anything.
@@ -11,7 +11,7 @@ process observer and workload controller written in Go.
 
 Do not write code until you have read:
 
-1. **[`RFC-pm-linux-process-observer-controller.md`](RFC-pm-linux-process-observer-controller.md)**
+1. **[`RFC-procfit-linux-process-observer-controller.md`](RFC-procfit-linux-process-observer-controller.md)**
    — the product specification and single source of truth. At minimum internalize
    §6 (principles/invariants), §27 (delivery plan), §28 (MVP acceptance), and
    §32 (normative decisions).
