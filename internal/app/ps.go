@@ -32,10 +32,10 @@ func cmdPS(env Env, args []string) int {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitRuntime
 	}
-	res, err := a.engine.Build(in, r.spec)
+	res, err := a.engine.Build(in, r.Spec)
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage
 	}
-	return a.renderResult(env, res, r.format, r.columns)
+	return a.renderResult(env, res, r.Format, r.Columns)
 }

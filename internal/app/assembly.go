@@ -10,6 +10,7 @@ import (
 	"github.com/netikras/procfit/internal/ports"
 	"github.com/netikras/procfit/internal/procfs"
 	"github.com/netikras/procfit/internal/query"
+	"github.com/netikras/procfit/internal/queryspec"
 	"github.com/netikras/procfit/internal/resolve"
 )
 
@@ -62,19 +63,19 @@ const warmup = time.Second
 
 // sampleForResult produces a query.Input, taking a warm-up second sample when
 // rate metrics are requested unless instant is set (RFC §7.2).
-func (a *assembly) sampleForResult(ctx context.Context, r resolved, instant bool) (query.Input, error) {
+func (a *assembly) sampleForResult(ctx context.Context, r queryspec.Resolved, instant bool) (query.Input, error) {
 	s := collect.NewSampler(a.src, a.clk)
-	snap, err := s.Sample(ctx, r.needed)
+	snap, err := s.Sample(ctx, r.Needed)
 	if err != nil {
 		return query.Input{}, err
 	}
-	if !instant && a.hasRate(r.needed) {
+	if !instant && a.hasRate(r.Needed) {
 		select {
 		case <-ctx.Done():
 			return query.Input{}, ctx.Err()
 		case <-a.wait(warmup):
 		}
-		snap, err = s.Sample(ctx, r.needed)
+		snap, err = s.Sample(ctx, r.Needed)
 		if err != nil {
 			return query.Input{}, err
 		}

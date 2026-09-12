@@ -15,6 +15,7 @@ import (
 	"github.com/netikras/procfit/internal/model"
 	"github.com/netikras/procfit/internal/ports"
 	"github.com/netikras/procfit/internal/procfs"
+	"github.com/netikras/procfit/internal/queryspec"
 	"github.com/netikras/procfit/internal/state"
 )
 
@@ -118,7 +119,7 @@ func (c *ctlAsm) instancesBySelector(sel string) ([]control.Instance, error) {
 	var out []control.Instance
 	for i := range procs {
 		p := &procs[i]
-		if prog.Eval(entityEnv{p: p}) {
+		if prog.Eval(queryspec.EntityEnv{P: p}) {
 			out = append(out, control.Instance{ID: p.ID, PID: p.PID})
 		}
 	}
@@ -137,7 +138,7 @@ func (c *ctlAsm) instancesByGroup(arg string) ([]control.Instance, error) {
 	var out []control.Instance
 	for i := range procs {
 		p := &procs[i]
-		if v := entityField(p, dim); v.Kind == expr.KindString && v.Str == val {
+		if v := queryspec.EntityField(p, dim); v.Kind == expr.KindString && v.Str == val {
 			out = append(out, control.Instance{ID: p.ID, PID: p.PID})
 		} else if v.Kind == expr.KindNumber && fmt.Sprintf("%d", int64(v.Num)) == val {
 			out = append(out, control.Instance{ID: p.ID, PID: p.PID})

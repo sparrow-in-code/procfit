@@ -12,6 +12,7 @@ import (
 
 	"github.com/netikras/procfit/internal/collect"
 	"github.com/netikras/procfit/internal/query"
+	"github.com/netikras/procfit/internal/queryspec"
 	"github.com/netikras/procfit/internal/render"
 	"github.com/netikras/procfit/internal/render/csv"
 	jsonrender "github.com/netikras/procfit/internal/render/json"
@@ -59,7 +60,7 @@ func cmdStat(env Env, args []string) int {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage
 	}
-	cols, err := render.ResolveColumns(a.reg, r.columns)
+	cols, err := render.ResolveColumns(a.reg, r.Columns)
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage
@@ -71,7 +72,7 @@ func cmdStat(env Env, args []string) int {
 	return a.streamLoop(ctx, env, r, cols, interval, *count)
 }
 
-func (a *assembly) streamLoop(ctx context.Context, env Env, r resolved, cols []render.Column, interval time.Duration, count int) int {
+func (a *assembly) streamLoop(ctx context.Context, env Env, r queryspec.Resolved, cols []render.Column, interval time.Duration, count int) int {
 	sampler := collect.NewSampler(a.src, a.clk)
 	emit, err := a.streamEmitter(env, r, cols)
 	if err != nil {
@@ -80,7 +81,7 @@ func (a *assembly) streamLoop(ctx context.Context, env Env, r resolved, cols []r
 	}
 	emitted := 0
 	for {
-		snap, err := sampler.Sample(ctx, r.needed)
+		snap, err := sampler.Sample(ctx, r.Needed)
 		if err != nil {
 			if ctx.Err() != nil {
 				return ExitInterrupted
@@ -91,7 +92,7 @@ func (a *assembly) streamLoop(ctx context.Context, env Env, r resolved, cols []r
 		a.applyResolvers(snap.Processes)
 		res, err := a.engine.Build(query.Input{
 			Generation: snap.Generation, WallTime: snap.WallTime, Elapsed: snap.Elapsed, Processes: snap.Processes,
-		}, r.spec)
+		}, r.Spec)
 		if err != nil {
 			fmt.Fprintf(env.Stderr, "%v\n", err)
 			return ExitUsage
@@ -116,8 +117,8 @@ func (a *assembly) streamLoop(ctx context.Context, env Env, r resolved, cols []r
 // output prefixes each batch with a timestamp header; csv emits its header once;
 // ndjson emits a metadata record then row records; each batch is append-only
 // (RFC §7.3).
-func (a *assembly) streamEmitter(env Env, r resolved, cols []render.Column) (func(*query.Result) error, error) {
-	switch r.format {
+func (a *assembly) streamEmitter(env Env, r queryspec.Resolved, cols []render.Column) (func(*query.Result) error, error) {
+	switch r.Format {
 	case "ndjson":
 		s := ndjson.NewStreamer(env.Stdout, a.reg)
 		return s.WriteResult, nil

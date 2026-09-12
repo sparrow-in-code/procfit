@@ -72,13 +72,3 @@ func TestResolveStateDir(t *testing.T) {
 		t.Error("no XDG_RUNTIME_DIR should be ephemeral")
 	}
 }
-
-func TestParseOverrides(t *testing.T) {
-	got, _ := parseOverrides([]string{"cpu", "+rss", "-vsz", ""})
-	if len(got) != 3 {
-		t.Fatalf("want 3 overrides, got %d", len(got))
-	}
-	if !got[0].Add || got[0].ID != "cpu" || !got[1].Add || got[2].Add {
-		t.Fatalf("override parse wrong: %+v", got)
-	}
-}

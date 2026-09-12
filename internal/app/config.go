@@ -7,6 +7,7 @@ import (
 	"github.com/netikras/procfit/internal/config"
 	"github.com/netikras/procfit/internal/metrics"
 	"github.com/netikras/procfit/internal/query"
+	"github.com/netikras/procfit/internal/queryspec"
 )
 
 // configValidator builds a config.Validator from the registries, without needing
@@ -14,7 +15,6 @@ import (
 func configValidator() config.Validator {
 	reg := metrics.NewDefault()
 	dims := query.NewDimensions()
-	a := &assembly{reg: reg, dims: dims}
 	return config.Validator{
 		HasMetric:    func(s string) bool { return reg.Has(s) },
 		HasDimension: func(s string) bool { return dims.Has(s) },
@@ -22,7 +22,7 @@ func configValidator() config.Validator {
 			d, ok := reg.Get(s)
 			return ok && d.IsRate()
 		},
-		EntityFields: a.entityAllowedFields(),
+		EntityFields: queryspec.AllowedEntityFields(reg),
 		KnownProfile: metrics.IsKnownProfile,
 	}
 }

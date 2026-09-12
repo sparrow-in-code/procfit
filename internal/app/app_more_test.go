@@ -159,28 +159,3 @@ func TestHelp(t *testing.T) {
 		t.Fatalf("--version exit %d", code)
 	}
 }
-
-func TestParseSortKeyForms(t *testing.T) {
-	cases := map[string]struct {
-		field string
-		desc  bool
-	}{
-		"cpu":      {"cpu", false},
-		"cpu:asc":  {"cpu", false},
-		"cpu:desc": {"cpu", true},
-		"-cpu":     {"cpu", true},
-		"+comm":    {"comm", false},
-	}
-	for in, want := range cases {
-		k, err := parseSortKey(in)
-		if err != nil {
-			t.Fatalf("parseSortKey(%q): %v", in, err)
-		}
-		if k.Field != want.field || k.Descending != want.desc {
-			t.Errorf("parseSortKey(%q) = %+v, want %+v", in, k, want)
-		}
-	}
-	if _, err := parseSortKey("cpu:bogus"); err == nil {
-		t.Fatal("bad direction should error")
-	}
-}
