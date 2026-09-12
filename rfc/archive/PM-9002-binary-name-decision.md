@@ -1,7 +1,7 @@
 ---
 id: PM-9002
 title: Decision — final project/binary name and canonical metric names
-state: TODO
+state: DONE
 phase: 0
 depends: []
 owner:
@@ -43,3 +43,7 @@ disk-metric names.
 This is a living decision ticket; it may sit in `backlog/` until v1 approaches.
 Other open questions (§30.2, §30.4–30.10) are tracked inline in their respective
 implementation tickets.
+
+## Status: DONE (2026-09-12)
+
+Decision recorded: project/binary/module = procfit (name isolated in internal/meta.Name). Canonical disk metric ids = disk-rbps/disk-wbps with disk-read-bytes/disk-write-bytes aliases (RFC §30.3). Reflected in the metric registry.

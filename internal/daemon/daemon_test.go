@@ -133,3 +133,44 @@ func TestDaemon_QueryError(t *testing.T) {
 }
 
 func intptr(i int) *int { return &i }
+
+// TestDaemon_NewRunLifecycle exercises production wiring (New/Run/Listen/reload/
+// shutdown) over a real socket and the live /proc.
+func TestDaemon_NewRunLifecycle(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // no config picked up
+	stateDir := filepath.Join(t.TempDir(), "state")
+	sock := filepath.Join(t.TempDir(), "d.sock")
+
+	d, err := New(stateDir, 50*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Reload(); err != nil { // no config => no-op reload
+		t.Fatalf("reload: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- d.Run(ctx, sock) }()
+
+	// Wait for the socket, then handshake.
+	var cl *Client
+	for i := 0; i < 50; i++ {
+		if cl, err = Dial(sock); err == nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if cl == nil {
+		cancel()
+		t.Fatalf("could not connect: %v", err)
+	}
+	if _, err := cl.Hello(); err != nil {
+		t.Fatalf("hello: %v", err)
+	}
+	cl.Close()
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("run returned error: %v", err)
+	}
+}

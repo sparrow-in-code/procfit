@@ -48,7 +48,10 @@ race: ## Run tests with the race detector
 
 .PHONY: cover
 cover: ## Run tests with coverage and enforce the >=80% floor
-	go test -coverprofile=$(COVERPROFILE) -covermode=atomic ./...
+	# Coverage gate scopes to ./internal/... — cmd/procfit is a thin main that only
+	# delegates to internal/app (which IS tested), an explicit exclusion per
+	# DEVELOPMENT.md §3.2.
+	go test -coverprofile=$(COVERPROFILE) -covermode=atomic ./internal/...
 	@go tool cover -func=$(COVERPROFILE) | tail -1
 	@total=$$(go tool cover -func=$(COVERPROFILE) | awk '/^total:/ {gsub(/%/,"",$$3); print $$3}'); \
 	echo "total coverage: $$total% (floor $(COVER_MIN)%)"; \

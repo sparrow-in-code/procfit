@@ -36,5 +36,13 @@ going. Override any of them and I'll adjust.
 - **B. TUI framework** (Phase 3). Default per PM-0301: benchmark tcell vs Bubble
   Tea when I reach Phase 3; leaning tcell for a dense, high-refresh table UI.
 - **C. Folder rename** (see decided #3).
+- **D. eBPF (PM-0503) & perf (PM-0504) backends — BLOCKED, need your environment.**
+  The capability layer is done (metrics registered, `capabilities` reports
+  availability, absent backends render unavailable — never zero). The *real*
+  collectors need a BPF toolchain + CO-RE, elevated privileges (CAP_BPF /
+  CAP_PERFMON or a relaxed `perf_event_paranoid`), and a suitable kernel — none
+  available or testable in this rootless environment. I stopped rather than ship
+  an untestable eBPF loader. The `MetricCollector` port is ready; point me at a
+  suitable host/CI (or say "stub is fine") and I'll implement + verify them.
 
 _Last updated by the autonomous build session._

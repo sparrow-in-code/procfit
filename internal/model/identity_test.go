@@ -48,6 +48,17 @@ func TestProcessInstanceID_Zero(t *testing.T) {
 	}
 }
 
+func TestIdentity_Strings(t *testing.T) {
+	p := ProcessInstanceID{PID: 1234, StartTime: 99}
+	if p.String() != "pid:1234@99" {
+		t.Fatalf("process id string = %q", p.String())
+	}
+	th := ThreadInstanceID{Process: p, TID: 12, StartTime: 5}
+	if th.String() != "tid:1234/12@5" {
+		t.Fatalf("thread id string = %q", th.String())
+	}
+}
+
 func TestThreadInstanceID(t *testing.T) {
 	p := ProcessInstanceID{BootID: "b", PID: 10, StartTime: 100}
 	a := ThreadInstanceID{Process: p, TID: 11, StartTime: 100}

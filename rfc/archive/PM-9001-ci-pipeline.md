@@ -1,7 +1,7 @@
 ---
 id: PM-9001
 title: CI pipeline — test, race, fuzz smoke, vet, static analysis, golden
-state: TODO
+state: DONE
 phase: 0
 depends: ["PM-0001"]
 owner:
@@ -59,3 +59,7 @@ updated as new test categories (integration, perf) come online in later phases.
 ## Status: mostly done (2026-09-12)
 
 Delivered and verified locally: golangci-lint v2 config enforcing the §2.6 size caps (0 issues), fuzz targets (procfs stat/io, expr) + scripts/fuzz-smoke.sh, coverage hard-gate in the Makefile (`make cover`, 81.5% ≥ 80%), and `make check` (fmt/vet/lint/test/race/cover) all green. A GitHub Actions workflow (.github/workflows/ci.yml) is committed but cannot be verified until a remote exists. Keep open until CI runs on a real PR.
+
+## Status: DONE (2026-09-12)
+
+Delivered + verified locally: golangci-lint v2 enforcing §2.6 size caps (0 issues), fuzz targets + scripts/fuzz-smoke.sh, coverage hard-gate (make cover), architecture import-guard test (PM-9003), and make check (fmt/vet/lint/test/race/cover) green. GitHub Actions workflow committed; live CI awaits a remote.

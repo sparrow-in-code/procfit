@@ -1,7 +1,7 @@
 ---
 id: PM-9003
 title: Establish the ports-and-adapters boundary (OS-agnostic core, pluggable backends)
-state: TODO
+state: DONE
 phase: 0
 depends: ["PM-0001"]
 owner:
@@ -66,3 +66,7 @@ This ticket ensures portability is free later. If it appears to conflict with th
 RFC, raise a `PM-90NN` amendment rather than deviating silently (RFC §31.10).
 Deep OS/tool-specific work should conform to these seams; revisit early Phase 1
 tickets to target `internal/ports` if this lands after they start.
+
+## Status: DONE (2026-09-12)
+
+Ports-and-adapters boundary established: internal/ports defines the core-owned interfaces; OS specifics live in internal/procfs (Linux) behind build tags; fakes in internal/testutil satisfy the same contracts. An architecture import-guard test (internal/archguard) fails the build if any core package imports syscall/x/sys or an adapter/outer package.

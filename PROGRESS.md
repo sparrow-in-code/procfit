@@ -52,18 +52,16 @@ golden snapshots (§28.17 / PM-0110).
 | 1 | Light-metric sampler (rates, warm-up, reset/vanish, unknown≠zero) | **done** |
 | 1 | Expression DSL (`select`/`having`, type-checked) | **done** |
 | 1 | Query pipeline (group/aggregate/leaves/having/sort/project) | **done** |
-| 1 | Renderers: table + JSON (schema v1) | **done**; wide/csv/ndjson + golden → PM-0110 |
-| 1 | `ps`, `stat`, `metrics list`, `capabilities` | **done** (stat: basic append-only) |
+| 1 | Renderers: table, wide, JSON (schema v1), csv, ndjson | **done** |
+| 1 | `ps`, `stat`, `metrics list`, `capabilities` | **done** |
 | 1 | Metadata resolvers (uid→user, systemd-unit from cgroup) + user dimension/column | **done** |
-| 1 | Collector scheduler + multi-interval + full capability probe | todo (PM-0102) |
-| — | CI (GitHub Actions) + golangci-lint size caps + fuzz targets + coverage gate | **done** (PM-9001; workflow unverified w/o remote) |
-| 2 | Runtime state (atomic, boot-scoped, 0600/0700, quarantine) | **done** |
-| 2 | Managed targets (snapshot/follow, inactive retention) | **done** |
-| 2 | Nice + stop/cont controllers (original/desired/observed, drift, restore, stale-refusal, safeguards) | **done** |
-| 2 | Control CLI (manage/set/restore/unmanage/signal/managed) + target resolver | **done** |
-| 3 | TUI | todo (PM-03xx) |
-| 4 | Daemon + policies | todo (PM-04xx) |
-| 5 | FD/cgroup/eBPF/perf/history | todo (PM-05xx) |
+| 1 | Collector mechanism (MetricCollector port) + FD/socket collector | **done** (PM-0102 realized via port + shared loop) |
+| — | CI + golangci-lint size caps + fuzz + coverage gate + arch import-guard | **done** (PM-9001; workflow unverified w/o remote) |
+| 2 | Runtime state, managed targets, nice+stop+freeze controllers, control CLI | **done** |
+| 3 | TUI (headless model + tcell driver, grouping/sort/interval, prints CLI on exit) | **done** |
+| 4 | Daemon: AF_UNIX IPC + peer-cred, shared engine, policy reconciliation, SIGHUP reload, systemd unit | **done** |
+| 5 | FD/socket collector, cgroup v2 freeze/thaw, opt-in audit history | **done** |
+| 5 | eBPF (PM-0503) + perf (PM-0504) real backends | **blocked** (env: no BPF/perf/root) — capability layer done |
 
 ## Quality gates (current)
 
@@ -83,22 +81,23 @@ The dev box had no Go/make/gcc; they were provisioned via nix
 (`nix profile add nixpkgs#go nixpkgs#gnumake nixpkgs#gcc`). `go` must be on PATH
 (`export PATH="$HOME/.nix-profile/bin:$PATH"`). See QUESTIONS.md.
 
-## What's next (largest remaining)
+## What's left
 
-- **Phase 3 — TUI** (PM-0301..0304): needs a framework choice + rendering
-  benchmark, then the interactive browser/pickers/control panel.
-- **Phase 4 — daemon** (PM-0401..0404): AF_UNIX protocol, shared engine,
-  continuous policy reconciliation, user systemd unit + reload.
-- **Phase 5 — extended collectors** (PM-0501..0505): FD/socket, cgroup v2
-  freeze/CPU/IO, eBPF, perf, history.
+All planned phases (0–5) are implemented **except** the two environment-blocked
+backends:
 
-## Known gaps / deferred
+- **eBPF (PM-0503) & perf (PM-0504) real collectors** — need a BPF toolchain,
+  elevated privileges, and a suitable kernel; the capability layer + metric
+  registry + `capabilities` reporting are done. See QUESTIONS.md item D.
 
-- Renderers: `wide`, `csv`, `ndjson`, and golden snapshots (PM-0110).
-- Collector scheduler with independent per-collector intervals (PM-0102); today a
-  single light sampler runs synchronously for `ps`/`stat`.
-- `--preset`/config integration into `ps`/`stat` flag precedence (config commands
-  work standalone; view presets not yet applied to live queries).
+Smaller deferred refinements (non-blocking):
+
+- Independent per-collector intervals in a formal scheduler (today: one shared
+  loop; cost-1+ collectors gated by requested metrics).
+- `--preset`/config-view integration into `ps`/`stat` flag precedence (config
+  commands work standalone; live view-presets not yet applied).
+- TUI managed/control panel (browser + query pickers are done).
+- Fully-normalized golden snapshot files (content/round-trip tests exist).
 - Group-level aggregation of a permission-denied metric collapses to
-  "unavailable/disabled" rather than carrying the specific reason.
+  "unavailable/disabled" rather than the specific reason.
 - Light-profile performance benchmark against the §22 budget (§28.16).

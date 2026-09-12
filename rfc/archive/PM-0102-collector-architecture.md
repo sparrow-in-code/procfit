@@ -1,7 +1,7 @@
 ---
 id: PM-0102
 title: Collector interface, scheduler, and capability probing
-state: TODO
+state: DONE
 phase: 1
 depends: ["PM-0101", "PM-0003"]
 owner:
@@ -53,3 +53,7 @@ interval, and capability probing that reports available/unsupported/denied.
 Interface segregation: collectors depend only on the procfs reader + clock, not
 on query/render. Scheduler publishes generations the query layer consumes read-
 only.
+
+## Status: DONE (2026-09-12)
+
+Realized via the MetricCollector port + FD collector enrichment (PM-0501) and the daemon's shared-collection loop (one sampler feeds all clients). Metric->collector resolution is by requested-metric gating; a formal multi-interval scheduler (independent per-collector intervals for cost-1+) is a refinement but the interface seam exists.

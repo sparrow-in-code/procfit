@@ -66,10 +66,57 @@ func TestBuild_SelectHavingValidated(t *testing.T) {
 	}
 }
 
+func TestBuild_HavingSortColumnsNeeded(t *testing.T) {
+	reg, dims := regDims()
+	r, err := Build(reg, dims, Flags{
+		GroupBy: "comm", Leaf: "none", Having: "cpu > 1",
+		Columns: "target,rss", Sort: "disk-rbps:desc",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Spec.Having == nil {
+		t.Fatal("having predicate should be set")
+	}
+	// needed must include cpu (having), rss (column), disk-rbps (sort).
+	want := map[string]bool{"cpu": true, "rss": true, "disk-rbps": true}
+	for _, id := range r.Needed {
+		delete(want, string(id))
+	}
+	if len(want) != 0 {
+		t.Fatalf("needed metrics missing %v (got %v)", want, r.Needed)
+	}
+}
+
+func TestBuild_HavingInvalidField(t *testing.T) {
+	reg, dims := regDims()
+	if _, err := Build(reg, dims, Flags{Having: "bogusrow > 1"}); err == nil {
+		t.Fatal("invalid having field should error")
+	}
+}
+
 func TestParseOverrides(t *testing.T) {
 	got, _ := ParseOverrides([]string{"cpu", "+rss", "-vsz", ""})
 	if len(got) != 3 || !got[0].Add || got[0].ID != "cpu" || got[2].Add {
 		t.Fatalf("override parse wrong: %+v", got)
+	}
+}
+
+func TestPredicatesEval(t *testing.T) {
+	reg, dims := regDims()
+	r, err := Build(reg, dims, Flags{Select: "uid == 0", Having: "procs > 1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := &model.Process{UID: 0}
+	nonroot := &model.Process{UID: 1000}
+	if !r.Spec.Select.EvalEntity(root) || r.Spec.Select.EvalEntity(nonroot) {
+		t.Fatal("select uid==0 predicate wrong")
+	}
+	big := &query.Row{Procs: 2}
+	small := &query.Row{Procs: 1}
+	if !r.Spec.Having.EvalRow(big) || r.Spec.Having.EvalRow(small) {
+		t.Fatal("having procs>1 predicate wrong")
 	}
 }
 

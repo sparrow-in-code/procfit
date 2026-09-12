@@ -138,6 +138,42 @@ func TestShortCircuit(t *testing.T) {
 	}
 }
 
+func TestStringOrderingAndEscapes(t *testing.T) {
+	env := mapEnv{"comm": Str("m"), "note": Str("a\nb")}
+	// String ordering operators (orderStr).
+	if !evalOK(t, `comm > "a"`, env) || evalOK(t, `comm < "a"`, env) {
+		t.Fatal("string ordering wrong")
+	}
+	if !evalOK(t, `comm >= "m"`, env) || !evalOK(t, `comm <= "m"`, env) {
+		t.Fatal("string >=/<= wrong")
+	}
+	// Escaped newline in a string literal (unescape).
+	if !evalOK(t, `note == "a\nb"`, env) {
+		t.Fatal("escaped newline literal should match")
+	}
+}
+
+func TestValueString(t *testing.T) {
+	cases := []struct {
+		v    Value
+		want string
+	}{
+		{Num(3), "3"},
+		{Str("hi"), "hi"},
+		{Bool(true), "true"},
+		{Missing, "<missing>"},
+	}
+	for _, c := range cases {
+		if c.v.String() != c.want {
+			t.Errorf("Value.String() = %q, want %q", c.v.String(), c.want)
+		}
+	}
+	list := Value{Kind: KindList, List: []Value{Num(1)}}
+	if list.String() == "" {
+		t.Fatal("list String should be non-empty")
+	}
+}
+
 func TestValidateFields(t *testing.T) {
 	p, err := Compile(`cpu > 5 && comm == "x"`)
 	if err != nil {

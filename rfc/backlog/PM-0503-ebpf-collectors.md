@@ -49,3 +49,7 @@ PM-90NN note before shipping the metric.
 ## Status: partial (2026-09-12)
 
 Capability-gating done: metric descriptors registered (render unavailable, never zero), profiles/columns resolve, and `capabilities` reports the backend as unsupported/permission_denied. The actual eBPF/perf backend is deferred — it needs cgo + kernel headers + CAP_BPF/CAP_PERFMON (or lowered perf_event_paranoid) and cannot be built/tested in this rootless environment. This matches RFC intent that these backends are optional and must never be mandatory.
+
+## Status: capability layer DONE; full backend BLOCKED (2026-09-12)
+
+Done: metric descriptors registered (cost 2/3), profiles reference them, `capabilities` reports BPF/perf availability + remediation, and absent backends yield unavailable (never zero) — satisfying the RFC's 'optional, degrade gracefully' contract. Blocked: the real eBPF/perf collectors need a BPF toolchain + CO-RE, elevated privileges (CAP_BPF/CAP_PERFMON or relaxed perf_event_paranoid), and a suitable kernel — none available or verifiable in this rootless dev/CI environment. Deferred rather than shipping an untestable loader (see QUESTIONS.md item D). The collector seam (MetricCollector port) is ready to plug a backend in.
