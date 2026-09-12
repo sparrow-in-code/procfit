@@ -45,3 +45,7 @@ from `/proc` scanning, each with a written attribution definition.
 
 Wakeup attribution names/semantics are an open question (§30.6). Resolve via a
 PM-90NN note before shipping the metric.
+
+## Status: partial (2026-09-12)
+
+Capability-gating done: metric descriptors registered (render unavailable, never zero), profiles/columns resolve, and `capabilities` reports the backend as unsupported/permission_denied. The actual eBPF/perf backend is deferred — it needs cgo + kernel headers + CAP_BPF/CAP_PERFMON (or lowered perf_event_paranoid) and cannot be built/tested in this rootless environment. This matches RFC intent that these backends are optional and must never be mandatory.

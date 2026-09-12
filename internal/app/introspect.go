@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/netikras/procfit/internal/metrics"
 )
@@ -123,5 +125,31 @@ func probeCapabilities() []capability {
 		}
 	}
 	caps = append(caps, capability{"proc-io", ioStatus, ioDetail})
+	caps = append(caps, probeCgroup(), probePerf(), probeEBPF())
 	return caps
+}
+
+func probeCgroup() capability {
+	if _, err := os.Stat("/sys/fs/cgroup/cgroup.controllers"); err == nil {
+		return capability{"cgroup-v2", "available", "unified hierarchy present; freeze/CPU/IO need delegation"}
+	}
+	return capability{"cgroup-v2", "unsupported", "unified cgroup v2 hierarchy not found"}
+}
+
+func probePerf() capability {
+	data, err := os.ReadFile("/proc/sys/kernel/perf_event_paranoid")
+	if err != nil {
+		return capability{"perf-counters", "unsupported", "perf_event_paranoid not readable"}
+	}
+	level := strings.TrimSpace(string(data))
+	if level == "-1" || level == "0" || level == "1" {
+		return capability{"perf-counters", "available", "perf_event_paranoid=" + level}
+	}
+	return capability{"perf-counters", "permission_denied", "perf_event_paranoid=" + level + " (lower it or grant CAP_PERFMON)"}
+}
+
+func probeEBPF() capability {
+	// No eBPF backend is compiled into this build (RFC §30.5 is still open), so
+	// event-traced metrics remain unavailable rather than fabricated.
+	return capability{"ebpf", "unsupported", "no eBPF backend in this build; wakeups/net metrics unavailable"}
 }
