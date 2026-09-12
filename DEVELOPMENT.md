@@ -46,11 +46,11 @@ this is the short, loud version.
 5. **Docs move with code.** The `.md` for a feature changes in the same commit as
    the feature (§6).
 
-> If you are coming from Java: yes, bring the discipline. Program to interfaces,
-> favour composition, use the Gang-of-Four patterns where they fit, keep classes
-> (structs) small and cohesive. Go's idioms differ in spelling (small interfaces,
-> embedding, functional options) but the design intent is identical — §2.3 maps
-> the patterns to their Go form so we stay idiomatic *and* disciplined.
+> Bring the discipline. Program to interfaces, favour composition, use the
+> Gang-of-Four patterns where they fit, and keep structs small and cohesive. Go's
+> idioms have their own spelling (small interfaces, embedding, functional options)
+> but the design intent is universal — §2.3 maps the patterns to their Go form so
+> we stay idiomatic *and* disciplined.
 
 ---
 
@@ -149,7 +149,7 @@ SOLID is the first thing a reviewer checks. Each principle below has a concrete
 `model` imports nothing project-specific. Renderers, transports, and syscall
 adapters are the outermost ring and may be swapped without touching the core.
 
-### 2.3 Design patterns we use deliberately (Java → Go map)
+### 2.3 Design patterns we use deliberately (pattern → Go form)
 
 This codebase is explicitly built to be extended and overridden at many layers.
 Use these named patterns for those seams; a reviewer may ask "which pattern is
