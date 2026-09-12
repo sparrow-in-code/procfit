@@ -138,16 +138,6 @@ func TestRun_Routing(t *testing.T) {
 	}
 }
 
-func TestPS_SelectUnimplemented(t *testing.T) {
-	_, restore := fakeAssembly(t, []ports.ProcStat{stat(1, "a", 1, 0, 1)})
-	defer restore()
-	var out, errb bytes.Buffer
-	code := runCmd(Env{Stdout: &out, Stderr: &errb}, "ps", "--select", "uid == 0")
-	if code != ExitUsage {
-		t.Fatalf("select should currently be ExitUsage, got %d", code)
-	}
-}
-
 func lastLine(s string) string {
 	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
 	return lines[len(lines)-1]

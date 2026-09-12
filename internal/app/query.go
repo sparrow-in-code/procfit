@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/netikras/procfit/internal/expr"
 	"github.com/netikras/procfit/internal/metrics"
 	"github.com/netikras/procfit/internal/model"
 	"github.com/netikras/procfit/internal/query"
@@ -84,26 +85,55 @@ func (a *assembly) resolveQuery(qf *queryFlags) (resolved, error) {
 		return r, err
 	}
 
-	if qf.selectExpr != "" || qf.havingExpr != "" {
-		return r, fmt.Errorf("expression filters (--select/--having) are not yet implemented")
-	}
-
 	groupBy := splitComma(qf.groupBy)
 	leaf := query.LeafMode(qf.leaf)
 	if leaf == "" {
 		leaf = query.LeafProcess
 	}
 
-	needed := a.neededMetrics(selection, cols, sortKeys)
+	var selPred query.EntityPredicate
+	var havPred query.RowPredicate
+	var exprFields []string
+	if qf.selectExpr != "" {
+		prog, err := compileValidated(qf.selectExpr, a.entityAllowedFields())
+		if err != nil {
+			return r, err
+		}
+		selPred = selectPred{prog: prog}
+		exprFields = append(exprFields, prog.Fields()...)
+	}
+	if qf.havingExpr != "" {
+		prog, err := compileValidated(qf.havingExpr, a.rowAllowedFields())
+		if err != nil {
+			return r, err
+		}
+		havPred = havingPred{prog: prog}
+		exprFields = append(exprFields, prog.Fields()...)
+	}
+
+	needed := a.neededMetrics(selection, append(cols, exprFields...), sortKeys)
 	r.needed = needed
 	r.spec = query.QuerySpec{
 		Metrics: needed,
+		Select:  selPred,
 		GroupBy: groupBy,
 		Leaf:    leaf,
+		Having:  havPred,
 		Sort:    sortKeys,
 		Columns: cols,
 	}
 	return r, nil
+}
+
+func compileValidated(src string, allowed map[string]bool) (*expr.Program, error) {
+	prog, err := expr.Compile(src)
+	if err != nil {
+		return nil, err
+	}
+	if err := prog.Validate(allowed); err != nil {
+		return nil, err
+	}
+	return prog, nil
 }
 
 // neededMetrics is the union of the profile selection plus any metric referenced

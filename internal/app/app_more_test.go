@@ -49,6 +49,32 @@ func TestCapabilities(t *testing.T) {
 	}
 }
 
+func TestPS_SelectAndHaving(t *testing.T) {
+	p1 := stat(1, "keep", 100, 0, 4096)
+	p1.UID = 1000
+	p2 := stat(2, "drop", 100, 0, 4096)
+	p2.UID = 0
+	g := []ports.ProcStat{p1, p2}
+	_, restore := fakeAssembly(t, g, g)
+	defer restore()
+
+	var out, errb bytes.Buffer
+	code := run(Env{Stdout: &out, Stderr: &errb}, []string{"ps", "--group-by", "none", "--leaf", "process", "--columns", "target", "--select", "uid == 1000"})
+	if code != ExitOK {
+		t.Fatalf("select exit %d stderr=%s", code, errb.String())
+	}
+	if strings.Contains(out.String(), "drop") || !strings.Contains(out.String(), "keep") {
+		t.Fatalf("select uid==1000 wrong output:\n%s", out.String())
+	}
+
+	// Invalid field must be a usage error (type-checked, RFC §10.5).
+	out.Reset()
+	errb.Reset()
+	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"ps", "--select", "bogusfield == 1"}); code != ExitUsage {
+		t.Fatalf("invalid select field should be usage error, got %d", code)
+	}
+}
+
 func TestPS_UnknownMetricAndFormatErrors(t *testing.T) {
 	_, restore := fakeAssembly(t, []ports.ProcStat{stat(1, "a", 1, 0, 1)}, []ports.ProcStat{stat(1, "a", 1, 0, 1)})
 	defer restore()
