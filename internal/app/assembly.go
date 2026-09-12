@@ -18,12 +18,13 @@ import (
 // assembly wires the observation stack. It is constructed per command so tests
 // can inject fakes for the source and clock.
 type assembly struct {
-	reg       *metrics.Registry
-	dims      *query.Dimensions
-	src       ports.ProcessSource
-	clk       ports.Clock
-	engine    *query.Engine
-	resolvers []ports.Resolver
+	reg        *metrics.Registry
+	dims       *query.Dimensions
+	src        ports.ProcessSource
+	clk        ports.Clock
+	engine     *query.Engine
+	resolvers  []ports.Resolver
+	collectors []ports.MetricCollector
 	// wait returns a channel that fires after d; injectable so tests can avoid
 	// real sleeps and advance a fake clock instead.
 	wait func(d time.Duration) <-chan time.Time
@@ -47,7 +48,11 @@ func newAssemblyWith(src ports.ProcessSource, clk ports.Clock) *assembly {
 	reg := metrics.NewDefault()
 	dims := query.NewDimensions()
 	resolvers := []ports.Resolver{resolve.NewUserResolver(""), resolve.NewSystemdResolver()}
-	return &assembly{reg: reg, dims: dims, src: src, clk: clk, engine: query.NewEngine(reg, dims), resolvers: resolvers, wait: time.After}
+	collectors := []ports.MetricCollector{procfs.NewFDCollector("")}
+	return &assembly{
+		reg: reg, dims: dims, src: src, clk: clk, engine: query.NewEngine(reg, dims),
+		resolvers: resolvers, collectors: collectors, wait: time.After,
+	}
 }
 
 // applyResolvers decorates each process with derived labels (user, unit, …).
@@ -57,6 +62,29 @@ func (a *assembly) applyResolvers(procs []model.Process) {
 			r.Resolve(&procs[i])
 		}
 	}
+}
+
+// enrich runs any cost>0 collector whose metrics are requested, so disabled
+// collectors do no work (RFC §22).
+func (a *assembly) enrich(ctx context.Context, procs []model.Process, needed []model.MetricID) {
+	want := make(map[model.MetricID]bool, len(needed))
+	for _, id := range needed {
+		want[id] = true
+	}
+	for _, c := range a.collectors {
+		if intersectsMetrics(c.Metrics(), want) {
+			c.Collect(ctx, procs)
+		}
+	}
+}
+
+func intersectsMetrics(ids []model.MetricID, want map[model.MetricID]bool) bool {
+	for _, id := range ids {
+		if want[id] {
+			return true
+		}
+	}
+	return false
 }
 
 // warmup is the default delay between the two samples ps takes for rates.
@@ -82,6 +110,7 @@ func (a *assembly) sampleForResult(ctx context.Context, r queryspec.Resolved, in
 		}
 	}
 	a.applyResolvers(snap.Processes)
+	a.enrich(ctx, snap.Processes, r.Needed)
 	return query.Input{
 		Generation: snap.Generation,
 		WallTime:   snap.WallTime,

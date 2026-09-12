@@ -1,7 +1,7 @@
 ---
 id: PM-0501
 title: FD/socket classification collector (cost level 1)
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0102"]
 owner:
@@ -41,3 +41,7 @@ type, with bounded concurrency and sampled quality.
 
 Individually shippable; must not increase default light-profile work when
 disabled (§27.Phase5).
+
+## Status: DONE (2026-09-12)
+
+MetricCollector port + procfs FDCollector: classifies /proc/PID/fd links (files/sockets/pipes/anon + eventfd/epoll/timerfd/signalfd/inotify) with Sampled quality and bounded concurrency (≤32); enrichment runs only when fd metrics are requested (disabled = no work). socket-tcp/udp/unix/netlink subtypes (netlink correlation) deferred. Also registered cost-2 (event/eBPF) and cost-3 (perf) descriptors so profiles/columns resolve while rendering unavailable until a backend exists.

@@ -90,6 +90,7 @@ func (a *assembly) streamLoop(ctx context.Context, env Env, r queryspec.Resolved
 			return ExitRuntime
 		}
 		a.applyResolvers(snap.Processes)
+		a.enrich(ctx, snap.Processes, r.Needed)
 		res, err := a.engine.Build(query.Input{
 			Generation: snap.Generation, WallTime: snap.WallTime, Elapsed: snap.Elapsed, Processes: snap.Processes,
 		}, r.Spec)

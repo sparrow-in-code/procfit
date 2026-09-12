@@ -97,8 +97,10 @@ func (r *Registry) IDs() []model.MetricID {
 // NewDefault builds a registry populated with the built-in metrics.
 func NewDefault() *Registry {
 	r := NewRegistry()
-	for _, d := range builtinLight {
-		r.MustRegister(d)
+	for _, group := range [][]Descriptor{builtinLight, builtinFD, builtinEvent, builtinPerf} {
+		for _, d := range group {
+			r.MustRegister(d)
+		}
 	}
 	return r
 }
