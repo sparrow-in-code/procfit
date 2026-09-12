@@ -1,0 +1,21 @@
+# Build output
+/bin/
+/dist/
+pm
+*.exe
+
+# Go
+*.test
+*.out
+coverage.*
+/vendor/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Local scratch
+/tmp/
+*.local

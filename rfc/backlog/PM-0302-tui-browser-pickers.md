@@ -1,0 +1,44 @@
+---
+id: PM-0302
+title: TUI browser + grouping/leaf/sort/filter/column/metric pickers
+state: TODO
+phase: 3
+depends: ["PM-0301"]
+owner:
+rfc: ["§19.1", "§19.2"]
+---
+
+## Summary
+
+The interactive explorer: navigable group/leaf tree plus editors for every query
+dimension, all producing the same `QuerySpec` the CLI uses.
+
+## Scope
+
+- Tree/table browser (§19.1) with expansion state keyed by stable group keys,
+  surviving refreshes; vanished rows disappear immediately.
+- Keybindings (§19.2): `g` grouping editor, `l` leaf mode, `M` metrics/profile,
+  `c` columns, `f`/`/` filter editor (select/having), `s` sort, `r` refresh,
+  `[`/`]` interval, `i`/Enter inspect, `Tab` panel switch, `?` help.
+- Status bar (§19.1): host, sample age, interval, profile, collector warnings.
+
+## Out of scope
+
+- Control actions (PM-0303); loop responsiveness tuning (PM-0304).
+
+## Acceptance criteria
+
+- [ ] Every picker mutates the shared `QuerySpec`; results match the equivalent
+      CLI query exactly.
+- [ ] Expansion state is stable across refreshes and resize.
+- [ ] Vanished process/thread rows disappear immediately (§19.1).
+
+## Tests required
+
+- unit: picker→QuerySpec transitions; expansion-state keying; filter parse-error
+  surfacing (reuses PM-0105 errors).
+
+## Notes
+
+**Phase 3 exit criterion (§27):** every TUI query is reproducible as printed
+effective CLI args or an exported preset — implement that export here.
