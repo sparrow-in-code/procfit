@@ -1,7 +1,7 @@
 ---
 id: PM-0004
 title: Test harness seams (fake clock/procfs/controller/state) + JSON schema v1 draft
-state: TODO
+state: DONE
 phase: 0
 depends: ["PM-0001", "PM-0003"]
 owner:
@@ -51,3 +51,7 @@ first (RFC §31.3).
 These fakes make the whole codebase testable without root or a real `/proc`,
 directly enabling RFC §31.3. Keep syscalls behind small interfaces (§24) so they
 too become fakeable in later phases.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the initial autonomous build. Core acceptance criteria met and covered by tests (module coverage ≥80%, race-clean). Deferred refinements (golden snapshots, fuzz corpora, and any renderer/format extras) are tracked in PM-0110.

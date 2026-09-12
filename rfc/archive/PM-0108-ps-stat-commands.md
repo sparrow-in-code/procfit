@@ -1,7 +1,7 @@
 ---
 id: PM-0108
 title: procfit ps (one-shot) and procfit stat (streaming) commands
-state: TODO
+state: DONE
 phase: 1
 depends: ["PM-0107"]
 owner:
@@ -50,3 +50,7 @@ streaming.
 
 **Phase 1 exit criterion (RFC §27):** usable as a grouped `ps`/`pidstat` meeting
 the light-profile performance budget.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the initial autonomous build. Core acceptance criteria met and covered by tests (module coverage ≥80%, race-clean). Deferred refinements (golden snapshots, fuzz corpora, and any renderer/format extras) are tracked in PM-0110.

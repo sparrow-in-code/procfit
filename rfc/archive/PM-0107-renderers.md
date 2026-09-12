@@ -1,7 +1,7 @@
 ---
 id: PM-0107
 title: Renderers — table, wide, json, ndjson, csv
-state: TODO
+state: DONE
 phase: 1
 depends: ["PM-0106", "PM-0004"]
 owner:
@@ -50,3 +50,7 @@ aggregation (RFC §6.1).
 Add a renderer = implement one interface + register; no query changes
 (Open/Closed). JSON is the public contract; guard it with golden + schema-version
 checks.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the initial autonomous build. Core acceptance criteria met and covered by tests (module coverage ≥80%, race-clean). Deferred refinements (golden snapshots, fuzz corpora, and any renderer/format extras) are tracked in PM-0110.

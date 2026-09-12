@@ -1,7 +1,7 @@
 ---
 id: PM-0005
 title: config check / convert / dump --effective commands
-state: TODO
+state: DONE
 phase: 0
 depends: ["PM-0002", "PM-0003"]
 owner:
@@ -44,3 +44,7 @@ and portable across formats. This is the Phase 0 exit criterion.
 
 **Phase 0 exit criterion (RFC §27):** config equivalence and strictness tests
 pass; `check`, `convert`, and `dump --effective` work.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the initial autonomous build. Core acceptance criteria met and covered by tests (module coverage ≥80%, race-clean). Deferred refinements (golden snapshots, fuzz corpora, and any renderer/format extras) are tracked in PM-0110.

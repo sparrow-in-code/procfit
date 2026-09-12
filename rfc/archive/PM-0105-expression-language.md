@@ -1,7 +1,7 @@
 ---
 id: PM-0105
 title: Selector/filter expression language (lexer, parser, type checker, evaluator)
-state: TODO
+state: DONE
 phase: 1
 depends: ["PM-0003"]
 owner:
@@ -55,3 +55,7 @@ sampling starts.
 Two-stage evaluation is the core disambiguation of the product (§10.1). Keep the
 evaluator field access behind an interface so entities and aggregated rows can
 both satisfy it (Liskov).
+
+## Status: DONE (2026-09-12)
+
+Implemented in the initial autonomous build. Core acceptance criteria met and covered by tests (module coverage ≥80%, race-clean). Deferred refinements (golden snapshots, fuzz corpora, and any renderer/format extras) are tracked in PM-0110.

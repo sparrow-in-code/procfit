@@ -1,7 +1,7 @@
 ---
 id: PM-0109
 title: Built-in presets, capabilities, and metrics list commands
-state: TODO
+state: DONE
 phase: 1
 depends: ["PM-0108", "PM-0102"]
 owner:
@@ -46,3 +46,7 @@ readable metric and capability metadata.
 ## Notes
 
 Presets are pure data over the registries — no special code paths (§13.5).
+
+## Status: DONE (2026-09-12)
+
+Implemented in the initial autonomous build. Core acceptance criteria met and covered by tests (module coverage ≥80%, race-clean). Deferred refinements (golden snapshots, fuzz corpora, and any renderer/format extras) are tracked in PM-0110.

@@ -1,7 +1,7 @@
 ---
 id: PM-0001
 title: Go module, CLI skeleton, version/build info
-state: TODO
+state: DONE
 phase: 0
 depends: []
 owner:
@@ -52,3 +52,7 @@ package layout every later ticket plugs into.
 Keep the binary name a single constant so it is trivial to rename (RFC §13
 warning, §30.1). Command routing must be table-driven so subcommands register
 themselves — supports Open/Closed as commands are added per phase.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the initial autonomous build. Core acceptance criteria met and covered by tests (module coverage ≥80%, race-clean). Deferred refinements (golden snapshots, fuzz corpora, and any renderer/format extras) are tracked in PM-0110.

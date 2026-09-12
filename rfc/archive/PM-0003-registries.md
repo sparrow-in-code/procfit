@@ -1,7 +1,7 @@
 ---
 id: PM-0003
 title: Metric, dimension, and column registries
-state: TODO
+state: DONE
 phase: 0
 depends: ["PM-0001"]
 owner:
@@ -57,3 +57,7 @@ Registries are the Open/Closed seam: adding a metric = adding a descriptor +
 collector, touching no query/render code. Choose canonical disk metric names now
 (RFC §30.3 recommends `disk-rbps`/`disk-wbps`); record the decision in a
 PM-90NN note if it differs.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the initial autonomous build. Core acceptance criteria met and covered by tests (module coverage ≥80%, race-clean). Deferred refinements (golden snapshots, fuzz corpora, and any renderer/format extras) are tracked in PM-0110.

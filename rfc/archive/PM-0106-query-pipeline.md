@@ -1,7 +1,7 @@
 ---
 id: PM-0106
 title: Query pipeline — grouping, aggregation, leaves, having, sort, projection
-state: TODO
+state: DONE
 phase: 1
 depends: ["PM-0103", "PM-0105"]
 owner:
@@ -54,3 +54,7 @@ reimplement any of this (RFC §6.1).
 This is the heart of the observation plane. `QuerySpec` (RFC §25) is the stable
 contract between CLI/TUI/daemon and this engine — keep it renderer- and
 transport-agnostic.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the initial autonomous build. Core acceptance criteria met and covered by tests (module coverage ≥80%, race-clean). Deferred refinements (golden snapshots, fuzz corpora, and any renderer/format extras) are tracked in PM-0110.

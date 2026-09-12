@@ -1,7 +1,7 @@
 ---
 id: PM-0002
 title: Canonical config model + strict TOML/YAML/JSON adapters + merge/validate
-state: TODO
+state: DONE
 phase: 0
 depends: ["PM-0001"]
 owner:
@@ -55,3 +55,7 @@ safe and format-agnostic.
 Keep decoder adapters behind a `Decoder` interface (one per format) so formats
 are open for extension, closed for modification. Validation is a separate stage
 from decoding — do not couple syntax errors to semantic errors.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the initial autonomous build. Core acceptance criteria met and covered by tests (module coverage ≥80%, race-clean). Deferred refinements (golden snapshots, fuzz corpora, and any renderer/format extras) are tracked in PM-0110.

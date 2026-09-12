@@ -1,7 +1,7 @@
 ---
 id: PM-0103
 title: Light /proc metrics and rate sampler
-state: TODO
+state: DONE
 phase: 1
 depends: ["PM-0102"]
 owner:
@@ -52,3 +52,7 @@ samples into per-second rates using real monotonic elapsed time.
 This is the metric that makes the tool useful as `pidstat`. Keep each metric's
 delta/aggregate behaviour in its registry descriptor (PM-0003), not hardcoded in
 the sampler.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the initial autonomous build. Core acceptance criteria met and covered by tests (module coverage ≥80%, race-clean). Deferred refinements (golden snapshots, fuzz corpora, and any renderer/format extras) are tracked in PM-0110.

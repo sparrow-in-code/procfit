@@ -1,7 +1,7 @@
 ---
 id: PM-0101
 title: Safe procfs reader, PID/starttime identity, and parsers
-state: TODO
+state: DONE
 phase: 1
 depends: ["PM-0004", "PM-9003"]
 owner:
@@ -54,3 +54,7 @@ interface from PM-9003, not a Linux-coupled core type.
 **RFC §31.5:** never key state by numeric PID alone. This ticket makes correct
 identity available to everything downstream; controllers (Phase 2) revalidate it
 before acting.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the initial autonomous build. Core acceptance criteria met and covered by tests (module coverage ≥80%, race-clean). Deferred refinements (golden snapshots, fuzz corpora, and any renderer/format extras) are tracked in PM-0110.

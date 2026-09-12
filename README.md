@@ -15,8 +15,12 @@ root.
 
 ## Status
 
-Pre-implementation. This repository currently contains the **specification and
-build plan**; code is delivered ticket by ticket per the roadmap.
+Under active construction. The read-only core works end-to-end today: `procfit
+ps`/`stat` observe live `/proc` with grouping, aggregation, the `select`/`having`
+expression DSL, and table/JSON output; `config check/convert/dump` and
+`metrics`/`capabilities` are implemented. Runtime management and control
+(Phase 2), the TUI (Phase 3), and the daemon (Phase 4) are next. See
+[`PROGRESS.md`](PROGRESS.md) for the live status and [`rfc/`](rfc/) for tasks.
 
 ## Repository map
 
@@ -28,12 +32,17 @@ build plan**; code is delivered ticket by ticket per the roadmap.
 | [`rfc/`](rfc/) | Tickets, tracked by state in `backlog/` (TODO), `wip/` (WIP), `archive/` (DONE). See [`rfc/README.md`](rfc/README.md). |
 | [`docs/`](docs/) | User and architecture documentation. |
 
-## Building & testing (once code lands)
+## Building & testing
+
+Requires Go (1.26+). The Makefile wraps the common tasks:
 
 ```bash
-go build ./...
-go test ./...
-go test -race ./...
+make build      # -> ./bin/procfit
+make test       # go test ./...
+make race       # go test -race ./...
+make cover      # coverage with the >=80% gate
+make check      # full local gate (fmt, vet, lint, test, race, cover)
+./bin/procfit ps --group-by comm --leaf none --sort cpu:desc
 ```
 
 ## Contributing
