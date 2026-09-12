@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -63,6 +64,72 @@ func TestModel_UnitsToggle(t *testing.T) {
 	m.Update(KeyEvent{Rune: 'u'})
 	if m.Flags().Human {
 		t.Fatal("'u' should toggle back to raw")
+	}
+}
+
+func TestModel_SortOnlyDisplayedSortable(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	res, cols := sampleResult(3) // columns: target, pt, cpu (pt is not sortable)
+	m.SetResult(res, cols)
+	// From target (sortable), cycling must skip pt and land on cpu.
+	m.Update(KeyEvent{Rune: 's'})
+	if !strings.HasPrefix(m.Flags().Sort, "cpu:") {
+		t.Fatalf("sort should skip the non-sortable pt column and use cpu, got %q", m.Flags().Sort)
+	}
+}
+
+func TestModel_FilterOnlyDisplayedColumns(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	res, cols := sampleResult(3) // target, pt, cpu
+	m.SetResult(res, cols)
+
+	// Enter filter mode and type a filter over a displayed column.
+	m.Update(KeyEvent{Rune: '/'})
+	if !m.editing {
+		t.Fatal("'/' should enter filter-edit mode")
+	}
+	for _, r := range "cpu>5" {
+		m.Update(KeyEvent{Rune: r})
+	}
+	m.Update(KeyEvent{Name: "backspace"}) // delete '5'
+	m.Update(KeyEvent{Rune: '9'})
+	m.Update(KeyEvent{Name: "enter"})
+	if m.editing || m.Flags().Having != "cpu>9" || !m.Dirty() {
+		t.Fatalf("applying a displayed-column filter failed: editing=%v having=%q", m.editing, m.Flags().Having)
+	}
+
+	// A filter referencing a NON-displayed column must be rejected.
+	m.Update(KeyEvent{Rune: '/'})
+	m.editBuf = "rss > 1" // rss is not a displayed column
+	m.Update(KeyEvent{Name: "enter"})
+	if !m.editing {
+		t.Fatal("filter on a hidden column should be rejected and stay in edit mode")
+	}
+	if m.Flags().Having != "cpu>9" {
+		t.Fatalf("rejected filter must not change the active filter, got %q", m.Flags().Having)
+	}
+	if !strings.Contains(m.status, "rss") {
+		t.Fatalf("status should explain the invalid field: %q", m.status)
+	}
+}
+
+func TestModel_FilterCancelAndClear(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	res, cols := sampleResult(3)
+	m.SetResult(res, cols)
+	m.flags.Having = "cpu > 1"
+	// Cancel keeps the existing filter.
+	m.Update(KeyEvent{Rune: '/'})
+	m.Update(KeyEvent{Name: "esc"})
+	if m.editing || m.Flags().Having != "cpu > 1" {
+		t.Fatal("esc should cancel edit and keep the filter")
+	}
+	// Empty apply clears the filter.
+	m.Update(KeyEvent{Rune: '/'})
+	m.editBuf = ""
+	m.Update(KeyEvent{Name: "enter"})
+	if m.Flags().Having != "" {
+		t.Fatalf("empty filter should clear, got %q", m.Flags().Having)
 	}
 }
 

@@ -25,6 +25,11 @@ type Column struct {
 	Machine func(r *query.Row) string
 	// IsTarget marks the label column that receives tree indentation.
 	IsTarget bool
+	// Sortable / Filterable report whether the query engine can sort by / filter
+	// (having) on this column's field. The TUI uses these so interactive sort and
+	// filter only offer properties that are actually displayed AND usable.
+	Sortable   bool
+	Filterable bool
 }
 
 // ResolveColumns turns column ids into Columns with human-readable metric
@@ -57,8 +62,10 @@ func ResolveColumnsMode(reg *metrics.Registry, ids []string, human bool) ([]Colu
 		}
 		cols = append(cols, Column{
 			ID: id, Header: strings.ToUpper(id), RightAlign: true,
-			Cell:    cell,
-			Machine: func(r *query.Row) string { return machineMetric(r.Metrics[d.ID]) },
+			Cell:       cell,
+			Machine:    func(r *query.Row) string { return machineMetric(r.Metrics[d.ID]) },
+			Sortable:   true, // every metric is sortable and usable in `having`
+			Filterable: true,
 		})
 	}
 	return cols, nil
@@ -77,18 +84,18 @@ func machineMetric(v model.MetricValue) string {
 // (a map) rather than a switch keeps lookups simple and makes adding a column a
 // one-line entry (Open/Closed).
 var structuralColumns = map[string]Column{
-	"target":  {ID: "target", Header: "TARGET", IsTarget: true, Cell: func(r *query.Row) string { return r.Label }},
+	"target":  {ID: "target", Header: "TARGET", IsTarget: true, Sortable: true, Filterable: true, Cell: func(r *query.Row) string { return r.Label }},
 	"pt":      {ID: "pt", Header: "P/T", RightAlign: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d/%d", r.Procs, r.Threads) }},
-	"procs":   {ID: "procs", Header: "PROCS", RightAlign: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Procs) }},
-	"threads": {ID: "threads", Header: "THREADS", RightAlign: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Threads) }},
-	"pid":     {ID: "pid", Header: "PID", RightAlign: true, Cell: cellPID},
+	"procs":   {ID: "procs", Header: "PROCS", RightAlign: true, Sortable: true, Filterable: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Procs) }},
+	"threads": {ID: "threads", Header: "THREADS", RightAlign: true, Sortable: true, Filterable: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Threads) }},
+	"pid":     {ID: "pid", Header: "PID", RightAlign: true, Sortable: true, Cell: cellPID},
 	"ppid":    {ID: "ppid", Header: "PPID", RightAlign: true, Cell: cellPPID},
-	"comm":    {ID: "comm", Header: "COMM", Cell: cellComm},
-	"name":    {ID: "name", Header: "NAME", Cell: cellName},
+	"comm":    {ID: "comm", Header: "COMM", Sortable: true, Filterable: true, Cell: cellComm},
+	"name":    {ID: "name", Header: "NAME", Sortable: true, Filterable: true, Cell: cellName},
 	"uid":     {ID: "uid", Header: "UID", RightAlign: true, Cell: cellUID},
 	"user":    {ID: "user", Header: "USER", Cell: cellUser},
 	"pstate":  {ID: "pstate", Header: "PSTATE", Cell: cellPState},
-	"kind":    {ID: "kind", Header: "KIND", Cell: func(r *query.Row) string { return string(r.Kind) }},
+	"kind":    {ID: "kind", Header: "KIND", Filterable: true, Cell: func(r *query.Row) string { return string(r.Kind) }},
 }
 
 func structuralColumn(id string) (Column, bool) {

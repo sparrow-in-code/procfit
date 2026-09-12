@@ -113,6 +113,8 @@ func mapKey(ev *tcell.EventKey) KeyEvent {
 		return KeyEvent{Name: "enter"}
 	case tcell.KeyEscape:
 		return KeyEvent{Name: "esc"}
+	case tcell.KeyBackspace, tcell.KeyBackspace2:
+		return KeyEvent{Name: "backspace"}
 	case tcell.KeyRune:
 		return KeyEvent{Rune: ev.Rune()}
 	default:

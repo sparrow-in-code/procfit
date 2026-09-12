@@ -50,6 +50,8 @@ type Model struct {
 	status       string
 	quit         bool
 	dirty        bool // a re-query is needed
+	editing      bool // filter-edit mode active
+	editBuf      string
 }
 
 type flatRow struct {
@@ -89,10 +91,45 @@ func (m *Model) SetResult(res *query.Result, cols []render.Column) {
 	m.cols = cols
 	m.rows = flatten(res.Rows, 0)
 	m.colWidths = m.computeWidths()
+	if len(m.cols) > 0 && !m.cols[safeIdx(m.sortIx, len(m.cols))].Sortable {
+		m.sortIx = m.firstSortable() // keep the sort key on a sortable displayed column
+	}
 	if m.cursor >= len(m.rows) {
 		m.cursor = maxInt(0, len(m.rows)-1)
 	}
 	m.clampScroll()
+}
+
+func safeIdx(i, n int) int {
+	if n == 0 {
+		return 0
+	}
+	if i < 0 || i >= n {
+		return 0
+	}
+	return i
+}
+
+// firstSortable returns the index of the first sortable column, or 0.
+func (m *Model) firstSortable() int {
+	for i, c := range m.cols {
+		if c.Sortable {
+			return i
+		}
+	}
+	return 0
+}
+
+// filterableFields is the set of displayed columns usable in a `having` filter,
+// so the interactive filter only offers properties that are actually shown.
+func (m *Model) filterableFields() map[string]bool {
+	out := map[string]bool{}
+	for _, c := range m.cols {
+		if c.Filterable {
+			out[c.ID] = true
+		}
+	}
+	return out
 }
 
 // computeWidths returns the display width of each column: the max of the header
