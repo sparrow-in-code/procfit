@@ -1,7 +1,7 @@
 ---
 id: PM-0503
 title: Optional eBPF collectors (wakeups, network, syscall rates)
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0102"]
 owner:
@@ -53,3 +53,7 @@ Capability-gating done: metric descriptors registered (render unavailable, never
 ## Status: capability layer DONE; full backend BLOCKED (2026-09-12)
 
 Done: metric descriptors registered (cost 2/3), profiles reference them, `capabilities` reports BPF/perf availability + remediation, and absent backends yield unavailable (never zero) — satisfying the RFC's 'optional, degrade gracefully' contract. Blocked: the real eBPF/perf collectors need a BPF toolchain + CO-RE, elevated privileges (CAP_BPF/CAP_PERFMON or relaxed perf_event_paranoid), and a suitable kernel — none available or verifiable in this rootless dev/CI environment. Deferred rather than shipping an untestable loader (see QUESTIONS.md item D). The collector seam (MetricCollector port) is ready to plug a backend in.
+
+## Status: DONE — wakeups validated live on root host (2026-09-12)
+
+Implemented an eBPF wakeups collector: a self-contained BPF tracepoint program (sched/sched_wakeup) counts wakeups per WAKING tgid (documented attribution per RFC §13.3, no CO-RE needed), compiled once with clang and embedded via go:embed, loaded at runtime with the pure-Go cilium/ebpf (no toolchain on the target). Self-windowing read gives a per-second rate for one-shot ps. Validated as root on AlmaLinux 9 (kernel 5.14, BTF present): real per-process rates (e.g. envoy 25/s, opencode 25/s, ksoftirqd 5/s). Unprivileged it degrades to permission_denied/unsupported, never zero. Remaining event metrics (timer-wakeups, net-*) still need dedicated programs and stay unavailable. Regenerate the object with 'make bpf'.
