@@ -36,6 +36,10 @@ type Process struct {
 	Nice      int
 	NiceAvail Availability
 
+	// NumThreads is the observed thread count (used for the P/T count column
+	// even when threads are not individually enumerated).
+	NumThreads int
+
 	// StartTicks is the raw starttime (field 22) in clock ticks since boot.
 	StartTicks uint64
 

@@ -85,6 +85,7 @@ func (s *Sampler) buildProcess(st, prev ports.ProcStat, hadPrev bool, elapsedSec
 		Exe: st.Exe, Cwd: st.Cwd, CgroupPath: st.CgroupPath,
 		Namespaces: st.Namespaces, State: st.State,
 		Nice: st.Nice, NiceAvail: st.NiceAvail, StartTicks: st.StartTicks,
+		NumThreads: st.NumThreads,
 	}
 	for _, id := range want {
 		p.SetMetric(id, computeMetric(id, st, prev, hadPrev, elapsedSec, sc))
