@@ -97,6 +97,13 @@ tidy: ## go mod tidy
 .PHONY: check
 check: fmt-check vet lint test race cover ## Full local gate (what CI runs)
 
+CLANG ?= clang
+
+.PHONY: bpf
+bpf: ## Recompile the embedded eBPF object (requires clang with a bpf target)
+	$(CLANG) -O2 -target bpf -c internal/procfs/bpf/wakeups.bpf.c -o internal/procfs/bpf/wakeups.bpf.o
+	@echo "regenerated internal/procfs/bpf/wakeups.bpf.o (commit it)"
+
 .PHONY: clean
 clean: ## Remove build/coverage artifacts
 	rm -rf $(BINDIR) $(COVERPROFILE)

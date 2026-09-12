@@ -36,13 +36,16 @@ going. Override any of them and I'll adjust.
 - **B. TUI framework** (Phase 3). Default per PM-0301: benchmark tcell vs Bubble
   Tea when I reach Phase 3; leaning tcell for a dense, high-refresh table UI.
 - **C. Folder rename** (see decided #3).
-- **D. eBPF (PM-0503) & perf (PM-0504) backends — BLOCKED, need your environment.**
-  The capability layer is done (metrics registered, `capabilities` reports
-  availability, absent backends render unavailable — never zero). The *real*
-  collectors need a BPF toolchain + CO-RE, elevated privileges (CAP_BPF /
-  CAP_PERFMON or a relaxed `perf_event_paranoid`), and a suitable kernel — none
-  available or testable in this rootless environment. I stopped rather than ship
-  an untestable eBPF loader. The `MetricCollector` port is ready; point me at a
-  suitable host/CI (or say "stub is fine") and I'll implement + verify them.
+- **D. eBPF & perf — RESOLVED using the root Alma box you provided.**
+  - **eBPF `wakeups` (PM-0503): DONE and validated live as root** — real
+    per-process wakeup rates. BPF object is compiled with clang and embedded
+    (`make bpf` regenerates it); loaded via pure-Go cilium/ebpf, so the target
+    needs no toolchain.
+  - **perf (PM-0504): implemented + validated**, but the test box is a KVM VM
+    with **no virtual PMU** (`perf_event_open` HW cpu-cycles → ENOENT; SW
+    task-clock → OK), so hardware counter *values* need a **bare-metal or
+    vPMU-enabled host**. On a suitable host it should work unchanged; point me at
+    one to capture real numbers. Remaining event metrics (`timer-wakeups`,
+    `net-*`) still need dedicated BPF programs.
 
 _Last updated by the autonomous build session._

@@ -61,7 +61,8 @@ golden snapshots (§28.17 / PM-0110).
 | 3 | TUI (headless model + tcell driver, grouping/sort/interval, prints CLI on exit) | **done** |
 | 4 | Daemon: AF_UNIX IPC + peer-cred, shared engine, policy reconciliation, SIGHUP reload, systemd unit | **done** |
 | 5 | FD/socket collector, cgroup v2 freeze/thaw, opt-in audit history | **done** |
-| 5 | eBPF (PM-0503) + perf (PM-0504) real backends | **blocked** (env: no BPF/perf/root) — capability layer done |
+| 5 | eBPF `wakeups` collector (tracepoint, waker attribution) | **done** — validated live as root |
+| 5 | perf HW counters (cycles/instructions/ipc/cache-misses) | **done** (impl+validated); real values need a vPMU/bare-metal host |
 
 ## Quality gates (current)
 
@@ -83,12 +84,10 @@ The dev box had no Go/make/gcc; they were provisioned via nix
 
 ## What's left
 
-All planned phases (0–5) are implemented **except** the two environment-blocked
-backends:
-
-- **eBPF (PM-0503) & perf (PM-0504) real collectors** — need a BPF toolchain,
-  elevated privileges, and a suitable kernel; the capability layer + metric
-  registry + `capabilities` reporting are done. See QUESTIONS.md item D.
+All planned phases (0–5) are implemented. The eBPF `wakeups` collector was
+validated live as root (AlmaLinux 9, kernel 5.14); the perf collector is
+implemented and validated to degrade correctly (the test KVM VM has no virtual
+PMU, so hardware counter *values* require a vPMU/bare-metal host).
 
 Smaller deferred refinements (non-blocking):
 
@@ -97,6 +96,8 @@ Smaller deferred refinements (non-blocking):
 - `--preset`/config-view integration into `ps`/`stat` flag precedence (config
   commands work standalone; live view-presets not yet applied).
 - TUI managed/control panel (browser + query pickers are done).
+- eBPF `timer-wakeups` and per-process `net-*` metrics (need dedicated BPF
+  programs; `wakeups` is done). perf multiplexing/scaling metadata.
 - Fully-normalized golden snapshot files (content/round-trip tests exist).
 - Group-level aggregation of a permission-denied metric collapses to
   "unavailable/disabled" rather than the specific reason.
