@@ -15,12 +15,15 @@ root.
 
 ## Status
 
-Under active construction. The read-only core works end-to-end today: `procfit
-ps`/`stat` observe live `/proc` with grouping, aggregation, the `select`/`having`
-expression DSL, and table/JSON output; `config check/convert/dump` and
-`metrics`/`capabilities` are implemented. Runtime management and control
-(Phase 2), the TUI (Phase 3), and the daemon (Phase 4) are next. See
-[`PROGRESS.md`](PROGRESS.md) for the live status and [`rfc/`](rfc/) for tasks.
+Under active construction; the **MVP (Phases 0–2) is substantially complete**.
+`procfit ps`/`stat` observe live `/proc` with grouping, aggregation, the
+`select`/`having` expression DSL, and table/JSON output; `config
+check/convert/dump`, `metrics`, and `capabilities` work; and the control plane —
+`manage`/`set`/`restore`/`unmanage`/`signal` with runtime managed targets, nice
+and stop/continue control, original/desired/observed tracking, drift detection,
+and atomic boot-scoped state — is implemented and tested. The TUI (Phase 3), the
+daemon (Phase 4), and extended collectors (Phase 5) are next. See
+[`PROGRESS.md`](PROGRESS.md) for live status and [`rfc/`](rfc/) for tasks.
 
 ## Repository map
 

@@ -1,7 +1,7 @@
 ---
 id: PM-0203
 title: Nice controller — original/desired/observed, drift, restore
-state: TODO
+state: DONE
 phase: 2
 depends: ["PM-0202", "PM-9003"]
 owner:
@@ -55,3 +55,7 @@ side-plane pattern all controllers follow.
 
 Control is a **side plane** (§6.2): observation must keep working when control is
 unavailable. Query rows are only *annotated* from control state.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the autonomous build: control manager (capture-once original, desired/observed, drift, restore, stale-PID refusal, safeguards, stop-intent, snapshot/follow binding, inactive retention), atomic boot-scoped runtime state, and the control CLI. Verified end-to-end on a live process (nice apply/restore, with the CAP_SYS_NICE restore-privilege case surfaced correctly). Tests cover the semantics; race-clean; coverage ≥80%.

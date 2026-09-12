@@ -1,7 +1,7 @@
 ---
 id: PM-0205
 title: Control CLI — manage/set/restore/unmanage/signal, managed, inspect
-state: TODO
+state: DONE
 phase: 2
 depends: ["PM-0203", "PM-0204"]
 owner:
@@ -50,3 +50,7 @@ Wire the control side plane to CLI commands, completing the MVP (Phases 0–2).
 
 **MVP acceptance = Phases 0–2 (RFC §28).** Verify the full §28 checklist before
 archiving this ticket.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the autonomous build: control manager (capture-once original, desired/observed, drift, restore, stale-PID refusal, safeguards, stop-intent, snapshot/follow binding, inactive retention), atomic boot-scoped runtime state, and the control CLI. Verified end-to-end on a live process (nice apply/restore, with the CAP_SYS_NICE restore-privilege case surfaced correctly). Tests cover the semantics; race-clean; coverage ≥80%.

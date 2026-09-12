@@ -21,7 +21,26 @@ make build
 ./bin/procfit config check ./config.toml
 ./bin/procfit config convert ./config.toml --to yaml
 ./bin/procfit config dump --effective --format json
+
+# control plane (Phase 2) — runtime managed targets + nice/stop control
+./bin/procfit manage pid:1234 --name chrome --nice 10 --set-nice
+./bin/procfit managed
+./bin/procfit set managed:chrome --stop
+./bin/procfit restore managed:chrome        # refuses on external drift (exit 7)
+./bin/procfit signal TERM pid:1234 --yes
+./bin/procfit unmanage managed:chrome
 ```
+
+## MVP acceptance (RFC §28)
+
+Phases 0–2 are the MVP. ~15 of 17 §28 criteria are met and test-covered
+(grouping/aggregation, flat list, streaming, cross-format config equivalence &
+strictness, profiles + overrides, select/having, PID+starttime identity with
+stale-action refusal, managed membership, nice original/desired/observed +
+restore, external-drift detection, stop-intent vs observed PSTATE, inactive
+follow targets, private/atomic/boot-scoped state, unknown≠zero, versioned JSON
+schema). Remaining: the light-profile performance benchmark (§28.16) and full
+golden snapshots (§28.17 / PM-0110).
 
 ## Phase status
 
@@ -37,7 +56,10 @@ make build
 | 1 | `ps`, `stat`, `metrics list`, `capabilities` | **done** (stat: basic append-only) |
 | 1 | Collector scheduler + multi-interval + full capability probe | todo (PM-0102) |
 | 1 | Metadata resolvers (uid/app/systemd/cgroup labels) | todo (PM-0104) |
-| 2 | Runtime state, managed targets, controllers, control CLI | todo (PM-02xx) |
+| 2 | Runtime state (atomic, boot-scoped, 0600/0700, quarantine) | **done** |
+| 2 | Managed targets (snapshot/follow, inactive retention) | **done** |
+| 2 | Nice + stop/cont controllers (original/desired/observed, drift, restore, stale-refusal, safeguards) | **done** |
+| 2 | Control CLI (manage/set/restore/unmanage/signal/managed) + target resolver | **done** |
 | 3 | TUI | todo (PM-03xx) |
 | 4 | Daemon + policies | todo (PM-04xx) |
 | 5 | FD/cgroup/eBPF/perf/history | todo (PM-05xx) |

@@ -1,7 +1,7 @@
 ---
 id: PM-0204
 title: STOP/CONT controller and control safeguards
-state: TODO
+state: DONE
 phase: 2
 depends: ["PM-0203"]
 owner:
@@ -54,3 +54,7 @@ separation, plus the shared safeguard module protecting critical processes.
 
 `CONT` is an action, not a state (§15.4). Never run control integration tests
 against arbitrary host processes (§26.3).
+
+## Status: DONE (2026-09-12)
+
+Implemented in the autonomous build: control manager (capture-once original, desired/observed, drift, restore, stale-PID refusal, safeguards, stop-intent, snapshot/follow binding, inactive retention), atomic boot-scoped runtime state, and the control CLI. Verified end-to-end on a live process (nice apply/restore, with the CAP_SYS_NICE restore-privilege case surfaced correctly). Tests cover the semantics; race-clean; coverage ≥80%.

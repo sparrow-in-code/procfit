@@ -1,7 +1,7 @@
 ---
 id: PM-0202
 title: Managed targets — bindings, snapshot/follow, inactive retention
-state: TODO
+state: DONE
 phase: 2
 depends: ["PM-0201", "PM-0106"]
 owner:
@@ -52,3 +52,7 @@ live instances, remain visible when inactive, and re-bind (follow) or not
 
 This is the pivot between the observation plane and the control side plane
 (§6.2). Managed membership recorded here is what control commands act on.
+
+## Status: DONE (2026-09-12)
+
+Implemented in the autonomous build: control manager (capture-once original, desired/observed, drift, restore, stale-PID refusal, safeguards, stop-intent, snapshot/follow binding, inactive retention), atomic boot-scoped runtime state, and the control CLI. Verified end-to-end on a live process (nice apply/restore, with the CAP_SYS_NICE restore-privilege case surfaced correctly). Tests cover the semantics; race-clean; coverage ≥80%.
