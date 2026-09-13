@@ -110,6 +110,38 @@ func TestSource_List(t *testing.T) {
 	}
 }
 
+func TestSource_EnumerateThreads(t *testing.T) {
+	root := writeProc(t)
+	p := filepath.Join(root, "100")
+	mustWrite(t, filepath.Join(p, "task/100/stat"), "100 (bash) S 1 100 100 0 -1 0 50 0 60 0 5 3 0 0 20 0 2 0 987654 4096000 25 0 0 0 0 0 0 0 0 0 0 0 0 0")
+	mustWrite(t, filepath.Join(p, "task/145/stat"), "145 (worker) R 1 100 100 0 -1 0 0 0 0 0 7 2 0 0 20 0 2 0 987700 4096000 25 0 0 0 0 0 0 0 0 0 0 0 0 0")
+
+	src, _ := New(WithRoot(root), WithClockTicks(100))
+
+	// Off by default: the common path pays no per-thread cost.
+	stats, _ := src.List(context.Background())
+	for _, s := range stats {
+		if len(s.Threads) != 0 {
+			t.Fatalf("threads must be off by default, got %d", len(s.Threads))
+		}
+	}
+
+	// Enabled: pid 100's two tasks are enumerated with TID + comm.
+	src.SetEnumerateThreads(true)
+	stats, _ = src.List(context.Background())
+	tids := map[int]string{}
+	for _, s := range stats {
+		if s.PID == 100 {
+			for _, th := range s.Threads {
+				tids[th.TID] = th.Comm
+			}
+		}
+	}
+	if len(tids) != 2 || tids[100] != "bash" || tids[145] != "worker" {
+		t.Fatalf("thread enumeration wrong: %v", tids)
+	}
+}
+
 func TestSource_VanishedProcessSkipped(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "stat"), "btime 1\n")

@@ -16,13 +16,19 @@ import (
 // /proc (RFC §14.1). A future OS would be a separate adapter package
 // implementing the same port (DEVELOPMENT.md §2.4).
 type Source struct {
-	root     string
-	hz       int64
-	cpus     int
-	bootID   string
-	bootUnix int64
-	pageSize int64
+	root       string
+	hz         int64
+	cpus       int
+	bootID     string
+	bootUnix   int64
+	pageSize   int64
+	enumThread bool
 }
+
+// SetEnumerateThreads toggles per-thread (/proc/PID/task) enumeration. It is
+// off by default so the common process/none leaf modes pay no per-thread cost;
+// the app turns it on only for `--leaf thread`.
+func (s *Source) SetEnumerateThreads(on bool) { s.enumThread = on }
 
 // Option configures a Source.
 type Option func(*Source)

@@ -90,9 +90,18 @@ func intersectsMetrics(ids []model.MetricID, want map[model.MetricID]bool) bool 
 // warmup is the default delay between the two samples ps takes for rates.
 const warmup = time.Second
 
+// setThreadEnum turns per-thread enumeration on the source on/off when it
+// supports it (the procfs adapter does), so `--leaf thread` reads /proc/*/task.
+func setThreadEnum(src interface{}, on bool) {
+	if te, ok := src.(interface{ SetEnumerateThreads(bool) }); ok {
+		te.SetEnumerateThreads(on)
+	}
+}
+
 // sampleForResult produces a query.Input, taking a warm-up second sample when
 // rate metrics are requested unless instant is set (RFC §7.2).
 func (a *assembly) sampleForResult(ctx context.Context, r queryspec.Resolved, instant bool) (query.Input, error) {
+	setThreadEnum(a.src, r.Spec.Leaf == query.LeafThread)
 	s := collect.NewSampler(a.src, a.clk)
 	snap, err := s.Sample(ctx, r.Needed)
 	if err != nil {

@@ -15,15 +15,16 @@ type Sampler struct {
 	src ports.ProcessSource
 	clk ports.Clock
 
-	prev     map[string]ports.ProcStat
-	prevMono int64 // nanoseconds
-	hasPrev  bool
-	gen      int
+	prev        map[string]ports.ProcStat
+	prevThreads map[string]ports.ThreadStat
+	prevMono    int64 // nanoseconds
+	hasPrev     bool
+	gen         int
 }
 
 // NewSampler constructs a sampler over the given source and clock.
 func NewSampler(src ports.ProcessSource, clk ports.Clock) *Sampler {
-	return &Sampler{src: src, clk: clk, prev: map[string]ports.ProcStat{}}
+	return &Sampler{src: src, clk: clk, prev: map[string]ports.ProcStat{}, prevThreads: map[string]ports.ThreadStat{}}
 }
 
 // Sample reads the source once and returns a normalized snapshot with the
@@ -51,13 +52,16 @@ func (s *Sampler) Sample(ctx context.Context, want []model.MetricID) (Snapshot, 
 
 	procs := make([]model.Process, 0, len(stats))
 	next := make(map[string]ports.ProcStat, len(stats))
+	nextThreads := map[string]ports.ThreadStat{}
 	for _, st := range stats {
 		key := st.ID.Key()
 		next[key] = st
 		prev, hadPrev := s.prev[key]
 		p := s.buildProcess(st, prev, hadPrev, elapsedSec, sc, want)
+		p.Threads = s.buildThreads(st, elapsedSec, sc, want, nextThreads)
 		procs = append(procs, p)
 	}
+	s.prevThreads = nextThreads
 
 	s.gen++
 	snap := Snapshot{
@@ -91,6 +95,51 @@ func (s *Sampler) buildProcess(st, prev ports.ProcStat, hadPrev bool, elapsedSec
 		p.SetMetric(id, computeMetric(id, st, prev, hadPrev, elapsedSec, sc))
 	}
 	return p
+}
+
+// buildThreads normalizes a process's enumerated threads, computing per-thread
+// cpu-family rates against the previous generation. Non-cpu metrics are not
+// meaningful per thread (e.g. rss is shared), so they render unavailable.
+func (s *Sampler) buildThreads(st ports.ProcStat, elapsedSec float64, sc sysctx, want []model.MetricID, nextThreads map[string]ports.ThreadStat) []model.Thread {
+	if len(st.Threads) == 0 {
+		return nil
+	}
+	threads := make([]model.Thread, 0, len(st.Threads))
+	for _, ts := range st.Threads {
+		id := model.ThreadInstanceID{Process: st.ID, TID: ts.TID, StartTime: ts.StartTicks}
+		key := id.Key()
+		nextThreads[key] = ts
+		prev, hadPrev := s.prevThreads[key]
+		th := model.Thread{ID: id, Comm: ts.Comm, State: ts.State, Metrics: map[model.MetricID]model.MetricValue{}}
+		for _, mid := range want {
+			th.Metrics[mid] = threadMetric(mid, ts, prev, hadPrev, elapsedSec, sc)
+		}
+		threads = append(threads, th)
+	}
+	return threads
+}
+
+// threadCounters extracts the cumulative CPU ticks for the per-thread rate
+// metrics; only cpu-family metrics are supported at thread scope.
+var threadCounters = map[model.MetricID]func(ports.ThreadStat) uint64{
+	"cpu":        func(t ports.ThreadStat) uint64 { return t.UTimeTicks + t.STimeTicks },
+	"cpu-user":   func(t ports.ThreadStat) uint64 { return t.UTimeTicks },
+	"cpu-system": func(t ports.ThreadStat) uint64 { return t.STimeTicks },
+}
+
+func threadMetric(id model.MetricID, cur, prev ports.ThreadStat, hadPrev bool, elapsedSec float64, sc sysctx) model.MetricValue {
+	get, ok := threadCounters[id]
+	if !ok {
+		return model.Unavailable[float64](model.Disabled, "thread")
+	}
+	if !hadPrev || elapsedSec <= 0 {
+		return model.Unavailable[float64](model.WarmingUp, "thread")
+	}
+	c, p := get(cur), get(prev)
+	if c < p {
+		return model.Unavailable[float64](model.WarmingUp, "thread")
+	}
+	return model.NewValue(cpuConv(float64(c-p)/elapsedSec, sc), model.Derived, "thread")
 }
 
 // computeMetric produces one metric value for a process using the rate/gauge

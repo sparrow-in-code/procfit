@@ -54,7 +54,39 @@ func (s *Source) readProcess(pid int) (ports.ProcStat, bool) {
 	st.Cmdline, st.CmdlineAvail = s.readCmdline(dir)
 	st.Exe, st.ExeAvail = s.readLinkAvail(filepath.Join(dir, "exe"))
 	st.CgroupPath = s.readCgroup(dir)
+	if s.enumThread {
+		st.Threads = s.readThreads(dir)
+	}
 	return st, true
+}
+
+// readThreads enumerates /proc/PID/task/TID for per-thread identity and CPU
+// counters. A task vanishing mid-scan is skipped, never fatal.
+func (s *Source) readThreads(dir string) []ports.ThreadStat {
+	entries, err := os.ReadDir(filepath.Join(dir, "task"))
+	if err != nil {
+		return nil
+	}
+	out := make([]ports.ThreadStat, 0, len(entries))
+	for _, e := range entries {
+		data, err := os.ReadFile(filepath.Join(dir, "task", e.Name(), "stat"))
+		if err != nil {
+			continue
+		}
+		info, err := parseStat(data)
+		if err != nil {
+			continue
+		}
+		out = append(out, ports.ThreadStat{
+			TID:        info.PID, // task/TID/stat's first field is the TID
+			StartTicks: info.StartTime,
+			Comm:       info.Comm,
+			State:      model.ProcessState{Code: info.State},
+			UTimeTicks: info.UTime,
+			STimeTicks: info.STime,
+		})
+	}
+	return out
 }
 
 func (s *Source) fillStatus(dir string, st *ports.ProcStat) {

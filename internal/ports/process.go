@@ -64,6 +64,21 @@ type ProcStat struct {
 	IOAvail model.Availability
 
 	Namespaces model.NamespaceSet
+
+	// Threads is populated only when the source is asked to enumerate them (leaf
+	// thread mode). Empty otherwise, so the common path pays no per-thread cost.
+	Threads []ThreadStat
+}
+
+// ThreadStat is a raw snapshot of one thread (task) within a process: identity
+// plus the cumulative CPU counters needed to derive per-thread cpu rates.
+type ThreadStat struct {
+	TID        int
+	StartTicks uint64
+	Comm       string
+	State      model.ProcessState
+	UTimeTicks uint64
+	STimeTicks uint64
 }
 
 // ProcessInstanceIdentity aliases the model identity so adapters need not import

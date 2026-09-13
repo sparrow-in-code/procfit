@@ -84,6 +84,47 @@ func TestSampler_CPURate(t *testing.T) {
 	}
 }
 
+func TestSampler_ThreadCPURate(t *testing.T) {
+	clk := testutil.NewFakeClock(time.Unix(1_600_000_100, 0))
+	mk := func(workerUTime, workerSTime uint64) ports.ProcStat {
+		st := stat(10, 50, 100, 20, 4096)
+		st.Threads = []ports.ThreadStat{
+			{TID: 10, StartTicks: 50, Comm: "main", UTimeTicks: 100, STimeTicks: 20},
+			{TID: 11, StartTicks: 51, Comm: "worker", UTimeTicks: workerUTime, STimeTicks: workerSTime},
+		}
+		return st
+	}
+	// worker: +50 ticks over 1s @hz100 => 50% of one CPU; main: no change => 0.
+	src := testutil.NewFakeSource([]ports.ProcStat{mk(0, 0)}, []ports.ProcStat{mk(30, 20)})
+	s := NewSampler(src, clk)
+
+	if _, err := s.Sample(context.Background(), []model.MetricID{"cpu"}); err != nil {
+		t.Fatal(err)
+	}
+	clk.Advance(time.Second)
+	snap, err := s.Sample(context.Background(), []model.MetricID{"cpu", "rss"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := snap.Processes[0]
+	if len(p.Threads) != 2 {
+		t.Fatalf("want 2 threads, got %d", len(p.Threads))
+	}
+	var worker model.Thread
+	for _, th := range p.Threads {
+		if th.ID.TID == 11 {
+			worker = th
+		}
+	}
+	if v, ok := worker.Metrics["cpu"].Get(); !ok || v < 49.9 || v > 50.1 {
+		t.Fatalf("worker thread cpu = (%v,%v), want ~50", v, ok)
+	}
+	// rss is process-shared, not meaningful per thread => unavailable, never 0.
+	if worker.Metrics["rss"].Present() {
+		t.Fatal("per-thread rss should be unavailable (shared), not a value")
+	}
+}
+
 func TestSampler_CounterResetDiscarded(t *testing.T) {
 	clk := testutil.NewFakeClock(time.Unix(1_600_000_100, 0))
 	g1 := []ports.ProcStat{stat(10, 50, 500, 0, 4096)}
