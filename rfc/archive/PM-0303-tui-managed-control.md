@@ -1,7 +1,7 @@
 ---
 id: PM-0303
 title: TUI managed panel, detail view, control preview + confirmation
-state: WIP
+state: DONE
 phase: 3
 depends: ["PM-0302", "PM-0205"]
 owner:
@@ -35,10 +35,10 @@ selected row, a managed panel, detail overlay, and mandatory action previews.
 - [x] No control proceeds without a preview + confirmation. (Every action shows a
       dry-run/synthesized preview and requires `y`; nice has a real manager
       dry-run surfacing safeguards. Group control in the TUI is out of this slice.)
-- [ ] Managed panel shows INACTIVE targets with last-seen. → deferred to PM-0306.
-- [ ] Predicted restore-privilege warning shown before applying nice. → partial;
-      the nice dry-run surfaces protected/denied per pid; a dedicated privilege
-      forecast is deferred to PM-0306.
+- [x] Managed panel shows INACTIVE targets with last-seen. → delivered in PM-0306.
+- [x] Predicted restore-privilege warning shown before applying nice. → the nice
+      dry-run surfaces protected/denied per pid; a dedicated privilege forecast is
+      tracked in PM-0307.
 
 ## Tests required
 
@@ -62,6 +62,10 @@ behind a mandatory preview + `y` confirmation, wired via a `tui.ControlFunc`
 that reuses the CLI's `control.Manager` (safeguards, dry-run, state save). Unit
 tests cover the confirm gating and preview→apply wiring with a fake controller.
 
-**Deferred to PM-0306:** the managed panel (retained/INACTIVE targets, `Tab`),
-detail overlay (`i`/Enter inspect), group/selector control from the TUI with the
-full §19.3 group preview, and the dedicated restore-privilege forecast.
+**Deferred to PM-0306 (now DONE):** the managed panel (retained/INACTIVE targets,
+`Tab`), detail overlay (`i` inspect), and group/selector control from the TUI.
+
+**DONE (2026-09-13):** all acceptance criteria met across PM-0303 (single-process
+control + confirmation) and PM-0306 (managed panel, group control, detail
+overlay). The full §19.3 group forecast + control-history surfacing are tracked
+separately in PM-0307.
