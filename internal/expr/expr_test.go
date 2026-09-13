@@ -67,6 +67,9 @@ func TestStringOpsAndRegex(t *testing.T) {
 		`cmdline contains "eclipse"`:    false,
 		`comm in ["firefox", "chrome"]`: true,
 		`comm not in ["firefox"]`:       true,
+		`comm == 'chrome'`:              true, // single-quoted strings are equivalent to double
+		`cmdline contains 'idea'`:       true,
+		`comm in ['firefox', "chrome"]`: true, // mixed quoting in one expression
 	}
 	for src, want := range cases {
 		if got := evalOK(t, src, env); got != want {

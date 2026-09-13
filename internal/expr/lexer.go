@@ -56,7 +56,7 @@ func (l *lexer) next() (token, error) {
 	}
 	c := l.src[l.pos]
 	switch {
-	case c == '"':
+	case c == '"' || c == '\'':
 		return l.lexString()
 	case c == '(':
 		return l.single(tLParen, "(")
@@ -91,7 +91,8 @@ func (l *lexer) skipSpace() {
 
 func (l *lexer) lexString() (token, error) {
 	start := l.pos
-	l.pos++ // opening quote
+	quote := l.src[l.pos] // support both " and ' as delimiters
+	l.pos++               // opening quote
 	var b strings.Builder
 	for l.pos < len(l.src) {
 		c := l.src[l.pos]
@@ -100,7 +101,7 @@ func (l *lexer) lexString() (token, error) {
 			l.pos += 2
 			continue
 		}
-		if c == '"' {
+		if c == quote {
 			l.pos++
 			return token{kind: tString, str: b.String(), pos: start}, nil
 		}
