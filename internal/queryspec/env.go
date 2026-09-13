@@ -97,7 +97,7 @@ func (e RowEnv) Lookup(field string) expr.Value {
 		return expr.Num(float64(e.R.Children))
 	case "leaves":
 		return expr.Num(float64(e.R.Leaves))
-	case "target", "label", "comm":
+	case "target", "label", "comm", "name":
 		return expr.Str(e.R.Label)
 	case "kind":
 		return expr.Str(string(e.R.Kind))
@@ -134,7 +134,7 @@ func AllowedEntityFields(reg *metrics.Registry) map[string]bool {
 func AllowedRowFields(reg *metrics.Registry) map[string]bool {
 	allowed := map[string]bool{
 		"procs": true, "threads": true, "children": true, "leaves": true,
-		"target": true, "label": true, "comm": true, "kind": true,
+		"target": true, "label": true, "comm": true, "name": true, "kind": true,
 	}
 	addMetricFields(reg, allowed)
 	return allowed

@@ -47,6 +47,34 @@ func TestBuild_WideColumns(t *testing.T) {
 	}
 }
 
+func TestChooseColumns_LeafIdentifiers(t *testing.T) {
+	reg, dims := regDims()
+	// Process-leaf default exposes pid as its own column, but not tid.
+	r, _ := Build(reg, dims, Flags{Leaf: "process"})
+	if !containsCol(r.Columns, "pid") || containsCol(r.Columns, "tid") {
+		t.Fatalf("process default should have pid and no tid: %v", r.Columns)
+	}
+	// Thread-leaf default exposes both pid and tid.
+	rt, _ := Build(reg, dims, Flags{Leaf: "thread"})
+	if !containsCol(rt.Columns, "pid") || !containsCol(rt.Columns, "tid") {
+		t.Fatalf("thread default should have pid and tid: %v", rt.Columns)
+	}
+	// Explicit --columns is respected verbatim (no identifier injection).
+	rc, _ := Build(reg, dims, Flags{Leaf: "thread", Columns: "target,cpu"})
+	if containsCol(rc.Columns, "pid") || containsCol(rc.Columns, "tid") {
+		t.Fatalf("explicit columns must be verbatim: %v", rc.Columns)
+	}
+}
+
+func containsCol(cols []string, id string) bool {
+	for _, c := range cols {
+		if c == id {
+			return true
+		}
+	}
+	return false
+}
+
 func TestBuild_SelectHavingValidated(t *testing.T) {
 	reg, dims := regDims()
 	if _, err := Build(reg, dims, Flags{Select: "uid == 0"}); err != nil {
@@ -150,5 +178,13 @@ func TestEnvAdapters(t *testing.T) {
 	}
 	if v := re.Lookup("cpu"); v.Num != 9 {
 		t.Fatal("row cpu lookup wrong")
+	}
+	// name is a displayed, Filterable column, so it must be resolvable (and
+	// allowed) in a `having` expression — mapping to the row label like comm.
+	if v := re.Lookup("name"); v.Str != "g" {
+		t.Fatalf("row name should resolve to the label, got %+v", v)
+	}
+	if !AllowedRowFields(metrics.NewRegistry())["name"] {
+		t.Fatal("name must be an allowed having field")
 	}
 }

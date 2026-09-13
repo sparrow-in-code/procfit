@@ -13,6 +13,7 @@ func TestDisplayName(t *testing.T) {
 	}{
 		{"argv0 path basename", Process{Comm: "google-chrome-s", Cmdline: []string{"/usr/bin/google-chrome-stable"}}, "google-chrome-stable"},
 		{"argv0 with spaces kept", Process{Comm: "sshd", Cmdline: []string{"sshd: user [priv]"}}, "sshd: user [priv]"},
+		{"argv0 abs path with jammed args", Process{Comm: "chrome", Cmdline: []string{"/nix/store/x/chrome --type=gpu-process --foo=bar"}}, "chrome"},
 		{"exe fallback", Process{Comm: "worker", Exe: "/opt/app/bin/worker-daemon"}, "worker-daemon"},
 		{"comm fallback", Process{Comm: "kworker/0:1"}, "kworker/0:1"},
 		{"empty", Process{}, ""},

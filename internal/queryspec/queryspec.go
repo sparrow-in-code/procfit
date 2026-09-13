@@ -46,8 +46,10 @@ type Resolved struct {
 	TargetWidth int
 }
 
-// DefaultColumns is the compact default column set.
-var DefaultColumns = []string{"target", "pt", "cpu", "rss", "disk-rbps", "disk-wbps", "pstate"}
+// DefaultColumns is the compact default column set. The leaf identifier (pid)
+// is its own column so a single process is never confused with an aggregate
+// group; thread-leaf views additionally get a tid column (see chooseColumns).
+var DefaultColumns = []string{"target", "pid", "pt", "cpu", "rss", "disk-rbps", "disk-wbps", "pstate"}
 
 // WideColumns is the expanded column set for --format wide (RFC §18).
 var WideColumns = []string{
@@ -110,14 +112,28 @@ func resolveSelection(reg *metrics.Registry, f Flags) ([]model.MetricID, error) 
 }
 
 func chooseColumns(f Flags) []string {
-	cols := DefaultColumns
-	if f.Format == "wide" {
-		cols = WideColumns
-	}
 	if f.Columns != "" {
-		cols = SplitComma(f.Columns)
+		return SplitComma(f.Columns)
 	}
-	return cols
+	if f.Format == "wide" {
+		return WideColumns
+	}
+	if f.Leaf == string(query.LeafThread) {
+		return withTID(DefaultColumns) // thread views expose the thread id too
+	}
+	return DefaultColumns
+}
+
+// withTID returns cols with a "tid" column inserted right after "pid".
+func withTID(cols []string) []string {
+	out := make([]string, 0, len(cols)+1)
+	for _, c := range cols {
+		out = append(out, c)
+		if c == "pid" {
+			out = append(out, "tid")
+		}
+	}
+	return out
 }
 
 func compilePredicates(reg *metrics.Registry, dims *query.Dimensions, f Flags) (query.EntityPredicate, query.RowPredicate, []string, error) {

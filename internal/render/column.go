@@ -89,6 +89,7 @@ var structuralColumns = map[string]Column{
 	"procs":   {ID: "procs", Header: "PROCS", RightAlign: true, Sortable: true, Filterable: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Procs) }},
 	"threads": {ID: "threads", Header: "THREADS", RightAlign: true, Sortable: true, Filterable: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Threads) }},
 	"pid":     {ID: "pid", Header: "PID", RightAlign: true, Sortable: true, Cell: cellPID},
+	"tid":     {ID: "tid", Header: "TID", RightAlign: true, Sortable: true, Cell: cellTID},
 	"ppid":    {ID: "ppid", Header: "PPID", RightAlign: true, Cell: cellPPID},
 	"comm":    {ID: "comm", Header: "COMM", Sortable: true, Filterable: true, Cell: cellComm},
 	"name":    {ID: "name", Header: "NAME", Sortable: true, Filterable: true, Cell: cellName},
@@ -96,6 +97,16 @@ var structuralColumns = map[string]Column{
 	"user":    {ID: "user", Header: "USER", Cell: cellUser},
 	"pstate":  {ID: "pstate", Header: "PSTATE", Cell: cellPState},
 	"kind":    {ID: "kind", Header: "KIND", Filterable: true, Cell: func(r *query.Row) string { return string(r.Kind) }},
+	"cmdline": {ID: "cmdline", Header: "CMDLINE", Cell: cellCmdline},
+}
+
+// cellCmdline renders the full command line of a process leaf (the distinguishing
+// detail that the compact NAME/target column intentionally drops).
+func cellCmdline(r *query.Row) string {
+	if r.Process != nil {
+		return strings.Join(r.Process.Cmdline, " ")
+	}
+	return ""
 }
 
 func structuralColumn(id string) (Column, bool) {
@@ -138,10 +149,21 @@ func cellUser(r *query.Row) string {
 	return ""
 }
 
+// cellPID renders the owning process id: a process leaf's PID, or a thread
+// leaf's owner PID. Group rows have no PID.
 func cellPID(r *query.Row) string {
 	if r.Process != nil {
 		return fmt.Sprintf("%d", r.Process.PID)
 	}
+	if r.Thread != nil {
+		return fmt.Sprintf("%d", r.Thread.ID.Process.PID)
+	}
+	return ""
+}
+
+// cellTID renders a thread leaf's thread id; blank for processes and groups, so
+// PID and TID read as distinct identifier columns.
+func cellTID(r *query.Row) string {
 	if r.Thread != nil {
 		return fmt.Sprintf("%d", r.Thread.ID.TID)
 	}
