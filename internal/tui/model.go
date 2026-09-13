@@ -21,16 +21,22 @@ type KeyEvent struct {
 type groupPreset struct {
 	label   string
 	groupBy string
-	leaf    string
 }
 
+// groupPresets are the `g`-cycle groupings (group-by only). The leaf mode is an
+// independent control (`t`) so a chosen --leaf (process/thread/none) survives
+// regrouping. "none" is the flat, ungrouped view.
 var groupPresets = []groupPreset{
-	{"processes", "none", "process"},
-	{"by comm", "comm", "none"},
-	{"by user", "user", "none"},
-	{"by app", "app", "none"},
-	{"by namespace-set", "namespace-set,comm", "none"},
+	{"ungrouped", "none"},
+	{"by comm", "comm"},
+	{"by name", "name"},
+	{"by user", "user"},
+	{"by app", "app"},
+	{"by namespace-set", "namespace-set,comm"},
 }
+
+// leafModes are the `t`-cycle terminal-row modes under groups.
+var leafModes = []string{"process", "thread", "none"}
 
 // Model holds all interactive state.
 type Model struct {
@@ -44,28 +50,66 @@ type Model struct {
 	scroll       int
 	cursor       int
 	groupIx      int
+	leafIx       int
 	sortIx       int
 	sortDsc      bool
 	intervalStep int
 	status       string
 	quit         bool
 	dirty        bool // a re-query is needed
+	paused       bool // auto-refresh (ticker) suspended
 	editing      bool // filter-edit mode active
 	editBuf      string
+	editPos      int             // cursor position (rune index) within editBuf
+	history      []string        // applied filter expressions, oldest first
+	histIdx      int             // browse position into history (== len(history) means "live")
+	collapsed    map[string]bool // group paths the user has folded shut
+	hasGroups    bool            // the current view actually has a tree (not a flat list)
 }
 
 type flatRow struct {
-	row   *query.Row
-	depth int
+	row       *query.Row
+	depth     int
+	path      string // stable identity across refreshes (ancestor keys joined)
+	hasKids   bool   // an expandable (sub)group
+	collapsed bool   // currently folded shut
 }
 
 // NewModel builds a model with initial flags and a 1s default refresh interval.
 func NewModel(flags queryspec.Flags) *Model {
-	m := &Model{flags: flags, height: 24, width: 100, intervalStep: defaultIntervalIdx}
+	m := &Model{flags: flags, height: 24, width: 100, intervalStep: defaultIntervalIdx, collapsed: map[string]bool{}}
+	m.groupIx = indexOf(groupByLabels(), flags.GroupBy) // keep g-cycle in sync with launch flags
+	m.leafIx = indexOf(leafModes, leafOrDefault(flags.Leaf))
 	if flags.Sort != "" {
 		m.status = "sorted by " + flags.Sort
 	}
 	return m
+}
+
+func groupByLabels() []string {
+	out := make([]string, len(groupPresets))
+	for i, p := range groupPresets {
+		out[i] = p.groupBy
+	}
+	return out
+}
+
+func leafOrDefault(leaf string) string {
+	if leaf == "" {
+		return "process"
+	}
+	return leaf
+}
+
+// indexOf returns the position of v in xs, or 0 when absent (a safe default that
+// keeps cycling coherent even if launch flags used a value with no preset).
+func indexOf(xs []string, v string) int {
+	for i, x := range xs {
+		if x == v {
+			return i
+		}
+	}
+	return 0
 }
 
 // Flags returns the current query flags (for the sampler).
@@ -73,6 +117,10 @@ func (m *Model) Flags() queryspec.Flags { return m.flags }
 
 // Quit reports whether the user asked to exit.
 func (m *Model) Quit() bool { return m.quit }
+
+// Paused reports whether auto-refresh is suspended. The driver honours this on
+// the ticker tick; explicit actions (refresh, sort, filter, …) still re-query.
+func (m *Model) Paused() bool { return m.paused }
 
 // Dirty reports (and clears) whether a re-query is needed.
 func (m *Model) Dirty() bool {
@@ -89,11 +137,18 @@ func (m *Model) SetSize(w, h int) { m.width, m.height = w, h }
 func (m *Model) SetResult(res *query.Result, cols []render.Column) {
 	m.result = res
 	m.cols = cols
-	m.rows = flatten(res.Rows, 0)
-	m.colWidths = m.computeWidths()
 	if len(m.cols) > 0 && !m.cols[safeIdx(m.sortIx, len(m.cols))].Sortable {
 		m.sortIx = m.firstSortable() // keep the sort key on a sortable displayed column
 	}
+	m.rebuildRows()
+}
+
+// rebuildRows re-derives the visible flat row list from the current result and
+// collapse state, then recomputes widths and re-clamps cursor/scroll. Called on
+// a new result AND after an expand/collapse (a view-only change, no re-query).
+func (m *Model) rebuildRows() {
+	m.rows = m.flattenTree()
+	m.colWidths = m.computeWidths()
 	if m.cursor >= len(m.rows) {
 		m.cursor = maxInt(0, len(m.rows)-1)
 	}
@@ -155,9 +210,30 @@ func (m *Model) computeWidths() []int {
 func (m *Model) cellText(c render.Column, fr flatRow) string {
 	cell := c.Cell(fr.row)
 	if c.IsTarget {
-		cell = render.TruncateCell(indent(fr.depth)+cell, m.flags.TargetWidth)
+		// Only draw indentation + fold markers when the view is actually a tree.
+		// A flat process list (no grouping) stays flush-left, not pointlessly
+		// indented.
+		prefix := ""
+		if m.hasGroups {
+			prefix = indent(fr.depth) + treeMarker(fr)
+		}
+		cell = render.TruncateCell(prefix+cell, m.flags.TargetWidth)
 	}
 	return cell
+}
+
+// treeMarker shows whether a row is an expandable (sub)group and its fold state,
+// padded so groups and leaves at the same depth line up: "[-] " expanded,
+// "[+] " collapsed, "    " leaf.
+func treeMarker(fr flatRow) string {
+	switch {
+	case !fr.hasKids:
+		return "    "
+	case fr.collapsed:
+		return "[+] "
+	default:
+		return "[-] "
+	}
 }
 
 func indent(depth int) string {
@@ -167,11 +243,30 @@ func indent(depth int) string {
 	return strings.Repeat("  ", depth)
 }
 
-func flatten(rows []*query.Row, depth int) []flatRow {
-	var out []flatRow
-	for _, r := range rows {
-		out = append(out, flatRow{row: r, depth: depth})
-		out = append(out, flatten(r.Sub, depth+1)...)
+// flattenTree walks the result tree depth-first, giving each row a stable path
+// (ancestor keys joined) and skipping the children of collapsed groups, so the
+// visible list reflects the fold state.
+func (m *Model) flattenTree() []flatRow {
+	if m.result == nil {
+		return nil
 	}
+	var out []flatRow
+	m.hasGroups = false
+	var walk func(rows []*query.Row, depth int, parent string)
+	walk = func(rows []*query.Row, depth int, parent string) {
+		for _, r := range rows {
+			path := parent + "\x1f" + r.Key
+			kids := len(r.Sub) > 0
+			if r.Kind == query.RowGroup || r.Kind == query.RowHost {
+				m.hasGroups = true
+			}
+			folded := kids && m.collapsed[path]
+			out = append(out, flatRow{row: r, depth: depth, path: path, hasKids: kids, collapsed: folded})
+			if kids && !folded {
+				walk(r.Sub, depth+1, path)
+			}
+		}
+	}
+	walk(m.result.Rows, 0, "")
 	return out
 }

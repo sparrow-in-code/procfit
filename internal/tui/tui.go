@@ -53,7 +53,9 @@ func Run(screen tcell.Screen, refresh RefreshFunc, flags queryspec.Flags) (strin
 		case ev := <-events:
 			handleEvent(screen, m, ev, refresh)
 		case <-ticker.C:
-			requery(m, refresh)
+			if !m.Paused() {
+				requery(m, refresh)
+			}
 		}
 		if ni := m.IntervalHint(); ni != interval {
 			interval = ni
@@ -97,29 +99,44 @@ func requery(m *Model, refresh RefreshFunc) {
 	m.SetResult(res, cols)
 }
 
+// keyNames maps the plain (unmodified) tcell keys to terminal-agnostic names.
+// Kept as data so mapKey stays small; modified/rune keys are handled separately.
+var keyNames = map[tcell.Key]string{
+	tcell.KeyCtrlC:      "ctrl-c",
+	tcell.KeyUp:         "up",
+	tcell.KeyDown:       "down",
+	tcell.KeyPgUp:       "pgup",
+	tcell.KeyPgDn:       "pgdn",
+	tcell.KeyHome:       "home",
+	tcell.KeyEnd:        "end",
+	tcell.KeyDelete:     "delete",
+	tcell.KeyEnter:      "enter",
+	tcell.KeyEscape:     "esc",
+	tcell.KeyBackspace:  "backspace",
+	tcell.KeyBackspace2: "backspace",
+}
+
 func mapKey(ev *tcell.EventKey) KeyEvent {
+	ctrl := ev.Modifiers()&tcell.ModCtrl != 0
 	switch ev.Key() {
-	case tcell.KeyCtrlC:
-		return KeyEvent{Name: "ctrl-c"}
-	case tcell.KeyUp:
-		return KeyEvent{Name: "up"}
-	case tcell.KeyDown:
-		return KeyEvent{Name: "down"}
-	case tcell.KeyPgUp:
-		return KeyEvent{Name: "pgup"}
-	case tcell.KeyPgDn:
-		return KeyEvent{Name: "pgdn"}
-	case tcell.KeyEnter:
-		return KeyEvent{Name: "enter"}
-	case tcell.KeyEscape:
-		return KeyEvent{Name: "esc"}
-	case tcell.KeyBackspace, tcell.KeyBackspace2:
-		return KeyEvent{Name: "backspace"}
+	case tcell.KeyLeft:
+		return KeyEvent{Name: ctrlName("left", ctrl)}
+	case tcell.KeyRight:
+		return KeyEvent{Name: ctrlName("right", ctrl)}
 	case tcell.KeyRune:
 		return KeyEvent{Rune: ev.Rune()}
-	default:
-		return KeyEvent{}
 	}
+	if name, ok := keyNames[ev.Key()]; ok {
+		return KeyEvent{Name: name}
+	}
+	return KeyEvent{}
+}
+
+func ctrlName(base string, ctrl bool) string {
+	if ctrl {
+		return "ctrl-" + base
+	}
+	return base
 }
 
 func draw(screen tcell.Screen, m *Model) {

@@ -67,6 +67,28 @@ func TestModel_UnitsToggle(t *testing.T) {
 	}
 }
 
+func TestModel_PauseToggle(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	res, cols := sampleResult(3)
+	m.SetResult(res, cols)
+	if m.Paused() {
+		t.Fatal("auto-refresh must be on by default")
+	}
+	// 'p' pauses; pausing alone must not request a re-query.
+	m.Update(KeyEvent{Rune: 'p'})
+	if !m.Paused() || m.Dirty() {
+		t.Fatalf("'p' should pause without marking dirty: paused=%v", m.Paused())
+	}
+	if !strings.Contains(m.statusBar(), "PAUSED") {
+		t.Fatalf("status bar should advertise PAUSED, got %q", m.statusBar())
+	}
+	// space resumes and re-queries immediately.
+	m.Update(KeyEvent{Rune: ' '})
+	if m.Paused() || !m.Dirty() {
+		t.Fatalf("space should resume and mark dirty: paused=%v", m.Paused())
+	}
+}
+
 func TestModel_SortOnlyDisplayedSortable(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	res, cols := sampleResult(3) // columns: target, pt, cpu (pt is not sortable)
@@ -110,6 +132,90 @@ func TestModel_FilterOnlyDisplayedColumns(t *testing.T) {
 	}
 	if !strings.Contains(m.status, "rss") {
 		t.Fatalf("status should explain the invalid field: %q", m.status)
+	}
+	// The rejection must be VISIBLE: while editing, the status bar has to surface
+	// the error, not just the raw edit buffer (otherwise the filter feels inert).
+	if !strings.Contains(m.statusBar(), "rss") {
+		t.Fatalf("editing status bar must surface the rejection, got %q", m.statusBar())
+	}
+}
+
+func TestModel_FilterPromptShowsFieldHint(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	res, cols := sampleResult(3) // target, pt, cpu
+	m.SetResult(res, cols)
+	m.Update(KeyEvent{Rune: '/'})
+	// On entry the prompt must list the filterable fields so the user knows what
+	// to type; the raw buffer alone is not enough guidance.
+	bar := m.statusBar()
+	if !strings.Contains(bar, "filter>") || !strings.Contains(bar, "cpu") {
+		t.Fatalf("filter prompt should show the field hint (incl. cpu), got %q", bar)
+	}
+}
+
+func TestModel_FilterBareWordAndHistory(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	res, cols := sampleResult(3) // target, pt, cpu
+	m.SetResult(res, cols)
+
+	// A bare word becomes a target substring match (optional quotes).
+	m.Update(KeyEvent{Rune: '/'})
+	for _, r := range "idea" {
+		m.Update(KeyEvent{Rune: r})
+	}
+	m.Update(KeyEvent{Name: "enter"})
+	if got := m.Flags().Having; got != `target contains "idea"` {
+		t.Fatalf("bare word should become a target substring, got %q", got)
+	}
+
+	// An expression (with operators) passes through unchanged.
+	m.Update(KeyEvent{Rune: '/'})
+	m.editBuf, m.editPos = "", 0 // clear the seeded buffer
+	for _, r := range "cpu>1" {
+		m.Update(KeyEvent{Rune: r})
+	}
+	m.Update(KeyEvent{Name: "enter"})
+	if m.Flags().Having != "cpu>1" {
+		t.Fatalf("expression filter should pass through, got %q", m.Flags().Having)
+	}
+
+	// History recall: Up gives the newest, Up again the older raw input.
+	m.Update(KeyEvent{Rune: '/'})
+	m.Update(KeyEvent{Name: "up"})
+	if m.editBuf != "cpu>1" {
+		t.Fatalf("history up should recall newest, got %q", m.editBuf)
+	}
+	m.Update(KeyEvent{Name: "up"})
+	if m.editBuf != "idea" {
+		t.Fatalf("history up again should recall older, got %q", m.editBuf)
+	}
+}
+
+func TestModel_FilterCursorEditing(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	res, cols := sampleResult(3)
+	m.SetResult(res, cols)
+	m.Update(KeyEvent{Rune: '/'})
+	for _, r := range "cpu>5" {
+		m.Update(KeyEvent{Rune: r})
+	}
+	// Left one, insert '1' between '>' and '5'.
+	m.Update(KeyEvent{Name: "left"})
+	m.Update(KeyEvent{Rune: '1'})
+	if m.editBuf != "cpu>15" {
+		t.Fatalf("insert at cursor failed: %q", m.editBuf)
+	}
+	// Home then Delete removes the first char.
+	m.Update(KeyEvent{Name: "home"})
+	m.Update(KeyEvent{Name: "delete"})
+	if m.editBuf != "pu>15" {
+		t.Fatalf("delete at cursor failed: %q", m.editBuf)
+	}
+	// ctrl-right jumps over the whole (space-free) token.
+	m.Update(KeyEvent{Name: "home"})
+	m.Update(KeyEvent{Name: "ctrl-right"})
+	if m.editPos != len([]rune(m.editBuf)) {
+		t.Fatalf("ctrl-right should jump a word, pos=%d", m.editPos)
 	}
 }
 

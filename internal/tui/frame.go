@@ -53,14 +53,25 @@ func (m *Model) Frame() []string {
 
 func (m *Model) statusBar() string {
 	if m.editing {
-		return truncate("filter> "+m.editBuf+"_", m.width)
+		// Show the edit buffer AND m.status, so the field-list hint (set on entry)
+		// and any validation error (set on a rejected apply) are visible — without
+		// them the filter feels inert on bad input.
+		line := "filter> " + withCursor(m.editBuf, m.editPos)
+		if m.status != "" {
+			line += "   " + m.status
+		}
+		return truncate(line, m.width)
 	}
 	gen, procs := 0, len(m.rows)
 	if m.result != nil {
 		gen = m.result.Generation
 	}
-	return truncate(fmt.Sprintf("%s  gen=%d rows=%d  interval=%s  [g]roup [s]ort [S]dir [/]filter [u]nits [r]efresh [q]uit  %s",
-		meta.Name, gen, procs, m.IntervalHint(), m.status), m.width)
+	refresh := "interval=" + m.IntervalHint().String()
+	if m.paused {
+		refresh = "PAUSED"
+	}
+	return truncate(fmt.Sprintf("%s  gen=%d rows=%d  %s  [g]roup [t]leaf [enter/←→]fold [s]ort [S]dir [/]filter [u]nits [p]ause [r]efresh [q]uit  %s",
+		meta.Name, gen, procs, refresh, m.status), m.width)
 }
 
 func (m *Model) header() string {
@@ -146,6 +157,18 @@ func (m *Model) CLIString() string {
 }
 
 func quoteArg(s string) string { return "'" + s + "'" }
+
+// withCursor renders the edit buffer with a visible caret at pos (rune index).
+func withCursor(s string, pos int) string {
+	r := []rune(s)
+	if pos < 0 {
+		pos = 0
+	}
+	if pos > len(r) {
+		pos = len(r)
+	}
+	return string(r[:pos]) + "▏" + string(r[pos:])
+}
 
 func truncate(s string, w int) string {
 	if w <= 0 || len(s) <= w {

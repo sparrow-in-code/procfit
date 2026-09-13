@@ -26,6 +26,71 @@ func sampleResult(n int) (*query.Result, []render.Column) {
 
 func label(i int) string { return "proc" + string(rune('a'+i%26)) }
 
+// groupedResult builds a one-group tree (group-one with two process leaves) for
+// exercising the tree renderer and expand/collapse.
+func groupedResult() (*query.Result, []render.Column) {
+	mk := func(pid int) *query.Row {
+		r := &query.Row{Kind: query.RowProcess, Key: "p" + string(rune('0'+pid)), Label: label(pid),
+			Procs: 1, Threads: 1, Process: &model.Process{PID: pid}}
+		r.Metrics = map[model.MetricID]model.MetricValue{"cpu": model.NewValue(float64(pid), model.Derived, "t")}
+		return r
+	}
+	g := &query.Row{Kind: query.RowGroup, Key: "g1", Label: "group-one", Children: 2, Procs: 2, Threads: 2,
+		Sub: []*query.Row{mk(1), mk(2)}}
+	g.Metrics = map[model.MetricID]model.MetricValue{"cpu": model.NewValue(3.0, model.Derived, "t")}
+	cols, _ := render.ResolveColumns(metrics.NewDefault(), []string{"target", "pt", "cpu"})
+	return &query.Result{Generation: 7, WallTime: time.Unix(0, 0), Rows: []*query.Row{g}}, cols
+}
+
+func TestModel_FlatViewNoIndent(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(80, 10)
+	res, cols := sampleResult(3) // flat process rows, no groups
+	m.SetResult(res, cols)
+	if m.hasGroups {
+		t.Fatal("a flat process list must not be treated as a tree")
+	}
+	// No groups => no fold marker/indent; the label follows the cursor gap.
+	if row := m.Frame()[2]; !strings.HasPrefix(row, "> proc") {
+		t.Fatalf("flat leaf must not be indented, got %q", row)
+	}
+}
+
+func TestModel_ExpandCollapse(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(80, 24)
+	res, cols := groupedResult()
+	m.SetResult(res, cols)
+
+	// Expanded by default: group + 2 children = 3 visible rows, marker "[-]".
+	if len(m.rows) != 3 {
+		t.Fatalf("want 3 visible rows expanded, got %d", len(m.rows))
+	}
+	if !strings.Contains(m.Frame()[2], "[-]") {
+		t.Fatalf("expanded group should show [-]: %q", m.Frame()[2])
+	}
+	// Enter collapses the group under the cursor -> children hidden, marker "[+]".
+	m.Update(KeyEvent{Name: "enter"})
+	if len(m.rows) != 1 {
+		t.Fatalf("collapse should hide children, got %d rows", len(m.rows))
+	}
+	if !strings.Contains(m.Frame()[2], "[+]") {
+		t.Fatalf("collapsed group should show [+]: %q", m.Frame()[2])
+	}
+	if m.Dirty() {
+		t.Fatal("expand/collapse is view-only; must not request a re-query")
+	}
+	// Right re-expands.
+	m.Update(KeyEvent{Name: "right"})
+	if len(m.rows) != 3 {
+		t.Fatalf("expand should restore children, got %d rows", len(m.rows))
+	}
+	// Leaves render the blank (non-group) marker slot, not a caret.
+	if strings.Contains(m.Frame()[3], "[+]") || strings.Contains(m.Frame()[3], "[-]") {
+		t.Fatalf("leaf row must not show a fold marker: %q", m.Frame()[3])
+	}
+}
+
 func TestModel_FrameAndScroll(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	m.SetSize(80, 6) // 2 chrome (status+header) + 4 body rows
@@ -94,6 +159,26 @@ func TestModel_GroupAndSortAreDirty(t *testing.T) {
 	m.Update(KeyEvent{Name: "down"})
 	if m.Dirty() {
 		t.Fatal("navigation must not trigger a re-query")
+	}
+}
+
+func TestModel_LeafIndependentOfGroup(t *testing.T) {
+	m := NewModel(queryspec.Flags{Leaf: "thread"})
+	if m.Flags().Leaf != "thread" {
+		t.Fatalf("launch --leaf must be honored, got %q", m.Flags().Leaf)
+	}
+	// Cycling grouping must NOT reset the chosen leaf mode.
+	m.Update(KeyEvent{Rune: 'g'})
+	if m.Flags().GroupBy != "comm" {
+		t.Fatalf("group cycle should set group-by comm, got %q", m.Flags().GroupBy)
+	}
+	if m.Flags().Leaf != "thread" {
+		t.Fatalf("group cycle must preserve leaf, got %q", m.Flags().Leaf)
+	}
+	// 't' cycles leaf independently: process,thread,none -> from thread to none.
+	m.Update(KeyEvent{Rune: 't'})
+	if m.Flags().Leaf != "none" || !m.Dirty() {
+		t.Fatalf("'t' should cycle leaf thread->none and mark dirty, got %q", m.Flags().Leaf)
 	}
 }
 
