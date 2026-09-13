@@ -59,6 +59,7 @@ shows the same grouped tree as `ps`, refreshed on an interval.
 |---|---|
 | `↑`/`↓`, `k`/`j`, `PgUp`/`PgDn` | move the cursor |
 | `Enter` / `←` / `→` | fold/unfold the group under the cursor (`[-]` open, `[+]` collapsed; leaves have no marker) |
+| `i` | inspect the selected row (identity overlay; `Esc`/`i` to close) |
 | `g` | cycle the grouping preset |
 | `s` / `S` | cycle the sort column / toggle ascending↔descending |
 | `/` or `f` | filter (see below) |

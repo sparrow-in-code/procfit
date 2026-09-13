@@ -357,6 +357,26 @@ func TestModel_ManagedPanel(t *testing.T) {
 	}
 }
 
+func TestModel_DetailOverlay(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(80, 12)
+	res, cols := sampleResult(3)
+	m.SetResult(res, cols)
+	m.Update(KeyEvent{Rune: 'i'})
+	if !m.detail {
+		t.Fatal("'i' should open the detail overlay")
+	}
+	fr := m.Frame()
+	joined := strings.Join(fr, "\n")
+	if !strings.Contains(fr[0], "DETAIL") || !strings.Contains(joined, "pid:") || !strings.Contains(joined, "name:") {
+		t.Fatalf("detail overlay missing identity:\n%s", joined)
+	}
+	m.Update(KeyEvent{Name: "esc"})
+	if m.detail {
+		t.Fatal("Esc should close the detail overlay")
+	}
+}
+
 func TestModel_ControlUnavailable(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	res, cols := sampleResult(2)

@@ -1,7 +1,7 @@
 ---
 id: PM-0306
 title: TUI managed panel, detail overlay, and group control preview
-state: WIP
+state: DONE
 phase: 3
 depends: ["PM-0303"]
 owner:
@@ -39,7 +39,10 @@ single-process control with per-action confirmation).
       control collects every descendant process; the preview shows the affected
       count, and nice's dry-run aggregates status counts incl. protected/denied.
       A richer §19.3 capture/change + privilege forecast is still open.)
-- [ ] Detail overlay shows identity + control history for the selected row.
+- [x] Detail overlay shows identity for the selected row (`i` to open, Esc to
+      close): name, comm, pid/ppid, user, state, exe, cgroup, cmdline (or a group
+      summary). Control history is not yet surfaced (audit log is Nop by default)
+      → moved to PM-0307.
 - [x] Control still reuses the Phase-2 controllers/safeguards (no duplicated
       control logic in the TUI).
 
@@ -54,8 +57,13 @@ managed targets (mode, active state, members, desired nice/stop/freeze,
 last-seen); `R` restores and `d` unmanages the selection via a
 `tui.ManagedActionFunc`. `Run` now takes a `tui.Deps` bundle.
 
-Still open: detail overlay (`i`/Enter inspect: identity + control history) and the
-full §19.3 capture/change + privilege forecast.
+**2026-09-13 (later still):** detail overlay landed — `i` opens an inspect view
+of the selected row's identity (Esc/`i`/`q` to close).
+
+**DONE (2026-09-13):** managed panel, group control, and the detail overlay all
+shipped with tests; `make check` green. Follow-ups spun off to **PM-0307**: the
+full §19.3 group forecast (capture/change values + privilege/restore prediction)
+and surfacing control history (requires enabling/reading the audit log).
 
 ## Tests required
 

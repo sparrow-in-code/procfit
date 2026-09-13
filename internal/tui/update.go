@@ -27,6 +27,7 @@ var runeKeys = map[rune]func(*Model){
 	'j': func(m *Model) { m.moveCursor(1) },
 	'g': (*Model).cycleGroup,
 	't': (*Model).cycleLeaf,
+	'i': (*Model).openDetail,
 	's': (*Model).cycleSort,
 	'S': (*Model).toggleSortDir,
 	'r': (*Model).refreshAction,
@@ -59,6 +60,10 @@ func (m *Model) Update(ev KeyEvent) {
 	}
 	if m.editing {
 		m.editKey(ev)
+		return
+	}
+	if m.detail {
+		m.detailKey(ev)
 		return
 	}
 	if ev.Name == "tab" {

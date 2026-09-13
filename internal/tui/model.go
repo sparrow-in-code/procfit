@@ -75,6 +75,8 @@ type Model struct {
 	pending     ControlRequest // the action awaiting a value/confirmation
 	preview     string         // dry-run preview shown in the confirmation gate
 
+	detail bool // inspect overlay open
+
 	// managed panel
 	panel      Panel
 	managed    []ManagedRow
