@@ -68,6 +68,19 @@ shows the same grouped tree as `ps`, refreshed on an interval.
 | `r` | refresh once |
 | `q` / `Ctrl-C` | quit (prints the equivalent `procfit ps …` command for the current view) |
 
+**Throttling / control** (on the selected process leaf; every action shows a
+preview and requires `y` to confirm):
+
+| Key | Action |
+|---|---|
+| `n` | renice (type a value `-20..19`, then confirm) |
+| `x` / `c` | stop (SIGSTOP) / continue (SIGCONT) |
+| `z` / `Z` | freeze / thaw (cgroup v2, if delegated) |
+| `R` | restore captured original values |
+
+Control reuses the same safeguards as the CLI `set`/`restore` commands (protected
+PIDs are skipped, changes are recorded for restore).
+
 Group rows are **aggregates** of their members; the `PID`/`TID` columns are blank
 on groups and populated only on process/thread leaves, so a single process is
 never mistaken for a group. Sorting and filtering **preserve the tree**: siblings

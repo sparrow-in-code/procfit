@@ -52,6 +52,14 @@ func (m *Model) Frame() []string {
 }
 
 func (m *Model) statusBar() string {
+	if m.confirming {
+		return truncate(fmt.Sprintf("CONFIRM %s pid %d (%s)?  %s   [y]es [n]o",
+			m.pending.Kind.Verb(), m.pending.PID, m.pending.Label, m.preview), m.width)
+	}
+	if m.niceEditing {
+		return truncate(fmt.Sprintf("nice pid %d (%s)> %s_   %s",
+			m.pending.PID, m.pending.Label, m.niceBuf, m.status), m.width)
+	}
 	if m.editing {
 		// Show the edit buffer AND m.status, so the field-list hint (set on entry)
 		// and any validation error (set on a rejected apply) are visible — without
@@ -70,8 +78,12 @@ func (m *Model) statusBar() string {
 	if m.paused {
 		refresh = "PAUSED"
 	}
-	return truncate(fmt.Sprintf("%s  gen=%d rows=%d  %s  [g]roup [t]leaf [enter/←→]fold [s]ort [S]dir [/]filter [u]nits [p]ause [r]efresh [q]uit  %s",
-		meta.Name, gen, procs, refresh, m.status), m.width)
+	ctl := ""
+	if m.control != nil {
+		ctl = "[n]ice [x]stop [c]ont [z]freeze [R]estore "
+	}
+	return truncate(fmt.Sprintf("%s  gen=%d rows=%d  %s  [g]roup [t]leaf [enter/←→]fold [s]ort [S]dir [/]filter [u]nits %s[p]ause [r]efresh [q]uit  %s",
+		meta.Name, gen, procs, refresh, ctl, m.status), m.width)
 }
 
 func (m *Model) header() string {

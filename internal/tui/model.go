@@ -65,7 +65,20 @@ type Model struct {
 	histIdx      int             // browse position into history (== len(history) means "live")
 	collapsed    map[string]bool // group paths the user has folded shut
 	hasGroups    bool            // the current view actually has a tree (not a flat list)
+
+	// control (throttling) state; control is nil when the driver supplies no
+	// controller (observation-only).
+	control     ControlFunc
+	confirming  bool           // a control confirmation gate is open
+	niceEditing bool           // entering a nice value
+	niceBuf     string         // the nice value being typed
+	pending     ControlRequest // the action awaiting a value/confirmation
+	preview     string         // dry-run preview shown in the confirmation gate
 }
+
+// SetControl installs the control callback (enables throttling keys). Nil keeps
+// the explorer observation-only.
+func (m *Model) SetControl(fn ControlFunc) { m.control = fn }
 
 type flatRow struct {
 	row       *query.Row

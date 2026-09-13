@@ -31,7 +31,7 @@ func TestRun_SimulationScreen(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		scr.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // quit
 	}()
-	cli, err := Run(scr, refresh, queryspec.Flags{})
+	cli, err := Run(scr, refresh, nil, queryspec.Flags{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,6 +236,71 @@ func TestModel_FilterCancelAndClear(t *testing.T) {
 	m.Update(KeyEvent{Name: "enter"})
 	if m.Flags().Having != "" {
 		t.Fatalf("empty filter should clear, got %q", m.Flags().Having)
+	}
+}
+
+func TestModel_ControlNiceFlow(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	res, cols := sampleResult(3)
+	m.SetResult(res, cols)
+	var calls []ControlRequest
+	m.SetControl(func(req ControlRequest) (string, error) {
+		calls = append(calls, req)
+		return "ok", nil
+	})
+	// 'n' -> numeric entry; type 10; Enter -> dry-run preview + confirm gate.
+	m.Update(KeyEvent{Rune: 'n'})
+	if !m.niceEditing {
+		t.Fatal("'n' should start nice entry")
+	}
+	for _, r := range "10" {
+		m.Update(KeyEvent{Rune: r})
+	}
+	m.Update(KeyEvent{Name: "enter"})
+	if !m.confirming {
+		t.Fatalf("Enter should open the confirm gate; calls=%+v", calls)
+	}
+	if len(calls) != 1 || !calls[0].DryRun || calls[0].Kind != CtrlNice || calls[0].Nice != 10 || calls[0].PID != 1 {
+		t.Fatalf("preview call wrong: %+v", calls)
+	}
+	// 'y' applies (DryRun=false); no apply happens before confirmation.
+	m.Update(KeyEvent{Rune: 'y'})
+	if m.confirming {
+		t.Fatal("'y' should close the confirm gate")
+	}
+	if len(calls) != 2 || calls[1].DryRun || calls[1].Nice != 10 {
+		t.Fatalf("apply call wrong: %+v", calls)
+	}
+}
+
+func TestModel_ControlStopCancel(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	res, cols := sampleResult(2)
+	m.SetResult(res, cols)
+	applied := false
+	m.SetControl(func(req ControlRequest) (string, error) {
+		if !req.DryRun {
+			applied = true
+		}
+		return "ok", nil
+	})
+	m.Update(KeyEvent{Rune: 'x'})
+	if !m.confirming {
+		t.Fatal("'x' should open the confirm gate")
+	}
+	m.Update(KeyEvent{Rune: 'n'}) // decline
+	if m.confirming || applied {
+		t.Fatalf("declining must not apply: confirming=%v applied=%v", m.confirming, applied)
+	}
+}
+
+func TestModel_ControlUnavailable(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	res, cols := sampleResult(2)
+	m.SetResult(res, cols)
+	m.Update(KeyEvent{Rune: 'n'}) // no controller installed
+	if m.niceEditing || m.confirming {
+		t.Fatal("control keys must be inert without a controller")
 	}
 }
 

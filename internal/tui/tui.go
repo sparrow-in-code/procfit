@@ -18,7 +18,7 @@ type RefreshFunc func(queryspec.Flags) (*query.Result, []render.Column, error)
 // RunTerminal creates a real terminal screen, runs the explorer, and returns the
 // equivalent CLI command for the final view. It keeps tcell setup inside this
 // package so callers depend only on RefreshFunc.
-func RunTerminal(refresh RefreshFunc, flags queryspec.Flags) (string, error) {
+func RunTerminal(refresh RefreshFunc, control ControlFunc, flags queryspec.Flags) (string, error) {
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		return "", err
@@ -27,15 +27,16 @@ func RunTerminal(refresh RefreshFunc, flags queryspec.Flags) (string, error) {
 		return "", err
 	}
 	defer screen.Fini()
-	return Run(screen, refresh, flags)
+	return Run(screen, refresh, control, flags)
 }
 
 // Run drives the interactive explorer on the given screen until the user quits,
 // returning the equivalent CLI command for the final view (Phase 3 exit
 // criterion). Sampling (via refresh on a ticker) and input are handled in one
 // loop so slow refreshes never wedge input handling (RFC §19.4).
-func Run(screen tcell.Screen, refresh RefreshFunc, flags queryspec.Flags) (string, error) {
+func Run(screen tcell.Screen, refresh RefreshFunc, control ControlFunc, flags queryspec.Flags) (string, error) {
 	m := NewModel(flags)
+	m.SetControl(control)
 	w, h := screen.Size()
 	m.SetSize(w, h)
 	requery(m, refresh)

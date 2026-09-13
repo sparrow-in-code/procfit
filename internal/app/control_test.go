@@ -11,6 +11,7 @@ import (
 	"github.com/netikras/procfit/internal/ports"
 	"github.com/netikras/procfit/internal/state"
 	"github.com/netikras/procfit/internal/testutil"
+	"github.com/netikras/procfit/internal/tui"
 )
 
 // fakeControl installs a control assembly backed by a fake controller/source and
@@ -44,6 +45,41 @@ func pstat(pid int, comm string, nice int) ports.ProcStat {
 	return ports.ProcStat{
 		ID:  model.ProcessInstanceID{BootID: "boot-test", PID: pid, StartTime: uint64(pid)},
 		PID: pid, Comm: comm, Nice: nice, NiceAvail: model.Available, IOAvail: model.Available,
+	}
+}
+
+func TestTUIControl_PreviewAndApply(t *testing.T) {
+	_, restore := fakeControl(t, pstat(1234, "worker", 0))
+	defer restore()
+	ctl := tuiControl()
+
+	// nice: real manager dry-run preview, then apply.
+	prev, err := ctl(tui.ControlRequest{PID: 1234, Label: "worker", Kind: tui.CtrlNice, Nice: 10, DryRun: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(prev, "nice→10") {
+		t.Fatalf("nice preview wrong: %q", prev)
+	}
+	res, err := ctl(tui.ControlRequest{PID: 1234, Label: "worker", Kind: tui.CtrlNice, Nice: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res, "applied") {
+		t.Fatalf("nice apply wrong: %q", res)
+	}
+
+	// stop: preview is synthesized (no manager mutation), then apply acts.
+	prev, _ = ctl(tui.ControlRequest{PID: 1234, Label: "worker", Kind: tui.CtrlStop, DryRun: true})
+	if !strings.Contains(prev, "would stop") {
+		t.Fatalf("stop preview wrong: %q", prev)
+	}
+	res, err = ctl(tui.ControlRequest{PID: 1234, Label: "worker", Kind: tui.CtrlStop})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res, "pid 1234") {
+		t.Fatalf("stop apply wrong: %q", res)
 	}
 }
 

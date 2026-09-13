@@ -33,6 +33,12 @@ var runeKeys = map[rune]func(*Model){
 	'p': (*Model).togglePause,
 	' ': (*Model).togglePause,
 	'u': (*Model).toggleUnits,
+	'n': func(m *Model) { m.startControl(CtrlNice) },
+	'x': func(m *Model) { m.startControl(CtrlStop) },
+	'c': func(m *Model) { m.startControl(CtrlContinue) },
+	'z': func(m *Model) { m.startControl(CtrlFreeze) },
+	'Z': func(m *Model) { m.startControl(CtrlThaw) },
+	'R': func(m *Model) { m.startControl(CtrlRestore) },
 	'/': (*Model).startFilter,
 	'f': (*Model).startFilter,
 	'[': func(m *Model) { m.adjustInterval(-1) },
@@ -43,6 +49,14 @@ var runeKeys = map[rune]func(*Model){
 // must be re-run (grouping/sort/interval/units changes). Navigation is local and
 // does not re-query.
 func (m *Model) Update(ev KeyEvent) {
+	if m.confirming {
+		m.confirmKey(ev)
+		return
+	}
+	if m.niceEditing {
+		m.niceKey(ev)
+		return
+	}
 	if m.editing {
 		m.editKey(ev)
 		return
