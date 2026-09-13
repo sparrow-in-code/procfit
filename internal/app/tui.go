@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/netikras/procfit/internal/collect"
@@ -96,15 +97,12 @@ func tuiControl() tui.ControlFunc {
 		if err != nil {
 			return "", err
 		}
-		spec := fmt.Sprintf("pid:%d", req.PID)
-		name := targetName(spec)
-		if c.mgr.Find(name) == nil {
-			insts, err := c.resolveInstances(spec)
-			if err != nil {
-				return "", err
-			}
-			c.mgr.Manage(name, defaultMode(spec), selectorOf(spec), insts)
+		insts := c.instancesForPIDs(req.PIDs)
+		if len(insts) == 0 {
+			return "", fmt.Errorf("no live instances for the selection")
 		}
+		name := tuiTargetName(req)
+		c.mgr.Manage(name, control.ModeSnapshot, "", insts)
 		summary, err := applyTUIControl(c, name, req)
 		if err != nil {
 			return "", err
@@ -116,6 +114,30 @@ func tuiControl() tui.ControlFunc {
 		}
 		return summary, nil
 	}
+}
+
+// tuiTargetName names the managed target for a TUI action: pid:N for a single
+// process (so the CLI's `set`/`restore pid:N` share it), or tui:<label> for a
+// group (stable across repeated actions on the same group, enabling restore).
+func tuiTargetName(req tui.ControlRequest) string {
+	if len(req.PIDs) == 1 {
+		return targetName(fmt.Sprintf("pid:%d", req.PIDs[0]))
+	}
+	return "tui:" + req.Label
+}
+
+// instancesForPIDs resolves each pid to a live instance, skipping any that
+// vanished; the caller treats an empty result as "nothing to do".
+func (c *ctlAsm) instancesForPIDs(pids []int) []control.Instance {
+	var out []control.Instance
+	for _, pid := range pids {
+		insts, err := c.instancesForPID(pid)
+		if err != nil {
+			continue
+		}
+		out = append(out, insts...)
+	}
+	return out
 }
 
 // applyTUIControl performs one control action. Nice has a real dry-run through
@@ -131,7 +153,7 @@ func applyTUIControl(c *ctlAsm, name string, req tui.ControlRequest) (string, er
 		return fmt.Sprintf("nice→%d  %s", req.Nice, summarizeResult(res)), nil
 	}
 	if req.DryRun {
-		return fmt.Sprintf("would %s pid %d (%s)", req.Kind.Verb(), req.PID, req.Label), nil
+		return fmt.Sprintf("would %s %d process(es) [%s]", req.Kind.Verb(), len(req.PIDs), req.Label), nil
 	}
 	var res *control.ApplyResult
 	switch req.Kind {
@@ -153,18 +175,23 @@ func applyTUIControl(c *ctlAsm, name string, req tui.ControlRequest) (string, er
 	return summarizeResult(res), nil
 }
 
-// summarizeResult renders an ApplyResult as a compact one-line status.
+// summarizeResult renders an ApplyResult as a compact one-line status: per-pid
+// for a single process, or aggregated status counts for a group.
 func summarizeResult(res *control.ApplyResult) string {
 	if res == nil || len(res.Results) == 0 {
 		return "no matching instances"
 	}
-	parts := make([]string, 0, len(res.Results))
-	for _, r := range res.Results {
+	if len(res.Results) == 1 {
+		r := res.Results[0]
 		if r.Error != "" {
-			parts = append(parts, fmt.Sprintf("pid %d: %s (%s)", r.PID, r.Status, r.Error))
-		} else {
-			parts = append(parts, fmt.Sprintf("pid %d: %s", r.PID, r.Status))
+			return fmt.Sprintf("pid %d: %s (%s)", r.PID, r.Status, r.Error)
 		}
+		return fmt.Sprintf("pid %d: %s", r.PID, r.Status)
 	}
-	return strings.Join(parts, "; ")
+	parts := make([]string, 0, len(res.Counts))
+	for status, n := range res.Counts {
+		parts = append(parts, fmt.Sprintf("%s=%d", status, n))
+	}
+	sort.Strings(parts)
+	return fmt.Sprintf("%d procs: %s", len(res.Results), strings.Join(parts, " "))
 }

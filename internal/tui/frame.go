@@ -53,12 +53,12 @@ func (m *Model) Frame() []string {
 
 func (m *Model) statusBar() string {
 	if m.confirming {
-		return truncate(fmt.Sprintf("CONFIRM %s pid %d (%s)?  %s   [y]es [n]o",
-			m.pending.Kind.Verb(), m.pending.PID, m.pending.Label, m.preview), m.width)
+		return truncate(fmt.Sprintf("CONFIRM %s %d proc(s) [%s]?  %s   [y]es [n]o",
+			m.pending.Kind.Verb(), len(m.pending.PIDs), m.pending.Label, m.preview), m.width)
 	}
 	if m.niceEditing {
-		return truncate(fmt.Sprintf("nice pid %d (%s)> %s_   %s",
-			m.pending.PID, m.pending.Label, m.niceBuf, m.status), m.width)
+		return truncate(fmt.Sprintf("nice %d proc(s) [%s]> %s_   %s",
+			len(m.pending.PIDs), m.pending.Label, m.niceBuf, m.status), m.width)
 	}
 	if m.editing {
 		// Show the edit buffer AND m.status, so the field-list hint (set on entry)

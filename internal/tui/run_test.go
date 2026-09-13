@@ -260,7 +260,8 @@ func TestModel_ControlNiceFlow(t *testing.T) {
 	if !m.confirming {
 		t.Fatalf("Enter should open the confirm gate; calls=%+v", calls)
 	}
-	if len(calls) != 1 || !calls[0].DryRun || calls[0].Kind != CtrlNice || calls[0].Nice != 10 || calls[0].PID != 1 {
+	if len(calls) != 1 || !calls[0].DryRun || calls[0].Kind != CtrlNice || calls[0].Nice != 10 ||
+		len(calls[0].PIDs) != 1 || calls[0].PIDs[0] != 1 {
 		t.Fatalf("preview call wrong: %+v", calls)
 	}
 	// 'y' applies (DryRun=false); no apply happens before confirmation.
@@ -270,6 +271,23 @@ func TestModel_ControlNiceFlow(t *testing.T) {
 	}
 	if len(calls) != 2 || calls[1].DryRun || calls[1].Nice != 10 {
 		t.Fatalf("apply call wrong: %+v", calls)
+	}
+}
+
+func TestModel_ControlGroupCollectsPIDs(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(80, 24)
+	res, cols := groupedResult() // group-one with process leaves pid 1 and 2
+	m.SetResult(res, cols)
+	var got ControlRequest
+	m.SetControl(func(req ControlRequest) (string, error) { got = req; return "ok", nil })
+	// Cursor is on the group row: control must target ALL member processes.
+	m.Update(KeyEvent{Rune: 'x'})
+	if !m.confirming {
+		t.Fatalf("'x' on a group should open the confirm gate; got %+v", got)
+	}
+	if len(got.PIDs) != 2 {
+		t.Fatalf("group control should collect all member pids, got %v", got.PIDs)
 	}
 }
 

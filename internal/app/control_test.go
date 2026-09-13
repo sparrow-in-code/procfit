@@ -54,14 +54,14 @@ func TestTUIControl_PreviewAndApply(t *testing.T) {
 	ctl := tuiControl()
 
 	// nice: real manager dry-run preview, then apply.
-	prev, err := ctl(tui.ControlRequest{PID: 1234, Label: "worker", Kind: tui.CtrlNice, Nice: 10, DryRun: true})
+	prev, err := ctl(tui.ControlRequest{PIDs: []int{1234}, Label: "worker", Kind: tui.CtrlNice, Nice: 10, DryRun: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(prev, "nice→10") {
 		t.Fatalf("nice preview wrong: %q", prev)
 	}
-	res, err := ctl(tui.ControlRequest{PID: 1234, Label: "worker", Kind: tui.CtrlNice, Nice: 10})
+	res, err := ctl(tui.ControlRequest{PIDs: []int{1234}, Label: "worker", Kind: tui.CtrlNice, Nice: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,16 +70,38 @@ func TestTUIControl_PreviewAndApply(t *testing.T) {
 	}
 
 	// stop: preview is synthesized (no manager mutation), then apply acts.
-	prev, _ = ctl(tui.ControlRequest{PID: 1234, Label: "worker", Kind: tui.CtrlStop, DryRun: true})
+	prev, _ = ctl(tui.ControlRequest{PIDs: []int{1234}, Label: "worker", Kind: tui.CtrlStop, DryRun: true})
 	if !strings.Contains(prev, "would stop") {
 		t.Fatalf("stop preview wrong: %q", prev)
 	}
-	res, err = ctl(tui.ControlRequest{PID: 1234, Label: "worker", Kind: tui.CtrlStop})
+	res, err = ctl(tui.ControlRequest{PIDs: []int{1234}, Label: "worker", Kind: tui.CtrlStop})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(res, "pid 1234") {
 		t.Fatalf("stop apply wrong: %q", res)
+	}
+}
+
+func TestTUIControl_Group(t *testing.T) {
+	_, restore := fakeControl(t, pstat(100, "a", 0), pstat(200, "b", 0))
+	defer restore()
+	ctl := tuiControl()
+
+	// A group action over multiple pids aggregates status counts.
+	prev, err := ctl(tui.ControlRequest{PIDs: []int{100, 200}, Label: "grp", Kind: tui.CtrlNice, Nice: 5, DryRun: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(prev, "2 procs") {
+		t.Fatalf("group nice preview should count procs: %q", prev)
+	}
+	res, err := ctl(tui.ControlRequest{PIDs: []int{100, 200}, Label: "grp", Kind: tui.CtrlNice, Nice: 5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res, "2 procs") || !strings.Contains(res, "applied=2") {
+		t.Fatalf("group nice apply should report 2 applied: %q", res)
 	}
 }
 

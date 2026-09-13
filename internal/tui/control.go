@@ -3,6 +3,8 @@ package tui
 import (
 	"strconv"
 	"strings"
+
+	"github.com/netikras/procfit/internal/query"
 )
 
 // ControlKind enumerates the throttling/control actions the explorer can request
@@ -37,10 +39,11 @@ func (k ControlKind) Verb() string {
 	return "?"
 }
 
-// ControlRequest describes one control action on one process. DryRun asks the
-// backend to preview (never mutate).
+// ControlRequest describes a control action over one or more processes (a single
+// leaf, or every process under a selected group). DryRun asks the backend to
+// preview (never mutate).
 type ControlRequest struct {
-	PID    int
+	PIDs   []int
 	Label  string
 	Kind   ControlKind
 	Nice   int
@@ -61,11 +64,15 @@ func (m *Model) startControl(kind ControlKind) {
 		return
 	}
 	fr, ok := m.currentRow()
-	if !ok || fr.row.Process == nil {
-		m.status = "select a process row (leaf) to control — not a group"
+	if !ok {
 		return
 	}
-	req := ControlRequest{PID: fr.row.Process.PID, Label: fr.row.Label, Kind: kind}
+	pids := collectPIDs(fr.row)
+	if len(pids) == 0 {
+		m.status = "no controllable processes under the selection"
+		return
+	}
+	req := ControlRequest{PIDs: pids, Label: fr.row.Label, Kind: kind}
 	if kind == CtrlNice {
 		m.pending = req
 		m.niceEditing = true
@@ -74,6 +81,33 @@ func (m *Model) startControl(kind ControlKind) {
 		return
 	}
 	m.beginConfirm(req)
+}
+
+// collectPIDs gathers the distinct owning process ids under a row: just the
+// process for a leaf, or every descendant process for a (sub)group — so control
+// on a group row throttles the whole group. Thread rows map to their owner pid.
+func collectPIDs(r *query.Row) []int {
+	seen := map[int]bool{}
+	var out []int
+	var walk func(n *query.Row)
+	walk = func(n *query.Row) {
+		pid := 0
+		switch {
+		case n.Process != nil:
+			pid = n.Process.PID
+		case n.Thread != nil:
+			pid = n.Thread.ID.Process.PID
+		}
+		if pid != 0 && !seen[pid] {
+			seen[pid] = true
+			out = append(out, pid)
+		}
+		for _, c := range n.Sub {
+			walk(c)
+		}
+	}
+	walk(r)
+	return out
 }
 
 func (m *Model) niceKey(ev KeyEvent) {

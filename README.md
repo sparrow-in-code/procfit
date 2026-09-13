@@ -68,8 +68,9 @@ shows the same grouped tree as `ps`, refreshed on an interval.
 | `r` | refresh once |
 | `q` / `Ctrl-C` | quit (prints the equivalent `procfit ps …` command for the current view) |
 
-**Throttling / control** (on the selected process leaf; every action shows a
-preview and requires `y` to confirm):
+**Throttling / control** (on the selected process *or* a whole group — a group
+action targets every process under it; every action shows a preview with the
+affected count and requires `y` to confirm):
 
 | Key | Action |
 |---|---|

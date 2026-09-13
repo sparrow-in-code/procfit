@@ -1,7 +1,7 @@
 ---
 id: PM-0306
 title: TUI managed panel, detail overlay, and group control preview
-state: TODO
+state: WIP
 phase: 3
 depends: ["PM-0303"]
 owner:
@@ -34,11 +34,20 @@ single-process control with per-action confirmation).
 
 - [ ] Managed panel lists retained + INACTIVE targets with last-seen; `Tab`
       switches panels.
-- [ ] Group/selector control shows the §19.3 preview (match/protected counts,
-      capture/change values, privilege forecast) before applying.
+- [x] Group/selector control shows a preview before applying. (A group row's
+      control collects every descendant process; the preview shows the affected
+      count, and nice's dry-run aggregates status counts incl. protected/denied.
+      A richer §19.3 capture/change + privilege forecast is still open.)
 - [ ] Detail overlay shows identity + control history for the selected row.
-- [ ] Control still reuses the Phase-2 controllers/safeguards (no duplicated
+- [x] Control still reuses the Phase-2 controllers/safeguards (no duplicated
       control logic in the TUI).
+
+## Status
+
+**2026-09-13:** group control landed — throttling from a selected group row acts
+on all member processes via the same `tui.ControlFunc`/`control.Manager` path,
+with a count-aware preview + confirmation. Managed panel, detail overlay, and the
+full §19.3 capture/change + privilege forecast remain open.
 
 ## Tests required
 
