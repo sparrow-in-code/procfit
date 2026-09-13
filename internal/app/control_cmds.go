@@ -31,8 +31,10 @@ func cmdManaged(env Env, args []string) int {
 	fs := flag.NewFlagSet("managed", flag.ContinueOnError)
 	fs.SetOutput(env.Stderr)
 	stateDir := fs.String("state-dir", "", "runtime state directory")
+	setupUsage(env, fs, "managed", "list managed targets and their bindings",
+		"procfit managed   # TARGET/MODE/STATE/P(bindings)/NICE; INACTIVE targets are retained")
 	if err := fs.Parse(args); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	c, code := openControl(env, *stateDir)
 	if code != ExitOK {
@@ -68,15 +70,32 @@ func cmdManage(env Env, args []string) int {
 	stop := fs.Bool("stop", false, "apply SIGSTOP intent")
 	snapshot := fs.Bool("snapshot", false, "bind only currently-matching instances")
 	follow := fs.Bool("follow", false, "re-resolve continuously")
+	setupUsage(env, fs, "manage", "add managed membership, optionally applying control",
+		"procfit manage pid:1234 --name chrome            # track a process (membership only)",
+		"procfit manage pid:1234 --nice 10 --set-nice     # track + renice to 10",
+		"procfit manage 'selector:comm == \"chrome\"' --follow --nice 15 --set-nice   # follow all chrome",
+		"Targets: pid:N, tid:N/M, managed:NAME, group:dim=val, selector:EXPR, or a bare PID.")
 	spec, rest := extractPositional(args)
 	if err := fs.Parse(rest); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	if spec == "" {
-		fmt.Fprintln(env.Stderr, "usage: manage <target> [--nice N --set-nice] [--stop] [--snapshot|--follow]")
+		fs.Usage()
 		return ExitUsage
 	}
-	c, code := openControl(env, *stateDir)
+	return manageRun(env, *stateDir, spec, manageOpts{
+		name: *name, nice: *nice, setNice: *setNice, stop: *stop, snapshot: *snapshot, follow: *follow,
+	})
+}
+
+type manageOpts struct {
+	name                            string
+	nice                            int
+	setNice, stop, snapshot, follow bool
+}
+
+func manageRun(env Env, stateDir, spec string, o manageOpts) int {
+	c, code := openControl(env, stateDir)
 	if code != ExitOK {
 		return code
 	}
@@ -86,30 +105,20 @@ func cmdManage(env Env, args []string) int {
 		return ExitNotFound
 	}
 	mode := defaultMode(spec)
-	if *snapshot {
+	if o.snapshot {
 		mode = control.ModeSnapshot
 	}
-	if *follow {
+	if o.follow {
 		mode = control.ModeFollow
 	}
-	tname := *name
+	tname := o.name
 	if tname == "" {
 		tname = targetName(spec)
 	}
 	c.mgr.Manage(tname, mode, selectorOf(spec), instances)
 	fmt.Fprintf(env.Stdout, "managed %q: %d instance(s), mode=%s\n", tname, len(instances), mode)
 
-	exit := ExitOK
-	if *setNice {
-		res, _ := c.mgr.SetNice(tname, *nice, false)
-		printResult(env, res)
-		exit = maxExit(exit, exitForResult(res))
-	}
-	if *stop {
-		res, _ := c.mgr.SetStop(tname, true)
-		printResult(env, res)
-		exit = maxExit(exit, exitForResult(res))
-	}
+	exit := c.applySetOps(env, tname, setOps{nice: o.nice, setNice: o.setNice, stop: o.stop})
 	if err := c.save(); err != nil {
 		fmt.Fprintf(env.Stderr, "save state: %v\n", err)
 		return ExitRuntime
@@ -135,12 +144,17 @@ func cmdSet(env Env, args []string) int {
 	freeze := fs.Bool("freeze", false, "freeze the target's cgroup(s)")
 	thaw := fs.Bool("thaw", false, "thaw the target's cgroup(s)")
 	dryRun := fs.Bool("dry-run", false, "show what would change without acting")
+	setupUsage(env, fs, "set", "apply/update control on a managed target",
+		"procfit set managed:chrome --nice 15 --set-nice   # renice; prints per-pid result",
+		"procfit set managed:chrome --stop                 # SIGSTOP intent (Space in TUI)",
+		"procfit set managed:chrome --freeze               # cgroup v2 freeze (if delegated)",
+		"procfit set pid:1234 --nice 5 --set-nice --dry-run   # preview without acting")
 	spec, rest := extractPositional(args)
 	if err := fs.Parse(rest); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	if spec == "" {
-		fmt.Fprintln(env.Stderr, "usage: set <target> [--nice N --set-nice] [--stop|--continue]")
+		fs.Usage()
 		return ExitUsage
 	}
 	c, code := openControl(env, *stateDir)
@@ -215,12 +229,15 @@ func cmdRestore(env Env, args []string) int {
 	fs.SetOutput(env.Stderr)
 	stateDir := fs.String("state-dir", "", "runtime state directory")
 	force := fs.Bool("force", false, "overwrite externally-drifted state")
+	setupUsage(env, fs, "restore", "restore captured original control values",
+		"procfit restore managed:chrome          # revert nice to originals; exit 7 if it drifted",
+		"procfit restore managed:chrome --force  # overwrite external drift back to originals")
 	spec, rest := extractPositional(args)
 	if err := fs.Parse(rest); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	if spec == "" {
-		fmt.Fprintln(env.Stderr, "usage: restore <target> [--force]")
+		fs.Usage()
 		return ExitUsage
 	}
 	c, code := openControl(env, *stateDir)
@@ -244,12 +261,14 @@ func cmdUnmanage(env Env, args []string) int {
 	fs := flag.NewFlagSet("unmanage", flag.ContinueOnError)
 	fs.SetOutput(env.Stderr)
 	stateDir := fs.String("state-dir", "", "runtime state directory")
+	setupUsage(env, fs, "unmanage", "stop tracking a target (kernel state left untouched)",
+		"procfit unmanage managed:chrome   # drop membership; does NOT restore (use restore first)")
 	spec, rest := extractPositional(args)
 	if err := fs.Parse(rest); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	if spec == "" {
-		fmt.Fprintln(env.Stderr, "usage: unmanage <target>")
+		fs.Usage()
 		return ExitUsage
 	}
 	c, code := openControl(env, *stateDir)
@@ -273,6 +292,9 @@ func cmdSignal(env Env, args []string) int {
 	fs.SetOutput(env.Stderr)
 	stateDir := fs.String("state-dir", "", "runtime state directory")
 	yes := fs.Bool("yes", false, "skip confirmation for destructive signals")
+	setupUsage(env, fs, "signal", "send a signal to a resolved target",
+		"procfit signal HUP pid:1234        # SIGHUP a process (identity revalidated first)",
+		"procfit signal TERM managed:chrome --yes   # TERM all bound pids (--yes: non-interactive)")
 	// Two positionals: <sig> <target>.
 	var positionals []string
 	var flagArgs []string
@@ -284,7 +306,7 @@ func cmdSignal(env Env, args []string) int {
 		}
 	}
 	if err := fs.Parse(flagArgs); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	if len(positionals) < 2 {
 		fmt.Fprintln(env.Stderr, "usage: signal <SIG> <target> [--yes]")

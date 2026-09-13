@@ -26,8 +26,11 @@ func cmdMetrics(env Env, args []string) int {
 	fs := flag.NewFlagSet("metrics list", flag.ContinueOnError)
 	fs.SetOutput(env.Stderr)
 	format := fs.String("format", "table", "output: table|json")
+	setupUsage(env, fs, "metrics list", "list metrics (id, cost, unit, aggregation)",
+		"procfit metrics list                # human table of all metrics",
+		"procfit metrics list --format json  # machine-readable metric registry")
 	if err := fs.Parse(rest); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	reg := metrics.NewDefault()
 
@@ -74,8 +77,11 @@ func cmdCapabilities(env Env, args []string) int {
 	fs := flag.NewFlagSet("capabilities", flag.ContinueOnError)
 	fs.SetOutput(env.Stderr)
 	format := fs.String("format", "table", "output: table|json")
+	setupUsage(env, fs, "capabilities", "report available/missing collectors and controllers",
+		"procfit capabilities                # what this host/kernel/privileges allow",
+		"procfit capabilities --format json  # machine-readable capability report")
 	if err := fs.Parse(args); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 
 	caps := probeCapabilities()

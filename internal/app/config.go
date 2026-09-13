@@ -29,9 +29,12 @@ func configValidator() config.Validator {
 
 // cmdConfig implements `procfit config check|convert|dump` (RFC §9.7).
 func cmdConfig(env Env, args []string) int {
-	if len(args) == 0 {
-		fmt.Fprintln(env.Stderr, "usage: config check|convert|dump ...")
-		return ExitUsage
+	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
+		fmt.Fprint(env.Stdout, configHelp)
+		if len(args) == 0 {
+			return ExitUsage
+		}
+		return ExitOK
 	}
 	sub, rest := args[0], args[1:]
 	switch sub {
@@ -43,11 +46,25 @@ func cmdConfig(env Env, args []string) int {
 		return configDump(env, rest)
 	default:
 		fmt.Fprintf(env.Stderr, "unknown config subcommand %q\n", sub)
+		fmt.Fprint(env.Stderr, configHelp)
 		return ExitUsage
 	}
 }
 
+const configHelp = `Usage: procfit config check|convert|dump ...
+
+Examples:
+  procfit config check                       # validate the discovered config (or defaults)
+  procfit config check ./config.yaml         # strictly validate a specific file
+  procfit config convert config.toml --to yaml   # convert between formats
+  procfit config dump --effective            # print normalized config + defaults
+`
+
 func configCheck(env Env, args []string) int {
+	if len(args) > 0 && (args[0] == "-h" || args[0] == "--help") {
+		fmt.Fprintln(env.Stdout, "Usage: procfit config check [file]\n\nValidate a config file (or the discovered one). Exit 2 on error.")
+		return ExitOK
+	}
 	path, err := discoverConfigPath(args)
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
@@ -78,12 +95,14 @@ func configConvert(env Env, args []string) int {
 	fs := flag.NewFlagSet("config convert", flag.ContinueOnError)
 	fs.SetOutput(env.Stderr)
 	to := fs.String("to", "", "target format: toml|yaml|json")
+	setupUsage(env, fs, "config convert", "convert a config between formats via the canonical model",
+		"procfit config convert config.toml --to yaml   # prints YAML equivalent to stdout")
 	file, rest := extractPositional(args)
 	if err := fs.Parse(rest); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	if file == "" {
-		fmt.Fprintln(env.Stderr, "usage: config convert <file> --to <toml|yaml|json>")
+		fs.Usage()
 		return ExitUsage
 	}
 	format, ok := config.FormatFromExt("." + *to)
@@ -111,8 +130,11 @@ func configDump(env Env, args []string) int {
 	effective := fs.Bool("effective", false, "print the fully resolved configuration")
 	format := fs.String("format", "toml", "output format: toml|yaml|json")
 	cfgPath := fs.String("config", "", "config file to load")
+	setupUsage(env, fs, "config dump", "print the effective (normalized + defaulted) config",
+		"procfit config dump --effective                 # discovered config + built-in defaults",
+		"procfit config dump --config ./c.toml --format json   # a specific file as JSON")
 	if err := fs.Parse(args); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	_ = *effective // dump always prints the effective/normalized config for MVP
 

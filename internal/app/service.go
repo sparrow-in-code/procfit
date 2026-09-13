@@ -43,8 +43,10 @@ func userUnitPath() (string, error) {
 func serviceInstall(env Env, args []string) int {
 	fs := flag.NewFlagSet("service install", flag.ContinueOnError)
 	fs.SetOutput(env.Stderr)
+	setupUsage(env, fs, "service install", "write a user systemd unit (does NOT enable/start it)",
+		"procfit service install   # writes ~/.config/systemd/user/procfit.service + prints enable cmd")
 	if err := fs.Parse(args); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	unitPath, err := userUnitPath()
 	if err != nil {
@@ -71,8 +73,10 @@ func serviceInstall(env Env, args []string) int {
 func serviceUninstall(env Env, args []string) int {
 	fs := flag.NewFlagSet("service uninstall", flag.ContinueOnError)
 	fs.SetOutput(env.Stderr)
+	setupUsage(env, fs, "service uninstall", "remove the user systemd unit",
+		"procfit service uninstall   # removes the unit file (disable it separately if enabled)")
 	if err := fs.Parse(args); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	unitPath, err := userUnitPath()
 	if err != nil {

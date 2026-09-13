@@ -44,8 +44,11 @@ func daemonRun(env Env, args []string) int {
 	stateDir := fs.String("state-dir", "", "runtime state directory")
 	sock := fs.String("socket", "", "unix socket path")
 	interval := fs.Duration("interval", time.Second, "shared sample interval")
+	setupUsage(env, fs, "daemon run", "run the per-user engine daemon (shared collection + policy enforcement)",
+		"procfit daemon run                     # foreground; Ctrl-C to stop, SIGHUP to reload config",
+		"procfit daemon run --interval 2s       # slower shared sampling")
 	if err := fs.Parse(args); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	dir, ephemeral := resolveStateDir(*stateDir)
 	if ephemeral {
@@ -73,8 +76,10 @@ func daemonStatus(env Env, args []string) int {
 	fs.SetOutput(env.Stderr)
 	stateDir := fs.String("state-dir", "", "runtime state directory")
 	sock := fs.String("socket", "", "unix socket path")
+	setupUsage(env, fs, "daemon status", "query a running daemon's health",
+		"procfit daemon status   # prints version, caps, uptime, generation, clients, processes")
 	if err := fs.Parse(args); err != nil {
-		return ExitUsage
+		return parseExit(err)
 	}
 	dir, _ := resolveStateDir(*stateDir)
 	cl, err := daemon.Dial(daemonSockPath(dir, *sock))
