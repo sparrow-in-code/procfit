@@ -28,7 +28,10 @@ func cmdStat(env Env, args []string) int {
 	qf := bindQueryFlags(fs)
 	intervalFlag := fs.Duration("interval", time.Second, "sample interval")
 	count := fs.Int("count", 0, "number of sample batches to emit (0 = until interrupted)")
-	setupUsage(env, fs, "stat", "repeated append-only samples")
+	setupUsage(env, fs, "stat", "repeated append-only samples",
+		"procfit stat 2s                              # sample every 2s until Ctrl-C",
+		"procfit stat 1s --count 3 --group-by comm --leaf none   # 3 timestamped batches",
+		"procfit stat --interval 500ms --format ndjson   # machine stream (one meta record + rows)")
 
 	// The interval may be given as a leading positional (e.g. `stat 2s --preset io`).
 	// Go's flag parser stops at the first non-flag, so pull it out before parsing.
@@ -43,6 +46,10 @@ func cmdStat(env Env, args []string) int {
 	if err := applyConfigDefaults(fs, qf); err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage
+	}
+	if qf.showConfig {
+		printEffectiveSettings(env, fs, qf.sources)
+		return ExitOK
 	}
 
 	interval := *intervalFlag
@@ -78,6 +85,7 @@ func cmdStat(env Env, args []string) int {
 }
 
 func (a *assembly) streamLoop(ctx context.Context, env Env, r queryspec.Resolved, cols []render.Column, interval time.Duration, count int) int {
+	setThreadEnum(a.src, r.Spec.Leaf == query.LeafThread)
 	sampler := collect.NewSampler(a.src, a.clk)
 	emit, err := a.streamEmitter(env, r, cols)
 	if err != nil {

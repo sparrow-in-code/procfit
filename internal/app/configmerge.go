@@ -8,14 +8,40 @@ import (
 	"github.com/netikras/procfit/internal/config"
 )
 
-// applyConfigDefaults fills view flags from a discovered config file for any flag
-// the user did NOT set on the command line, implementing the precedence
-// built-in defaults < config < CLI (RFC §9.3). It is a no-op when --no-config is
-// given or no config file is found. A malformed config is an error.
+// applyConfigDefaults resolves the shared view flags across the layered
+// precedence (default < config < env < args by default, reorderable via
+// --config-precedence; RFC §9.3). The config file is discovered and loaded
+// unless --no-config is given; env and args still apply either way. The winning
+// source per setting is recorded on qf for --show-config. A malformed config is
+// an error.
 func applyConfigDefaults(fs *flag.FlagSet, qf *queryFlags) error {
-	if qf.noConfig {
-		return nil
+	order, err := parsePrecedence(qf.configPrec)
+	if err != nil {
+		return err
 	}
+	cfg := config.Config{}
+	if !qf.noConfig {
+		cfg, err = discoverAndLoad(qf)
+		if err != nil {
+			return err
+		}
+	}
+	cliSet := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { cliSet[f.Name] = true })
+	// Fold aliases into their canonical flag so args detection is accurate.
+	if cliSet["n"] {
+		cliSet["number"] = true
+	}
+	if cliSet["h"] {
+		cliSet["human"] = true
+	}
+	qf.sources = resolveViewSettings(fs, cfg, cliSet, order)
+	return nil
+}
+
+// discoverAndLoad finds and strictly loads the config file, or returns a zero
+// Config when none is found (so env/args resolution still runs).
+func discoverAndLoad(qf *queryFlags) (config.Config, error) {
 	d := config.Discovery{
 		Explicit:  qf.configPath,
 		EnvValue:  os.Getenv("PROCFIT_CONFIG"),
@@ -23,62 +49,9 @@ func applyConfigDefaults(fs *flag.FlagSet, qf *queryFlags) error {
 	}
 	path, err := d.Discover()
 	if err != nil || path == "" {
-		return err
+		return config.Config{}, err
 	}
-	cfg, err := config.LoadFile(path, configValidator())
-	if err != nil {
-		return err
-	}
-	set := map[string]bool{}
-	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
-	mergeViewFlags(qf, cfg, set)
-	return nil
-}
-
-// mergeViewFlags copies config view fields into qf for flags the user did not
-// set. Rules are data-driven so this stays within the complexity cap and adding
-// a field is a one-line entry.
-func mergeViewFlags(qf *queryFlags, cfg config.Config, set map[string]bool) {
-	rules := []struct {
-		flag  string
-		apply func()
-	}{
-		{"group-by", func() {
-			if len(cfg.GroupBy) > 0 {
-				qf.groupBy = strings.Join(cfg.GroupBy, ",")
-			}
-		}},
-		{"leaf", func() {
-			if cfg.Leaf != "" {
-				qf.leaf = cfg.Leaf
-			}
-		}},
-		{"columns", func() {
-			if len(cfg.Columns) > 0 {
-				qf.columns = strings.Join(cfg.Columns, ",")
-			}
-		}},
-		{"sort", func() {
-			if len(cfg.Sort) > 0 {
-				qf.sortSpec = joinSort(cfg.Sort)
-			}
-		}},
-		{"metrics", func() {
-			if cfg.Metrics.Profile != "" {
-				qf.profile = cfg.Metrics.Profile
-			}
-		}},
-		{"target-width", func() {
-			if cfg.TargetWidth > 0 {
-				qf.targetWidth = cfg.TargetWidth
-			}
-		}},
-	}
-	for _, r := range rules {
-		if !set[r.flag] {
-			r.apply()
-		}
-	}
+	return config.LoadFile(path, configValidator())
 }
 
 func joinSort(keys []config.SortKey) string {

@@ -64,6 +64,74 @@ func TestApplyConfigDefaults_NoConfig(t *testing.T) {
 	}
 }
 
+func TestApplyConfigDefaults_EnvAndSources(t *testing.T) {
+	t.Setenv("PROCFIT_LEAF", "thread")
+	fs := flag.NewFlagSet("ps", flag.ContinueOnError)
+	qf := bindQueryFlags(fs)
+	if err := fs.Parse([]string{"--no-config", "--group-by", "comm"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyConfigDefaults(fs, qf); err != nil {
+		t.Fatal(err)
+	}
+	if qf.leaf != "thread" || qf.sources["leaf"] != SourceEnv {
+		t.Fatalf("env should set leaf=thread (source env), got %q/%s", qf.leaf, qf.sources["leaf"])
+	}
+	if qf.groupBy != "comm" || qf.sources["group-by"] != SourceArgs {
+		t.Fatalf("args should win group-by, got %q/%s", qf.groupBy, qf.sources["group-by"])
+	}
+	if qf.sources["columns"] != SourceDefault {
+		t.Fatalf("unset columns should be source=default, got %s", qf.sources["columns"])
+	}
+}
+
+func TestApplyConfigDefaults_PrecedenceReorder(t *testing.T) {
+	t.Setenv("PROCFIT_FORMAT", "json")
+	fs := flag.NewFlagSet("ps", flag.ContinueOnError)
+	qf := bindQueryFlags(fs)
+	// With env placed above args, env outranks the CLI --format.
+	if err := fs.Parse([]string{"--no-config", "--config-precedence", "config,args,env", "--format", "csv"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyConfigDefaults(fs, qf); err != nil {
+		t.Fatal(err)
+	}
+	if qf.format != "json" || qf.sources["format"] != SourceEnv {
+		t.Fatalf("env should outrank args when reordered, got %q/%s", qf.format, qf.sources["format"])
+	}
+}
+
+func TestApplyConfigDefaults_ConfigBelowEnv(t *testing.T) {
+	cfg := writeCfg(t, "version = 1\nleaf = \"none\"\n")
+	t.Setenv("PROCFIT_LEAF", "thread")
+	fs := flag.NewFlagSet("ps", flag.ContinueOnError)
+	qf := bindQueryFlags(fs)
+	if err := fs.Parse([]string{"--config", cfg}); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyConfigDefaults(fs, qf); err != nil {
+		t.Fatal(err)
+	}
+	// Default order: config < env, so env wins over the file.
+	if qf.leaf != "thread" || qf.sources["leaf"] != SourceEnv {
+		t.Fatalf("env should outrank config, got %q/%s", qf.leaf, qf.sources["leaf"])
+	}
+}
+
+func TestParsePrecedence(t *testing.T) {
+	if _, err := parsePrecedence("config,bogus"); err == nil {
+		t.Fatal("an unknown layer must be rejected")
+	}
+	order, err := parsePrecedence("")
+	if err != nil || len(order) != 4 {
+		t.Fatalf("empty spec should give the 4-layer default, got %v (%v)", order, err)
+	}
+	// default is always forced to the floor even if omitted or placed elsewhere.
+	if order, _ := parsePrecedence("args,config,env"); order[0] != SourceDefault {
+		t.Fatalf("default must be the floor, got %v", order)
+	}
+}
+
 func TestApplyConfigDefaults_BadConfig(t *testing.T) {
 	cfg := writeCfg(t, "version = 1\nbogus_key = true\n")
 	fs := flag.NewFlagSet("ps", flag.ContinueOnError)

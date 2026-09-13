@@ -126,19 +126,25 @@ func printUsage(env Env, cmds []command) {
 // discoverable from the top-level help.
 const commonFlagsHelp = `
 Common view flags (ps, stat, tui):
-  --group-by DIM[,DIM]   group by dimensions (comm, name, user, app, pidns, ...) or 'none'
-  --leaf process|thread|none   terminal rows under groups (process = expand groups)
-  --sort FIELD[:asc|desc][,...]   multi-key sort (e.g. cpu:desc)
-  --columns COL[,COL]    explicit columns
-  --metrics PROFILE      metric profile (light|io|process|all|...)
+  --group-by DIM[,DIM]   group by dimensions: none,host,comm,name,user,exe,app,
+                         cgroup,systemd-unit,container,pod,uid,namespace-set
+                         (default: none = flat process list)
+  --leaf process|thread|none   terminal rows under groups (default: process)
+  --sort FIELD[:asc|desc][,...]   multi-key sort, e.g. cpu:desc (default: unsorted)
+  --columns COL[,COL]    explicit columns (default: auto; ids from 'procfit metrics')
+  --metrics PROFILE      none,light,process,io,network,power,perf,all (default: light)
   --metric [+|-]NAME     add/remove a metric (repeatable)
-  --select EXPR          filter entities (e.g. 'uid == 0')
-  --having EXPR          filter aggregated rows (e.g. 'cpu > 5')
-  -n, --number N         show only the top N rows after sorting
+  --select EXPR          pre-group entity filter, e.g. 'uid == 0'
+  --having EXPR          post-group row filter, e.g. 'cpu > 5'
+  -n, --number N         show only the top N rows after sorting (default: all)
   -h, --human            human-readable units (K/M/G); default is raw bytes
-  --target-width N       cap the TARGET column width (0 = auto)
-  --format FMT           table|wide|json|ndjson|csv
+  --target-width N       cap the TARGET column width (default: 0 = auto)
+  --format FMT           table,wide,json,ndjson,csv (default: table)
   --config PATH          load a config file (--no-config to ignore)
+  --config-precedence L  layer order low→high, e.g. config,env,args
+  --show-config          print resolved settings + their source, then exit
+
+Discover values: 'procfit metrics' (metric/column ids), 'procfit capabilities'.
 `
 
 func cmdVersion(env Env, _ []string) int {

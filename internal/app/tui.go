@@ -18,13 +18,20 @@ func cmdTUI(env Env, args []string) int {
 	fs := flag.NewFlagSet("tui", flag.ContinueOnError)
 	fs.SetOutput(env.Stderr)
 	qf := bindQueryFlags(fs)
-	setupUsage(env, fs, "tui", "interactive explorer")
+	setupUsage(env, fs, "tui", "interactive explorer (default on a TTY)",
+		"procfit tui                                  # keys: g(group) t(leaf) s/S / u [ ] p(pause) r q",
+		"procfit tui --group-by name --sort cpu:desc  # start grouped by name, sorted by CPU",
+		"procfit tui -h                               # start with human units (toggle live with 'u')")
 	if err := fs.Parse(args); err != nil {
 		return parseExit(err)
 	}
 	if err := applyConfigDefaults(fs, qf); err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage
+	}
+	if qf.showConfig {
+		printEffectiveSettings(env, fs, qf.sources)
+		return ExitOK
 	}
 	if !env.IsTTY {
 		fmt.Fprintf(env.Stderr, "%s: the TUI needs an interactive terminal; use '%s ps' or '%s stat'\n", meta.Name, meta.Name, meta.Name)
@@ -55,6 +62,7 @@ func (a *assembly) tuiRefresh(ctx context.Context) tui.RefreshFunc {
 		if err != nil {
 			return nil, nil, err
 		}
+		setThreadEnum(a.src, r.Spec.Leaf == query.LeafThread)
 		snap, err := sampler.Sample(ctx, r.Needed)
 		if err != nil {
 			return nil, nil, err

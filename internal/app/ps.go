@@ -12,13 +12,21 @@ func cmdPS(env Env, args []string) int {
 	fs.SetOutput(env.Stderr)
 	qf := bindQueryFlags(fs)
 	instant := fs.Bool("instant", false, "skip the warm-up second sample; rate metrics render unavailable")
-	setupUsage(env, fs, "ps", "one-shot snapshot/table")
+	setupUsage(env, fs, "ps", "one-shot snapshot/table",
+		"procfit ps                                  # flat process list, raw bytes",
+		"procfit ps --group-by comm --leaf none --sort cpu:desc -n 10   # top 10 comms by CPU",
+		"procfit ps --group-by name --leaf process -h   # fuller names, human units (K/M/G)",
+		"procfit ps --select 'uid == 0' --having 'rss > 100M' --format json   # root procs over 100MiB as JSON")
 	if err := fs.Parse(args); err != nil {
 		return parseExit(err)
 	}
 	if err := applyConfigDefaults(fs, qf); err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage
+	}
+	if qf.showConfig {
+		printEffectiveSettings(env, fs, qf.sources)
+		return ExitOK
 	}
 
 	a, err := newAssemblyFn()
