@@ -61,6 +61,14 @@ func (m *Model) Update(ev KeyEvent) {
 		m.editKey(ev)
 		return
 	}
+	if ev.Name == "tab" {
+		m.togglePanel()
+		return
+	}
+	if m.panel == PanelManaged {
+		m.managedKey(ev)
+		return
+	}
 	if h, ok := nameKeys[ev.Name]; ok && ev.Name != "" {
 		h(m)
 		return

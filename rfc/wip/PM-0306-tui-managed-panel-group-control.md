@@ -32,8 +32,9 @@ single-process control with per-action confirmation).
 
 ## Acceptance criteria
 
-- [ ] Managed panel lists retained + INACTIVE targets with last-seen; `Tab`
-      switches panels.
+- [x] Managed panel lists retained + INACTIVE targets with last-seen; `Tab`
+      switches panels. (Shows mode, ACTIVE/INACTIVE, member count, desired
+      nice/stop/freeze, last-seen; `R` restore, `d` unmanage on the selection.)
 - [x] Group/selector control shows a preview before applying. (A group row's
       control collects every descendant process; the preview shows the affected
       count, and nice's dry-run aggregates status counts incl. protected/denied.
@@ -46,8 +47,15 @@ single-process control with per-action confirmation).
 
 **2026-09-13:** group control landed — throttling from a selected group row acts
 on all member processes via the same `tui.ControlFunc`/`control.Manager` path,
-with a count-aware preview + confirmation. Managed panel, detail overlay, and the
-full §19.3 capture/change + privilege forecast remain open.
+with a count-aware preview + confirmation.
+
+**2026-09-13 (later):** managed panel landed — `Tab` opens a side plane listing
+managed targets (mode, active state, members, desired nice/stop/freeze,
+last-seen); `R` restores and `d` unmanages the selection via a
+`tui.ManagedActionFunc`. `Run` now takes a `tui.Deps` bundle.
+
+Still open: detail overlay (`i`/Enter inspect: identity + control history) and the
+full §19.3 capture/change + privilege forecast.
 
 ## Tests required
 

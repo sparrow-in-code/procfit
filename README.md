@@ -82,6 +82,11 @@ affected count and requires `y` to confirm):
 Control reuses the same safeguards as the CLI `set`/`restore` commands (protected
 PIDs are skipped, changes are recorded for restore).
 
+Press **`Tab`** to switch to the **managed panel** — the targets you've controlled,
+with their mode, active state, member count and desired nice/stop/freeze. There,
+`R` restores the selected target to its captured originals and `d` unmanages it;
+`Tab` returns to the browser.
+
 Group rows are **aggregates** of their members; the `PID`/`TID` columns are blank
 on groups and populated only on process/thread leaves, so a single process is
 never mistaken for a group. Sorting and filtering **preserve the tree**: siblings

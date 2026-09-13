@@ -31,7 +31,7 @@ func TestRun_SimulationScreen(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		scr.InjectKey(tcell.KeyRune, 'q', tcell.ModNone) // quit
 	}()
-	cli, err := Run(scr, refresh, nil, queryspec.Flags{})
+	cli, err := Run(scr, Deps{Refresh: refresh}, queryspec.Flags{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,6 +309,51 @@ func TestModel_ControlStopCancel(t *testing.T) {
 	m.Update(KeyEvent{Rune: 'n'}) // decline
 	if m.confirming || applied {
 		t.Fatalf("declining must not apply: confirming=%v applied=%v", m.confirming, applied)
+	}
+}
+
+func TestModel_ManagedPanel(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(80, 12)
+	res, cols := sampleResult(3)
+	m.SetResult(res, cols)
+	var acted []string
+	m.SetManaged(
+		func() []ManagedRow {
+			return []ManagedRow{
+				{Name: "chrome", Mode: "snapshot", Active: true, Members: 12, Nice: "10"},
+				{Name: "idea", Mode: "snapshot", Active: false, Members: 1},
+			}
+		},
+		func(name string, kind ManagedActionKind) (string, error) {
+			verb := "restore"
+			if kind == ManagedUnmanage {
+				verb = "unmanage"
+			}
+			acted = append(acted, verb+":"+name)
+			return "ok", nil
+		},
+	)
+	// Tab -> managed panel, list loaded and rendered.
+	m.Update(KeyEvent{Name: "tab"})
+	if m.panel != PanelManaged || len(m.managed) != 2 {
+		t.Fatalf("Tab should open managed panel with 2 rows, got panel=%v n=%d", m.panel, len(m.managed))
+	}
+	fr := m.Frame()
+	if !strings.Contains(fr[0], "MANAGED") || !strings.Contains(fr[2], "chrome") {
+		t.Fatalf("managed frame wrong: %q / %q", fr[0], fr[2])
+	}
+	// Move to 'idea' and unmanage, then restore.
+	m.Update(KeyEvent{Name: "down"})
+	m.Update(KeyEvent{Rune: 'd'})
+	m.Update(KeyEvent{Rune: 'R'})
+	if len(acted) != 2 || acted[0] != "unmanage:idea" || acted[1] != "restore:idea" {
+		t.Fatalf("managed actions wrong: %v", acted)
+	}
+	// Tab back to the browser.
+	m.Update(KeyEvent{Name: "tab"})
+	if m.panel != PanelBrowser {
+		t.Fatal("Tab should return to the browser")
 	}
 }
 

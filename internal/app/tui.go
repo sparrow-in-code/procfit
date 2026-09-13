@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/netikras/procfit/internal/collect"
@@ -45,7 +46,13 @@ func cmdTUI(env Env, args []string) int {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitRuntime
 	}
-	cli, err := tui.RunTerminal(a.tuiRefresh(context.Background()), tuiControl(), qf.toSpecFlags())
+	deps := tui.Deps{
+		Refresh:       a.tuiRefresh(context.Background()),
+		Control:       tuiControl(),
+		Managed:       tuiManaged(),
+		ManagedAction: tuiManagedAction(),
+	}
+	cli, err := tui.RunTerminal(deps, qf.toSpecFlags())
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitRuntime
@@ -124,6 +131,68 @@ func tuiTargetName(req tui.ControlRequest) string {
 		return targetName(fmt.Sprintf("pid:%d", req.PIDs[0]))
 	}
 	return "tui:" + req.Label
+}
+
+// tuiManaged lists the current managed targets for the TUI managed panel.
+func tuiManaged() tui.ManagedFunc {
+	return func() []tui.ManagedRow {
+		dir, _ := resolveStateDir("")
+		c, err := newControlAsmFn(dir)
+		if err != nil {
+			return nil
+		}
+		st := c.mgr.State()
+		rows := make([]tui.ManagedRow, 0, len(st.Targets))
+		for _, t := range st.Targets {
+			nice := ""
+			if t.DesiredNice != nil {
+				nice = strconv.Itoa(*t.DesiredNice)
+			}
+			seen := "-"
+			if !t.LastSeen.IsZero() {
+				seen = t.LastSeen.Format("15:04:05")
+			}
+			rows = append(rows, tui.ManagedRow{
+				Name: t.Name, Mode: string(t.BindingMode), Active: t.Active,
+				Members: len(t.Bindings), Nice: nice,
+				Stopped:  t.DesiredStop != nil && *t.DesiredStop,
+				Frozen:   t.DesiredFreeze != nil && *t.DesiredFreeze,
+				LastSeen: seen,
+			})
+		}
+		return rows
+	}
+}
+
+// tuiManagedAction restores or unmanages a target by name from the managed panel.
+func tuiManagedAction() tui.ManagedActionFunc {
+	return func(name string, kind tui.ManagedActionKind) (string, error) {
+		dir, _ := resolveStateDir("")
+		c, err := newControlAsmFn(dir)
+		if err != nil {
+			return "", err
+		}
+		switch kind {
+		case tui.ManagedRestore:
+			res, err := c.mgr.Restore(name, false)
+			if err != nil {
+				return "", err
+			}
+			if err := c.save(); err != nil {
+				return "", err
+			}
+			return "restored " + name + ": " + summarizeResult(res), nil
+		case tui.ManagedUnmanage:
+			if err := c.mgr.Unmanage(name); err != nil {
+				return "", err
+			}
+			if err := c.save(); err != nil {
+				return "", err
+			}
+			return "unmanaged " + name, nil
+		}
+		return "", fmt.Errorf("unknown managed action")
+	}
 }
 
 // instancesForPIDs resolves each pid to a live instance, skipping any that

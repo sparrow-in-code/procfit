@@ -74,6 +74,19 @@ type Model struct {
 	niceBuf     string         // the nice value being typed
 	pending     ControlRequest // the action awaiting a value/confirmation
 	preview     string         // dry-run preview shown in the confirmation gate
+
+	// managed panel
+	panel      Panel
+	managed    []ManagedRow
+	mCursor    int
+	managedFn  ManagedFunc
+	managedAct ManagedActionFunc
+}
+
+// SetManaged installs the managed-panel data + action callbacks (enables Tab).
+func (m *Model) SetManaged(list ManagedFunc, act ManagedActionFunc) {
+	m.managedFn = list
+	m.managedAct = act
 }
 
 // SetControl installs the control callback (enables throttling keys). Nil keeps

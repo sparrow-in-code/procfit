@@ -38,6 +38,9 @@ func (m *Model) bodyHeight() int {
 // Frame renders the current view as text lines: a status bar, a header, then the
 // visible slice of the (flattened) tree with the cursor marked.
 func (m *Model) Frame() []string {
+	if m.panel == PanelManaged {
+		return m.managedFrame()
+	}
 	lines := []string{m.statusBar(), m.header()}
 	body := m.bodyHeight()
 	for i := 0; i < body; i++ {
@@ -81,6 +84,9 @@ func (m *Model) statusBar() string {
 	ctl := ""
 	if m.control != nil {
 		ctl = "[n]ice [x]stop [c]ont [z]freeze [R]estore "
+	}
+	if m.managedFn != nil {
+		ctl += "[Tab]managed "
 	}
 	return truncate(fmt.Sprintf("%s  gen=%d rows=%d  %s  [g]roup [t]leaf [enter/←→]fold [s]ort [S]dir [/]filter [u]nits %s[p]ause [r]efresh [q]uit  %s",
 		meta.Name, gen, procs, refresh, ctl, m.status), m.width)

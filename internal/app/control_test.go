@@ -105,6 +105,31 @@ func TestTUIControl_Group(t *testing.T) {
 	}
 }
 
+func TestTUIManaged_ListRestoreUnmanage(t *testing.T) {
+	_, restore := fakeControl(t, pstat(100, "a", 0))
+	defer restore()
+
+	// Create a managed target by renicing via the TUI control path.
+	if _, err := tuiControl()(tui.ControlRequest{PIDs: []int{100}, Label: "a", Kind: tui.CtrlNice, Nice: 5}); err != nil {
+		t.Fatal(err)
+	}
+	rows := tuiManaged()()
+	if len(rows) != 1 || rows[0].Nice != "5" {
+		t.Fatalf("managed list should show the target with nice=5, got %+v", rows)
+	}
+	name := rows[0].Name
+	act := tuiManagedAction()
+	if _, err := act(name, tui.ManagedRestore); err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	if _, err := act(name, tui.ManagedUnmanage); err != nil {
+		t.Fatalf("unmanage: %v", err)
+	}
+	if got := tuiManaged()(); len(got) != 0 {
+		t.Fatalf("target should be gone after unmanage, got %+v", got)
+	}
+}
+
 func TestControl_ManageSetRestoreFlow(t *testing.T) {
 	_, restore := fakeControl(t, pstat(1234, "worker", 0))
 	defer restore()

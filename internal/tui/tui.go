@@ -18,7 +18,16 @@ type RefreshFunc func(queryspec.Flags) (*query.Result, []render.Column, error)
 // RunTerminal creates a real terminal screen, runs the explorer, and returns the
 // equivalent CLI command for the final view. It keeps tcell setup inside this
 // package so callers depend only on RefreshFunc.
-func RunTerminal(refresh RefreshFunc, control ControlFunc, flags queryspec.Flags) (string, error) {
+// Deps are the backend callbacks the explorer needs. Only Refresh is required;
+// Control/Managed enable the control side plane when present.
+type Deps struct {
+	Refresh       RefreshFunc
+	Control       ControlFunc
+	Managed       ManagedFunc
+	ManagedAction ManagedActionFunc
+}
+
+func RunTerminal(deps Deps, flags queryspec.Flags) (string, error) {
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		return "", err
@@ -27,16 +36,18 @@ func RunTerminal(refresh RefreshFunc, control ControlFunc, flags queryspec.Flags
 		return "", err
 	}
 	defer screen.Fini()
-	return Run(screen, refresh, control, flags)
+	return Run(screen, deps, flags)
 }
 
 // Run drives the interactive explorer on the given screen until the user quits,
 // returning the equivalent CLI command for the final view (Phase 3 exit
 // criterion). Sampling (via refresh on a ticker) and input are handled in one
 // loop so slow refreshes never wedge input handling (RFC §19.4).
-func Run(screen tcell.Screen, refresh RefreshFunc, control ControlFunc, flags queryspec.Flags) (string, error) {
+func Run(screen tcell.Screen, deps Deps, flags queryspec.Flags) (string, error) {
 	m := NewModel(flags)
-	m.SetControl(control)
+	m.SetControl(deps.Control)
+	m.SetManaged(deps.Managed, deps.ManagedAction)
+	refresh := deps.Refresh
 	w, h := screen.Size()
 	m.SetSize(w, h)
 	requery(m, refresh)
@@ -112,6 +123,7 @@ var keyNames = map[tcell.Key]string{
 	tcell.KeyEnd:        "end",
 	tcell.KeyDelete:     "delete",
 	tcell.KeyEnter:      "enter",
+	tcell.KeyTab:        "tab",
 	tcell.KeyEscape:     "esc",
 	tcell.KeyBackspace:  "backspace",
 	tcell.KeyBackspace2: "backspace",
