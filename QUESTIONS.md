@@ -24,7 +24,21 @@ going. Override any of them and I'll adjust.
    `nix profile add nixpkgs#go nixpkgs#gnumake nixpkgs#gcc nixpkgs#golangci-lint`
    (go 1.26.7, golangci-lint 2.x). Put them on PATH per shell:
    `export PATH="$HOME/.nix-profile/bin:$PATH"`. Race tests need `CC=gcc`.
-   `make check` is green (fmt/vet/lint/test/race/cover 81.5%).
+   `make check` is green (fmt/vet/lint/test/race/cover ~80%).
+7. **`name` = clean program basename.** `DisplayName`/`name` now takes the exe
+   token's basename even when argv[0] carries jammed args (Chrome writes its whole
+   command line into argv[0]). This makes `--group-by name` group all chrome
+   processes together; the full command is available via the new `cmdline` column.
+   `displayNameCap` raised 64→256 so `--target-width` can widen names.
+8. **Leaf identifier is its own column.** Default columns now include `pid`
+   (blank on group rows), and `--leaf thread` additionally shows `tid`, so a
+   single process is never mistaken for an aggregate.
+9. **Config precedence is layered + reorderable.** Resolution is
+   `default < config < env < args` per setting, recorded with its winning source;
+   env vars are `PROCFIT_<SETTING>`; `--config-precedence` reorders the layers
+   (`default` is always the floor); `--show-config` prints the resolved table.
+10. **TUI leaf mode is independent of grouping.** `g` cycles group-by only; new
+    `t` cycles leaf (process/thread/none). Pause-refresh is `p`/Space.
 
 ## Genuinely want your input (non-blocking; I proceed with the default)
 
@@ -47,5 +61,16 @@ going. Override any of them and I'll adjust.
     vPMU-enabled host**. On a suitable host it should work unchanged; point me at
     one to capture real numbers. Remaining event metrics (`timer-wakeups`,
     `net-*`) still need dedicated BPF programs.
+
+- **E. PM-0303 (TUI managed control) was marked DONE but never implemented** — no
+  control code existed in `internal/tui/`, and acceptance criteria were unchecked.
+  I reopened it and am implementing TUI control (nice/stop/continue/freeze/
+  restore) reusing the Phase-2 controllers, with the §19.3 preview + confirmation.
+- **F. Space keybinding.** The CLI help advertised `--stop … (Space in TUI)`, but
+  I had used Space for pause-refresh. Default: **pause is `p` (and Space)** for
+  now; once TUI control lands, Space becomes stop/continue and pause stays on `p`.
+  Say if you'd rather keep Space as pause permanently.
+- **G. Default grouping stays flat (ps-like).** `--group-by none` is the default;
+  hierarchy is opt-in via `g`/`--group-by`. Tell me if you want a grouped default.
 
 _Last updated by the autonomous build session._
