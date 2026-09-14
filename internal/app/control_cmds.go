@@ -141,13 +141,15 @@ func cmdSet(env Env, args []string) int {
 	setNice := fs.Bool("set-nice", false, "apply --nice")
 	stop := fs.Bool("stop", false, "apply SIGSTOP intent")
 	cont := fs.Bool("continue", false, "clear procfit SIGSTOP intent")
-	freeze := fs.Bool("freeze", false, "freeze the target's cgroup(s)")
+	freeze := fs.Bool("freeze-cgroup", false, "freeze the target's WHOLE cgroup subtree (v2); refuses your session unless --force")
+	fs.BoolVar(freeze, "freeze", false, "alias for --freeze-cgroup")
 	thaw := fs.Bool("thaw", false, "thaw the target's cgroup(s)")
+	force := fs.Bool("force", false, "override the freeze session/self safeguard (dangerous)")
 	dryRun := fs.Bool("dry-run", false, "show what would change without acting")
 	setupUsage(env, fs, "set", "apply/update control on a managed target",
 		"procfit set managed:chrome --nice 15 --set-nice   # renice; prints per-pid result",
-		"procfit set managed:chrome --stop                 # SIGSTOP intent (Space in TUI)",
-		"procfit set managed:chrome --freeze               # cgroup v2 freeze (if delegated)",
+		"procfit set managed:chrome --stop                 # SIGSTOP intent (per-process; Space in TUI)",
+		"procfit set managed:chrome --freeze-cgroup        # freeze the WHOLE cgroup subtree (v2)",
 		"procfit set pid:1234 --nice 5 --set-nice --dry-run   # preview without acting")
 	spec, rest := extractPositional(args)
 	if err := fs.Parse(rest); err != nil {
@@ -165,7 +167,7 @@ func cmdSet(env Env, args []string) int {
 	if code != ExitOK {
 		return code
 	}
-	ops := setOps{nice: *nice, setNice: *setNice, stop: *stop, cont: *cont, freeze: *freeze, thaw: *thaw, dryRun: *dryRun}
+	ops := setOps{nice: *nice, setNice: *setNice, stop: *stop, cont: *cont, freeze: *freeze, thaw: *thaw, force: *force, dryRun: *dryRun}
 	exit := c.applySetOps(env, tname, ops)
 	if !*dryRun {
 		if err := c.save(); err != nil {
@@ -178,8 +180,8 @@ func cmdSet(env Env, args []string) int {
 
 // setOps captures the mutations requested by `set`.
 type setOps struct {
-	nice                                      int
-	setNice, stop, cont, freeze, thaw, dryRun bool
+	nice                                             int
+	setNice, stop, cont, freeze, thaw, force, dryRun bool
 }
 
 // applySetOps applies the requested control mutations to a target and returns
@@ -201,7 +203,7 @@ func (c *ctlAsm) applySetOps(env Env, tname string, o setOps) int {
 		exit = maxExit(exit, exitForResult(res))
 	}
 	if o.freeze || o.thaw {
-		res, _ := c.mgr.SetFreeze(tname, o.freeze)
+		res, _ := c.mgr.SetFreeze(tname, o.freeze, o.force, o.dryRun)
 		printResult(env, res)
 		exit = maxExit(exit, exitForResult(res))
 	}

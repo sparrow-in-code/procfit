@@ -102,8 +102,14 @@ affected count and requires `y` to confirm):
 |---|---|
 | `n` | renice (type a value `-20..19`, then confirm) |
 | `x` / `c` | stop (SIGSTOP) / continue (SIGCONT) |
-| `z` / `Z` | freeze / thaw (cgroup v2, if delegated) |
+| `z` / `Z` | freeze / thaw the whole **cgroup subtree** (v2, if delegated) — see the safety note |
 | `R` | restore captured original values |
+
+> **Freeze safety.** `x` stop is per-process (SIGSTOP); `z` **freeze acts on the
+> whole cgroup subtree**. procfit refuses to freeze a cgroup that is your login
+> session / user slice or an ancestor of procfit itself (it would lock you out) —
+> the TUI shows `⚠ REFUSED` in the forecast and skips it. To override from the CLI:
+> `procfit set <target> --freeze-cgroup --force`. `--dry-run` never acts.
 
 Control reuses the same safeguards as the CLI `set`/`restore` commands (protected
 PIDs are skipped, changes are recorded for restore). In the confirmation gate,

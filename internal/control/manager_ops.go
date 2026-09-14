@@ -149,22 +149,24 @@ func (m *Manager) applyStopBinding(b *Binding, stop bool, sig ports.Signal, res 
 // SetFreeze freezes or thaws the cgroup(s) backing a target's bindings (RFC
 // §15.5). It operates on existing cgroups only; each distinct cgroup is acted on
 // once. Freeze intent is tracked on the target.
-func (m *Manager) SetFreeze(target string, freeze bool) (*ApplyResult, error) {
+func (m *Manager) SetFreeze(target string, freeze, force, dryRun bool) (*ApplyResult, error) {
 	t := m.Find(target)
 	if t == nil {
 		return nil, fmt.Errorf("target %q not found", target)
 	}
-	t.DesiredFreeze = &freeze
+	if !dryRun {
+		t.DesiredFreeze = &freeze
+	}
 	res := newApplyResult()
 	done := map[string]bool{}
 	for i := range t.Bindings {
-		m.freezeBinding(&t.Bindings[i], freeze, done, res)
+		m.freezeBinding(&t.Bindings[i], freeze, force, dryRun, done, res)
 	}
 	m.state.UpdatedAt = m.clk.Now()
 	return res, nil
 }
 
-func (m *Manager) freezeBinding(b *Binding, freeze bool, done map[string]bool, res *ApplyResult) {
+func (m *Manager) freezeBinding(b *Binding, freeze, force, dryRun bool, done map[string]bool, res *ApplyResult) {
 	if ok, _ := m.sg.CheckPID(b.PID); !ok {
 		res.add(b.PID, StatusSkipped, "protected")
 		return
@@ -179,6 +181,22 @@ func (m *Manager) freezeBinding(b *Binding, freeze bool, done map[string]bool, r
 		return
 	}
 	done[cg] = true
+	// Blast-radius guard: freezing a cgroup pauses its whole subtree, so refuse to
+	// freeze our own session / a user slice unless forced. Thaw is never gated.
+	if freeze && !force {
+		if ok, reason := m.freezeAllowed(cg); !ok {
+			res.add(b.PID, StatusSkipped, reason)
+			return
+		}
+	}
+	if dryRun {
+		verb := "freeze"
+		if !freeze {
+			verb = "thaw"
+		}
+		res.add(b.PID, StatusUnchanged, "dry-run: would "+verb+" "+cg)
+		return
+	}
 	if err := m.ctrl.FreezeCgroup(cg, freeze); err != nil {
 		res.add(b.PID, StatusFailed, err.Error())
 		return
@@ -189,6 +207,13 @@ func (m *Manager) freezeBinding(b *Binding, freeze bool, done map[string]bool, r
 	}
 	m.audit(action, b.PID, "freeze", "", cg)
 	res.add(b.PID, StatusApplied, "")
+}
+
+// freezeAllowed applies the blast-radius safety check against the cgroup, using
+// procfit's own cgroup to detect a self/session freeze.
+func (m *Manager) freezeAllowed(cg string) (bool, string) {
+	selfCg, _ := m.ctrl.ReadCgroupOf(m.sg.SelfPID)
+	return FreezeSafety(cg, selfCg)
 }
 
 // InstancesOf returns the concrete instances currently bound to a managed

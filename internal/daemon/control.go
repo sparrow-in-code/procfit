@@ -63,9 +63,9 @@ func (s *Server) runControl(c *ControlReq) (*control.ApplyResult, error) {
 	case "continue":
 		return mgr.SetStop(name, false)
 	case "freeze":
-		return mgr.SetFreeze(name, true)
+		return mgr.SetFreeze(name, true, false, false)
 	case "thaw":
-		return mgr.SetFreeze(name, false)
+		return mgr.SetFreeze(name, false, false, false)
 	default:
 		return nil, fmt.Errorf("unknown control op %q", c.Op)
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -249,6 +250,9 @@ func applyTUIControl(c *ctlAsm, name string, req tui.ControlRequest) (string, er
 		return fmt.Sprintf("nice→%d  %s", req.Nice, summarizeResult(res)), nil
 	}
 	if req.DryRun {
+		if req.Kind == tui.CtrlFreeze {
+			return freezeForecast(c, req), nil
+		}
 		return synthForecast(req), nil
 	}
 	var res *control.ApplyResult
@@ -258,9 +262,9 @@ func applyTUIControl(c *ctlAsm, name string, req tui.ControlRequest) (string, er
 	case tui.CtrlContinue:
 		res, _ = c.mgr.SetStop(name, false)
 	case tui.CtrlFreeze:
-		res, _ = c.mgr.SetFreeze(name, true)
+		res, _ = c.mgr.SetFreeze(name, true, false, false) // TUI never force-freezes the session
 	case tui.CtrlThaw:
-		res, _ = c.mgr.SetFreeze(name, false)
+		res, _ = c.mgr.SetFreeze(name, false, false, false)
 	case tui.CtrlRestore:
 		r, err := c.mgr.Restore(name, false)
 		if err != nil {
@@ -291,6 +295,29 @@ func niceForecast(c *ctlAsm, desired int, res *control.ApplyResult) string {
 	}
 	if needsPriv {
 		b.WriteString("\n  ! raising priority (lower nice) needs CAP_SYS_NICE; may be denied and not restorable unprivileged")
+	}
+	return b.String()
+}
+
+// freezeForecast previews a freeze: the distinct cgroup(s) it would pause, each
+// flagged when the blast-radius guard would REFUSE it (session/self) — so the
+// user sees "this freezes your session" before confirming, not after.
+func freezeForecast(c *ctlAsm, req tui.ControlRequest) string {
+	selfCg, _ := c.ctrl.ReadCgroupOf(os.Getpid())
+	seen := map[string]bool{}
+	var b strings.Builder
+	fmt.Fprintf(&b, "freeze cgroup subtree(s) for %d process(es) [%s]", len(req.PIDs), req.Label)
+	for _, pid := range req.PIDs {
+		cg, ok := c.ctrl.ReadCgroupOf(pid)
+		if !ok || cg == "" || seen[cg] {
+			continue
+		}
+		seen[cg] = true
+		line := "\n  " + cg
+		if allowed, reason := control.FreezeSafety(cg, selfCg); !allowed {
+			line += "   ⚠ REFUSED: " + reason + " (CLI --force to override)"
+		}
+		b.WriteString(line)
 	}
 	return b.String()
 }

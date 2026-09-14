@@ -15,7 +15,7 @@ func TestSetFreeze_DistinctCgroupsOnce(t *testing.T) {
 		{ID: idFor(10, 100), PID: 10}, {ID: idFor(11, 110), PID: 11}, {ID: idFor(12, 120), PID: 12},
 	})
 
-	res, err := m.SetFreeze("t", true)
+	res, err := m.SetFreeze("t", true, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,9 +31,29 @@ func TestSetFreeze_DistinctCgroupsOnce(t *testing.T) {
 	}
 
 	// Thaw.
-	_, _ = m.SetFreeze("t", false)
+	_, _ = m.SetFreeze("t", false, false, false)
 	if fc.Frozen["/system.slice/app.service"] {
 		t.Fatal("cgroup should be thawed")
+	}
+}
+
+func TestSetFreeze_RefusesOwnSession(t *testing.T) {
+	m, fc, _ := newMgr(t)
+	// procfit (self pid 99999) runs inside the user session...
+	fc.Cgroups[99999] = "/user.slice/user-1000.slice/session-2.scope"
+	fc.Add(10, 0, idFor(10, 100))
+	fc.Cgroups[10] = "/user.slice/user-1000.slice" // ...and the target is its ancestor.
+	m.Manage("t", ModeFollow, "", []Instance{{ID: idFor(10, 100), PID: 10}})
+
+	// Without --force: refused, cgroup left untouched (no self-lockout).
+	res, _ := m.SetFreeze("t", true, false, false)
+	if res.Counts[StatusSkipped] != 1 || fc.Frozen["/user.slice/user-1000.slice"] {
+		t.Fatalf("freezing own session must be refused: counts=%+v frozen=%v", res.Counts, fc.Frozen)
+	}
+	// With --force: honoured.
+	res, _ = m.SetFreeze("t", true, true, false)
+	if res.Counts[StatusApplied] != 1 || !fc.Frozen["/user.slice/user-1000.slice"] {
+		t.Fatalf("--force should override the guard: counts=%+v frozen=%v", res.Counts, fc.Frozen)
 	}
 }
 
@@ -41,7 +61,7 @@ func TestSetFreeze_NoCgroupUnavailable(t *testing.T) {
 	m, fc, _ := newMgr(t)
 	fc.Add(10, 0, idFor(10, 100)) // no cgroup configured
 	m.Manage("t", ModeFollow, "", []Instance{{ID: idFor(10, 100), PID: 10}})
-	res, _ := m.SetFreeze("t", true)
+	res, _ := m.SetFreeze("t", true, false, false)
 	if res.Counts[StatusUnavailable] != 1 {
 		t.Fatalf("missing cgroup should be unavailable, got %+v", res.Counts)
 	}
