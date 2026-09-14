@@ -374,17 +374,39 @@ func TestModel_ManagedPanel(t *testing.T) {
 	if !strings.Contains(fr[0], "MANAGED") || !strings.Contains(fr[2], "chrome") {
 		t.Fatalf("managed frame wrong: %q / %q", fr[0], fr[2])
 	}
-	// Move to 'idea' and unmanage, then restore.
+	// Move to 'idea' and drop it (unmanage) via the managed action callback.
 	m.Update(KeyEvent{Name: "down"})
 	m.Update(KeyEvent{Rune: 'd'})
-	m.Update(KeyEvent{Rune: 'R'})
-	if len(acted) != 2 || acted[0] != "unmanage:idea" || acted[1] != "restore:idea" {
-		t.Fatalf("managed actions wrong: %v", acted)
+	if len(acted) != 1 || acted[0] != "unmanage:idea" {
+		t.Fatalf("drop should unmanage the selection, got %v", acted)
 	}
 	// Tab back to the browser.
 	m.Update(KeyEvent{Name: "tab"})
 	if m.panel != PanelBrowser {
 		t.Fatal("Tab should return to the browser")
+	}
+}
+
+func TestModel_ManagedControlActsOnTarget(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(80, 12)
+	var got ControlRequest
+	m.SetControl(func(req ControlRequest) (string, error) { got = req; return "ok", nil })
+	m.SetManaged(
+		func() []ManagedRow {
+			return []ManagedRow{{Name: "idea#100", Members: 1, PIDs: []int{100}, Stopped: true}}
+		},
+		func(string, ManagedActionKind) (string, error) { return "", nil },
+	)
+	m.Update(KeyEvent{Name: "tab"}) // into managed panel
+	// Continue the selected (stopped) target: routes through the control confirm
+	// flow, addressing the EXISTING target by name (not a new pid: target).
+	m.Update(KeyEvent{Rune: 'c'})
+	if !m.confirming {
+		t.Fatalf("control key in managed panel should open the confirm gate; got %+v", got)
+	}
+	if got.Target != "idea#100" || got.Kind != CtrlContinue || len(got.PIDs) != 1 || got.PIDs[0] != 100 {
+		t.Fatalf("managed control should target the retained target: %+v", got)
 	}
 }
 

@@ -121,10 +121,17 @@ When `[state].history` is enabled, control actions (from the CLI `set`/`restore`
 or the TUI) are recorded to an opt-in audit log; `procfit history [--pid N]`
 prints recent events, and the detail overlay (`i`) shows them per process.
 
-Press **`Tab`** to switch to the **managed panel** — the targets you've controlled,
-with their mode, active state, member count and desired nice/stop/freeze. There,
-`R` restores the selected target to its captured originals and `d` unmanages it;
-`Tab` returns to the browser.
+Press **`Tab`** to switch to the **managed panel** — the targets you've controlled
+(named e.g. `idea#281839`), showing mode, active state, desired nice/stop/freeze,
+and their member PIDs. The same control keys work here, acting on the *retained
+target* (so continuing/thawing/renicing what you paused is right here):
+
+| Key | Action (managed panel) |
+|---|---|
+| `n` `x` `c` `z` `Z` | nice / stop / continue / freeze / thaw the selected target |
+| `R` | **restore** — revert the target to its captured original values |
+| `d` | **drop** — stop tracking the target (does **not** revert; use `R` first to undo) |
+| `r` / `Tab` / `q` | refresh / back to browser / quit |
 
 Group rows are **aggregates** of their members; the `PID`/`TID` columns are blank
 on groups and populated only on process/thread leaves, so a single process is

@@ -30,9 +30,9 @@ func (k ControlKind) Verb() string {
 	case CtrlContinue:
 		return "continue (SIGCONT)"
 	case CtrlFreeze:
-		return "freeze"
+		return "freeze cgroup"
 	case CtrlThaw:
-		return "thaw"
+		return "thaw cgroup"
 	case CtrlRestore:
 		return "restore"
 	}
@@ -45,6 +45,7 @@ func (k ControlKind) Verb() string {
 type ControlRequest struct {
 	PIDs   []int
 	Label  string
+	Target string // when set, act on this existing managed target (managed panel)
 	Kind   ControlKind
 	Nice   int
 	DryRun bool
@@ -63,16 +64,12 @@ func (m *Model) startControl(kind ControlKind) {
 		m.status = "control unavailable"
 		return
 	}
-	fr, ok := m.currentRow()
-	if !ok {
-		return
-	}
-	pids := collectPIDs(fr.row)
-	if len(pids) == 0 {
+	pids, label, target, ok := m.controlTarget()
+	if !ok || len(pids) == 0 {
 		m.status = "no controllable processes under the selection"
 		return
 	}
-	req := ControlRequest{PIDs: pids, Label: fr.row.Label, Kind: kind}
+	req := ControlRequest{PIDs: pids, Label: label, Target: target, Kind: kind}
 	if kind == CtrlNice {
 		m.pending = req
 		m.niceEditing = true
@@ -81,6 +78,24 @@ func (m *Model) startControl(kind ControlKind) {
 		return
 	}
 	m.beginConfirm(req)
+}
+
+// controlTarget returns the processes to act on plus a label and, in the managed
+// panel, the existing target name (so control addresses the retained target
+// rather than creating a new one).
+func (m *Model) controlTarget() (pids []int, label, target string, ok bool) {
+	if m.panel == PanelManaged {
+		if m.mCursor >= 0 && m.mCursor < len(m.managed) {
+			r := m.managed[m.mCursor]
+			return r.PIDs, r.Name, r.Name, true
+		}
+		return nil, "", "", false
+	}
+	fr, ok := m.currentRow()
+	if !ok {
+		return nil, "", "", false
+	}
+	return collectPIDs(fr.row), fr.row.Label, "", true
 }
 
 // collectPIDs gathers the distinct owning process ids under a row: just the
@@ -161,6 +176,9 @@ func (m *Model) confirmKey(ev KeyEvent) {
 		}
 		m.status = res
 		m.dirty = true // reflect the change on the next refresh
+		if m.panel == PanelManaged {
+			m.refreshManaged() // keep the managed panel current after acting on it
+		}
 	case ev.Rune == 'v', ev.Rune == 'V':
 		m.previewing = true // show the full per-pid forecast
 	case ev.Name == "esc", ev.Name == "ctrl-c", ev.Rune == 'n', ev.Rune == 'N':

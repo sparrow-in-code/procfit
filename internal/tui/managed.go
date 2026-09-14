@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/netikras/procfit/internal/meta"
 )
@@ -20,6 +21,7 @@ type ManagedRow struct {
 	Mode     string
 	Active   bool
 	Members  int
+	PIDs     []int  // the bound process ids (for display + acting on the target)
 	Nice     string // "" when nice is not controlled
 	Stopped  bool
 	Frozen   bool
@@ -68,15 +70,24 @@ func (m *Model) refreshManaged() {
 	}
 }
 
+// managedControlKeys route managed-panel control to the shared confirm/preview
+// flow, acting on the retained target by name (see controlTarget).
+var managedControlKeys = map[rune]ControlKind{
+	'n': CtrlNice, 'x': CtrlStop, 'c': CtrlContinue,
+	'z': CtrlFreeze, 'Z': CtrlThaw, 'R': CtrlRestore,
+}
+
 func (m *Model) managedKey(ev KeyEvent) {
+	if k, ok := managedControlKeys[ev.Rune]; ok {
+		m.startControl(k)
+		return
+	}
 	switch {
 	case ev.Name == "up" || ev.Rune == 'k':
 		m.mCursor = maxInt(0, m.mCursor-1)
 	case ev.Name == "down" || ev.Rune == 'j':
 		m.mCursor = minInt(maxInt(0, len(m.managed)-1), m.mCursor+1)
-	case ev.Rune == 'R':
-		m.managedDo(ManagedRestore)
-	case ev.Rune == 'd':
+	case ev.Rune == 'd': // drop = stop tracking (does NOT revert changes)
 		m.managedDo(ManagedUnmanage)
 	case ev.Rune == 'r':
 		m.refreshManaged()
@@ -115,12 +126,13 @@ func (m *Model) managedFrame() []string {
 }
 
 func (m *Model) managedStatus() string {
-	return truncate(fmt.Sprintf("%s  MANAGED (%d)  [↑↓]move [R]estore [d]rop [r]efresh [Tab]browser [q]uit  %s",
+	return truncate(fmt.Sprintf(
+		"%s  MANAGED (%d)  [↑↓]move [n]ice [x]stop [c]ont [z]freeze [Z]thaw [R]estore-orig [d]rop [Tab]browser [q]uit  %s",
 		meta.Name, len(m.managed), m.status), m.width)
 }
 
 func (m *Model) managedHeader() string {
-	return truncate("  TARGET                MODE      STATE     P     NICE  STOP  FRZ  LAST-SEEN", m.width)
+	return truncate("  TARGET                MODE      STATE     NICE  STOP  FRZ   PIDS", m.width)
 }
 
 func (m *Model) managedLine(i int) string {
@@ -137,8 +149,25 @@ func (m *Model) managedLine(i int) string {
 	if nice == "" {
 		nice = "-"
 	}
-	return truncate(fmt.Sprintf("%s%-20s %-9s %-9s %-5d %-5s %-5s %-4s %s",
-		cursor, t.Name, t.Mode, state, t.Members, nice, yesNo(t.Stopped), yesNo(t.Frozen), t.LastSeen), m.width)
+	return truncate(fmt.Sprintf("%s%-20s %-9s %-9s %-5s %-5s %-5s %s",
+		cursor, t.Name, t.Mode, state, nice, yesNo(t.Stopped), yesNo(t.Frozen), pidList(t.PIDs)), m.width)
+}
+
+// pidList renders a target's member pids compactly, e.g. "281839 281840 +3".
+func pidList(pids []int) string {
+	if len(pids) == 0 {
+		return "-"
+	}
+	const show = 4
+	parts := make([]string, 0, show+1)
+	for i, p := range pids {
+		if i >= show {
+			parts = append(parts, fmt.Sprintf("+%d", len(pids)-show))
+			break
+		}
+		parts = append(parts, fmt.Sprintf("%d", p))
+	}
+	return strings.Join(parts, " ")
 }
 
 func yesNo(b bool) string {

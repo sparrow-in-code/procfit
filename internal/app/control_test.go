@@ -126,6 +126,27 @@ func TestTUIControl_StopAutoManagesWithFriendlyName(t *testing.T) {
 	}
 }
 
+func TestTUIControl_ByTargetName(t *testing.T) {
+	_, restore := fakeControl(t, pstat(100, "idea", 0))
+	defer restore()
+	// Stop auto-manages the target "idea#100".
+	if _, err := tuiControl()(tui.ControlRequest{PIDs: []int{100}, Label: "idea", Kind: tui.CtrlStop}); err != nil {
+		t.Fatal(err)
+	}
+	// Continue it from the managed panel: addresses the existing target by name.
+	res, err := tuiControl()(tui.ControlRequest{Target: "idea#100", Kind: tui.CtrlContinue})
+	if err != nil {
+		t.Fatalf("continue by target: %v", err)
+	}
+	if !strings.Contains(res, "pid 100") {
+		t.Fatalf("continue result: %q", res)
+	}
+	// An unknown target is an error (not a silent new target).
+	if _, err := tuiControl()(tui.ControlRequest{Target: "nope", Kind: tui.CtrlContinue}); err == nil {
+		t.Fatal("unknown target should error")
+	}
+}
+
 func TestTUIManaged_ListRestoreUnmanage(t *testing.T) {
 	_, restore := fakeControl(t, pstat(100, "a", 0))
 	defer restore()

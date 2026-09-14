@@ -110,12 +110,21 @@ func tuiControl() tui.ControlFunc {
 		if err != nil {
 			return "", err
 		}
-		insts := c.instancesForPIDs(req.PIDs)
-		if len(insts) == 0 {
-			return "", fmt.Errorf("no live instances for the selection")
+		name := req.Target
+		if name != "" {
+			// Managed panel: act on the retained target as-is.
+			if c.mgr.Find(name) == nil {
+				return "", fmt.Errorf("managed target %q not found", name)
+			}
+		} else {
+			// Browser: auto-manage the selected process(es) under a friendly name.
+			insts := c.instancesForPIDs(req.PIDs)
+			if len(insts) == 0 {
+				return "", fmt.Errorf("no live instances for the selection")
+			}
+			name = tuiTargetName(req)
+			c.mgr.Manage(name, control.ModeSnapshot, "", insts)
 		}
-		name := tuiTargetName(req)
-		c.mgr.Manage(name, control.ModeSnapshot, "", insts)
 		summary, err := applyTUIControl(c, name, req)
 		if err != nil {
 			return "", err
@@ -200,9 +209,13 @@ func tuiManaged() tui.ManagedFunc {
 			if !t.LastSeen.IsZero() {
 				seen = t.LastSeen.Format("15:04:05")
 			}
+			pids := make([]int, 0, len(t.Bindings))
+			for _, b := range t.Bindings {
+				pids = append(pids, b.PID)
+			}
 			rows = append(rows, tui.ManagedRow{
 				Name: t.Name, Mode: string(t.BindingMode), Active: t.Active,
-				Members: len(t.Bindings), Nice: nice,
+				Members: len(t.Bindings), PIDs: pids, Nice: nice,
 				Stopped:  t.DesiredStop != nil && *t.DesiredStop,
 				Frozen:   t.DesiredFreeze != nil && *t.DesiredFreeze,
 				LastSeen: seen,
