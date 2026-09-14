@@ -219,10 +219,13 @@ func applyTUIControl(c *ctlAsm, name string, req tui.ControlRequest) (string, er
 		if err != nil {
 			return "", err
 		}
+		if req.DryRun {
+			return niceForecast(c, req.Nice, res), nil
+		}
 		return fmt.Sprintf("nice→%d  %s", req.Nice, summarizeResult(res)), nil
 	}
 	if req.DryRun {
-		return fmt.Sprintf("would %s %d process(es) [%s]", req.Kind.Verb(), len(req.PIDs), req.Label), nil
+		return synthForecast(req), nil
 	}
 	var res *control.ApplyResult
 	switch req.Kind {
@@ -242,6 +245,50 @@ func applyTUIControl(c *ctlAsm, name string, req tui.ControlRequest) (string, er
 		res = r
 	}
 	return summarizeResult(res), nil
+}
+
+// niceForecast builds the §19.3 preview for a group renice: a summary line, then
+// a per-pid capture→change line (current nice → desired, with the would-be
+// status incl. protected), and a privilege/restore warning when the change
+// raises priority (lowering nice needs CAP_SYS_NICE and may not be restorable).
+func niceForecast(c *ctlAsm, desired int, res *control.ApplyResult) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "renice → %d  (%s)", desired, summarizeResult(res))
+	needsPriv := false
+	for _, r := range res.Results {
+		cur := "?"
+		if n, err := c.ctrl.GetNice(r.PID); err == nil {
+			cur = strconv.Itoa(n)
+			if desired < n {
+				needsPriv = true
+			}
+		}
+		fmt.Fprintf(&b, "\n  pid %d: %s→%d  %s", r.PID, cur, desired, forecastStatus(r.Status))
+	}
+	if needsPriv {
+		b.WriteString("\n  ! raising priority (lower nice) needs CAP_SYS_NICE; may be denied and not restorable unprivileged")
+	}
+	return b.String()
+}
+
+// synthForecast previews a non-nice group action (no manager dry-run exists): a
+// summary line plus the affected pid list.
+func synthForecast(req tui.ControlRequest) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "would %s %d process(es) [%s]", req.Kind.Verb(), len(req.PIDs), req.Label)
+	for _, pid := range req.PIDs {
+		fmt.Fprintf(&b, "\n  pid %d", pid)
+	}
+	return b.String()
+}
+
+// forecastStatus relabels the dry-run "unchanged" marker as "would apply" so the
+// preview reads as a forecast rather than a no-op.
+func forecastStatus(s control.FieldStatus) string {
+	if s == control.StatusUnchanged {
+		return "would apply"
+	}
+	return string(s)
 }
 
 // summarizeResult renders an ApplyResult as a compact one-line status: per-pid

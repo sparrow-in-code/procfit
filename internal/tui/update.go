@@ -51,6 +51,10 @@ var runeKeys = map[rune]func(*Model){
 // does not re-query.
 func (m *Model) Update(ev KeyEvent) {
 	if m.confirming {
+		if m.previewing {
+			m.previewing = false // any key returns from the forecast overlay
+			return
+		}
 		m.confirmKey(ev)
 		return
 	}

@@ -81,7 +81,10 @@ affected count and requires `y` to confirm):
 | `R` | restore captured original values |
 
 Control reuses the same safeguards as the CLI `set`/`restore` commands (protected
-PIDs are skipped, changes are recorded for restore).
+PIDs are skipped, changes are recorded for restore). In the confirmation gate,
+press `v` to view the full per-process forecast — each pid's current→desired
+value, which are protected/skipped, and a warning when raising priority (lower
+nice) needs privilege and may not be restorable.
 
 Press **`Tab`** to switch to the **managed panel** — the targets you've controlled,
 with their mode, active state, member count and desired nice/stop/freeze. There,

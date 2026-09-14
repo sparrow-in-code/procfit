@@ -1,7 +1,7 @@
 ---
 id: PM-0307
 title: TUI group-control §19.3 forecast + control-history surfacing
-state: TODO
+state: DONE
 phase: 3
 depends: ["PM-0306"]
 owner:
@@ -30,11 +30,15 @@ full §19.3 preview, and surface control history in the detail overlay.
 
 ## Acceptance criteria
 
-- [ ] Group control shows capture/change values + protected/skipped counts +
-      a privilege/restore forecast before applying.
-- [ ] The dry-run per-pid list is viewable before confirming a group action.
+- [x] Group control shows capture/change values + protected/skipped counts +
+      a privilege/restore forecast before applying. (Renice forecast: per-pid
+      current→desired, would-be status incl. protected, and a warning when the
+      change raises priority.)
+- [x] The dry-run per-pid list is viewable before confirming a group action.
+      (`v` in the confirm gate opens the full FORECAST overlay.)
 - [ ] Detail overlay shows recent control history for the selection when the
-      audit log is enabled.
+      audit log is enabled. → moved to PM-0308 (needs a history reader; the
+      FileRecorder is write-only today).
 
 ## Tests required
 
@@ -45,3 +49,12 @@ full §19.3 preview, and surface control history in the detail overlay.
 
 Presentation only — reuse the Phase-2 controllers, safeguards, and the history
 recorder; add no new control semantics in the TUI.
+
+## Status: DONE (2026-09-13)
+
+Group-control §19.3 forecast landed: the confirmation gate's `v` opens a FORECAST
+overlay listing each pid's current→desired nice, would-be status (incl.
+protected/skipped), and a privilege/restore warning when raising priority. Built
+from the manager dry-run + `Controller.GetNice`; non-nice actions show the
+affected pid list. Control-history surfacing is split to **PM-0308** because the
+history `FileRecorder` has no reader yet.

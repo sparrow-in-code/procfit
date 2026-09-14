@@ -145,6 +145,7 @@ func (m *Model) beginConfirm(req ControlRequest) {
 	m.pending = req
 	m.preview = preview
 	m.confirming = true
+	m.previewing = false
 }
 
 func (m *Model) confirmKey(ev KeyEvent) {
@@ -160,6 +161,8 @@ func (m *Model) confirmKey(ev KeyEvent) {
 		}
 		m.status = res
 		m.dirty = true // reflect the change on the next refresh
+	case ev.Rune == 'v', ev.Rune == 'V':
+		m.previewing = true // show the full per-pid forecast
 	case ev.Name == "esc", ev.Name == "ctrl-c", ev.Rune == 'n', ev.Rune == 'N':
 		m.confirming = false
 		m.status = "control cancelled"

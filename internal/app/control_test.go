@@ -58,7 +58,7 @@ func TestTUIControl_PreviewAndApply(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(prev, "nice→10") {
+	if !strings.Contains(prev, "renice → 10") || !strings.Contains(prev, "0→10") {
 		t.Fatalf("nice preview wrong: %q", prev)
 	}
 	res, err := ctl(tui.ControlRequest{PIDs: []int{1234}, Label: "worker", Kind: tui.CtrlNice, Nice: 10})

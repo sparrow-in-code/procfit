@@ -70,6 +70,7 @@ type Model struct {
 	// controller (observation-only).
 	control     ControlFunc
 	confirming  bool           // a control confirmation gate is open
+	previewing  bool           // the full per-pid forecast overlay is open
 	niceEditing bool           // entering a nice value
 	niceBuf     string         // the nice value being typed
 	pending     ControlRequest // the action awaiting a value/confirmation

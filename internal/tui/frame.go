@@ -38,6 +38,9 @@ func (m *Model) bodyHeight() int {
 // Frame renders the current view as text lines: a status bar, a header, then the
 // visible slice of the (flattened) tree with the cursor marked.
 func (m *Model) Frame() []string {
+	if m.confirming && m.previewing {
+		return m.previewFrame()
+	}
 	if m.detail {
 		return m.detailFrame()
 	}
@@ -59,8 +62,8 @@ func (m *Model) Frame() []string {
 
 func (m *Model) statusBar() string {
 	if m.confirming {
-		return truncate(fmt.Sprintf("CONFIRM %s %d proc(s) [%s]?  %s   [y]es [n]o",
-			m.pending.Kind.Verb(), len(m.pending.PIDs), m.pending.Label, m.preview), m.width)
+		return truncate(fmt.Sprintf("CONFIRM %s %d proc(s) [%s]?  %s   [y]es [n]o [v]iew",
+			m.pending.Kind.Verb(), len(m.pending.PIDs), m.pending.Label, firstLine(m.preview)), m.width)
 	}
 	if m.niceEditing {
 		return truncate(fmt.Sprintf("nice %d proc(s) [%s]> %s_   %s",
@@ -178,6 +181,27 @@ func (m *Model) CLIString() string {
 }
 
 func quoteArg(s string) string { return "'" + s + "'" }
+
+// firstLine returns the first line of s (the summary of a multi-line preview).
+func firstLine(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		return s[:i]
+	}
+	return s
+}
+
+// previewFrame renders the full per-pid control forecast as a scrollable-style
+// overlay (the confirmation gate's [v]iew).
+func (m *Model) previewFrame() []string {
+	lines := []string{truncate(meta.Name+"  FORECAST — any key returns to confirm", m.width)}
+	for _, ln := range strings.Split(m.preview, "\n") {
+		lines = append(lines, truncate(ln, m.width))
+	}
+	for len(lines) < m.height {
+		lines = append(lines, "")
+	}
+	return lines
+}
 
 // withCursor renders the edit buffer with a visible caret at pos (rune index).
 func withCursor(s string, pos int) string {

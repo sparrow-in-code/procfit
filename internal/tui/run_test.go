@@ -291,6 +291,37 @@ func TestModel_ControlGroupCollectsPIDs(t *testing.T) {
 	}
 }
 
+func TestModel_ControlForecastView(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(80, 12)
+	res, cols := sampleResult(2)
+	m.SetResult(res, cols)
+	m.SetControl(func(req ControlRequest) (string, error) {
+		return "summary line\n  pid 1: 0→10 would apply\n  pid 2: 0→10 would apply", nil
+	})
+	m.Update(KeyEvent{Rune: 'x'})
+	if !m.confirming {
+		t.Fatal("'x' should open the confirm gate")
+	}
+	// The confirm bar shows only the summary line, not the per-pid detail.
+	if bar := m.statusBar(); !strings.Contains(bar, "summary line") || strings.Contains(bar, "pid 1:") {
+		t.Fatalf("confirm bar should show only the summary: %q", bar)
+	}
+	// 'v' opens the full forecast overlay.
+	m.Update(KeyEvent{Rune: 'v'})
+	if !m.previewing {
+		t.Fatal("'v' should open the forecast overlay")
+	}
+	if joined := strings.Join(m.Frame(), "\n"); !strings.Contains(joined, "FORECAST") || !strings.Contains(joined, "pid 2:") {
+		t.Fatalf("forecast overlay missing detail:\n%s", joined)
+	}
+	// Any key returns to the confirm gate.
+	m.Update(KeyEvent{Rune: ' '})
+	if m.previewing || !m.confirming {
+		t.Fatal("a key should return from the overlay to the confirm gate")
+	}
+}
+
 func TestModel_ControlStopCancel(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	res, cols := sampleResult(2)
