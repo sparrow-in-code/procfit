@@ -84,6 +84,7 @@ shows the same grouped tree as `ps`, refreshed on an interval.
 |---|---|
 | `↑`/`↓`, `k`/`j`, `PgUp`/`PgDn` | move the cursor |
 | `Enter` / `←` / `→` | fold/unfold the group under the cursor (`[-]` open, `[+]` collapsed; leaves have no marker) |
+| `c` / `C` | fold **all** groups shut / unfold **all** at once (a per-group `Enter` still overrides afterwards) |
 | `i` | inspect the selected row — identity + recent control history (when `[state].history` is enabled); `Esc`/`i` to close |
 | `g` | cycle the grouping preset |
 | `s` / `S` | cycle the sort column / toggle ascending↔descending |
@@ -210,8 +211,14 @@ SETTING        VALUE              SOURCE   ENV
 group-by       comm               args     PROCFIT_GROUP_BY
 leaf           thread             env      PROCFIT_LEAF
 target-width   0                  default  PROCFIT_TARGET_WIDTH
+collapse-groups false             default  PROCFIT_COLLAPSE_GROUPS
 ...
 ```
+
+`collapse-groups` (config key `collapse_groups`, flag `--collapse-groups`, env
+`PROCFIT_COLLAPSE_GROUPS`) starts the TUI with every group folded shut — handy for
+a large grouped tree you want to open selectively; `c`/`C` toggle all groups live.
+It is a TUI view knob; `ps`/`stat` accept it but ignore it.
 
 `procfit config dump --effective` prints the normalized config file itself
 (defaults + file), while `--show-config` reflects a specific invocation including

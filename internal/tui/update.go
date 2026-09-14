@@ -26,6 +26,8 @@ var runeKeys = map[rune]func(*Model){
 	'k': func(m *Model) { m.moveCursor(-1) },
 	'j': func(m *Model) { m.moveCursor(1) },
 	'g': (*Model).cycleGroup,
+	'c': func(m *Model) { m.foldAll(true) },  // fold every group shut
+	'C': func(m *Model) { m.foldAll(false) }, // unfold every group
 	't': (*Model).cycleLeaf,
 	'i': (*Model).openDetail,
 	's': (*Model).cycleSort,
@@ -314,7 +316,7 @@ func (m *Model) toggleCollapse() {
 		}
 		return
 	}
-	m.setCollapsed(fr.path, !m.collapsed[fr.path])
+	m.setCollapsed(fr.path, !m.isCollapsed(fr.path))
 }
 
 // collapseOrParent folds an open group; on a leaf or already-folded group it
@@ -324,7 +326,7 @@ func (m *Model) collapseOrParent() {
 	if !ok {
 		return
 	}
-	if fr.hasKids && !m.collapsed[fr.path] {
+	if fr.hasKids && !m.isCollapsed(fr.path) {
 		m.setCollapsed(fr.path, true)
 		return
 	}
@@ -338,7 +340,7 @@ func (m *Model) expandOrChild() {
 	if !ok || !fr.hasKids {
 		return
 	}
-	if m.collapsed[fr.path] {
+	if m.isCollapsed(fr.path) {
 		m.setCollapsed(fr.path, false)
 		return
 	}

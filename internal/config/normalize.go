@@ -49,6 +49,9 @@ func normalize(raw rawConfig) (Config, error) {
 	if raw.TargetWidth != nil {
 		c.TargetWidth = *raw.TargetWidth
 	}
+	if raw.CollapseGroups != nil {
+		c.CollapseGroups = *raw.CollapseGroups
+	}
 	if raw.AllowBuiltinPresetOverride != nil {
 		c.AllowBuiltinPresetOverride = *raw.AllowBuiltinPresetOverride
 	}

@@ -13,19 +13,20 @@ import (
 // outConfig is the serialization view of a Config: durations become strings and
 // empty values are omitted, so all three encoders emit clean, equivalent output.
 type outConfig struct {
-	Version     int                  `toml:"version" yaml:"version" json:"version"`
-	Interval    string               `toml:"interval,omitempty" yaml:"interval,omitempty" json:"interval,omitempty"`
-	GroupBy     []string             `toml:"group_by,omitempty" yaml:"group_by,omitempty" json:"group_by,omitempty"`
-	Leaf        string               `toml:"leaf,omitempty" yaml:"leaf,omitempty" json:"leaf,omitempty"`
-	Columns     []string             `toml:"columns,omitempty" yaml:"columns,omitempty" json:"columns,omitempty"`
-	Intervals   map[string]string    `toml:"intervals,omitempty" yaml:"intervals,omitempty" json:"intervals,omitempty"`
-	Metrics     *outMetrics          `toml:"metrics,omitempty" yaml:"metrics,omitempty" json:"metrics,omitempty"`
-	Sort        []outSort            `toml:"sort,omitempty" yaml:"sort,omitempty" json:"sort,omitempty"`
-	State       *outState            `toml:"state,omitempty" yaml:"state,omitempty" json:"state,omitempty"`
-	Daemon      *outDaemon           `toml:"daemon,omitempty" yaml:"daemon,omitempty" json:"daemon,omitempty"`
-	Presets     map[string]outPreset `toml:"presets,omitempty" yaml:"presets,omitempty" json:"presets,omitempty"`
-	Managed     []outManaged         `toml:"managed,omitempty" yaml:"managed,omitempty" json:"managed,omitempty"`
-	TargetWidth int                  `toml:"target_width,omitempty" yaml:"target_width,omitempty" json:"target_width,omitempty"`
+	Version        int                  `toml:"version" yaml:"version" json:"version"`
+	Interval       string               `toml:"interval,omitempty" yaml:"interval,omitempty" json:"interval,omitempty"`
+	GroupBy        []string             `toml:"group_by,omitempty" yaml:"group_by,omitempty" json:"group_by,omitempty"`
+	Leaf           string               `toml:"leaf,omitempty" yaml:"leaf,omitempty" json:"leaf,omitempty"`
+	Columns        []string             `toml:"columns,omitempty" yaml:"columns,omitempty" json:"columns,omitempty"`
+	Intervals      map[string]string    `toml:"intervals,omitempty" yaml:"intervals,omitempty" json:"intervals,omitempty"`
+	Metrics        *outMetrics          `toml:"metrics,omitempty" yaml:"metrics,omitempty" json:"metrics,omitempty"`
+	Sort           []outSort            `toml:"sort,omitempty" yaml:"sort,omitempty" json:"sort,omitempty"`
+	State          *outState            `toml:"state,omitempty" yaml:"state,omitempty" json:"state,omitempty"`
+	Daemon         *outDaemon           `toml:"daemon,omitempty" yaml:"daemon,omitempty" json:"daemon,omitempty"`
+	Presets        map[string]outPreset `toml:"presets,omitempty" yaml:"presets,omitempty" json:"presets,omitempty"`
+	Managed        []outManaged         `toml:"managed,omitempty" yaml:"managed,omitempty" json:"managed,omitempty"`
+	TargetWidth    int                  `toml:"target_width,omitempty" yaml:"target_width,omitempty" json:"target_width,omitempty"`
+	CollapseGroups bool                 `toml:"collapse_groups,omitempty" yaml:"collapse_groups,omitempty" json:"collapse_groups,omitempty"`
 }
 
 type outMetrics struct {
@@ -102,6 +103,7 @@ func toOut(c Config) outConfig {
 	o.Presets = presetsToOut(c.Presets)
 	o.Managed = managedToOut(c.Managed)
 	o.TargetWidth = c.TargetWidth
+	o.CollapseGroups = c.CollapseGroups
 	return o
 }
 

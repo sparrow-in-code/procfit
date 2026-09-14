@@ -65,7 +65,8 @@ type Model struct {
 	editPos      int             // cursor position (rune index) within editBuf
 	history      []string        // applied filter expressions, oldest first
 	histIdx      int             // browse position into history (== len(history) means "live")
-	collapsed    map[string]bool // group paths the user has folded shut
+	collapsed    map[string]bool // explicit per-group fold overrides (path -> folded)
+	foldDefault  bool            // default fold state for groups with no override (fold-all / --collapse-groups)
 	hasGroups    bool            // the current view actually has a tree (not a flat list)
 
 	// control (throttling) state; control is nil when the driver supplies no
@@ -114,6 +115,7 @@ type flatRow struct {
 // NewModel builds a model with initial flags and a 1s default refresh interval.
 func NewModel(flags queryspec.Flags) *Model {
 	m := &Model{flags: flags, height: 24, width: 100, intervalStep: defaultIntervalIdx, collapsed: map[string]bool{}}
+	m.foldDefault = flags.CollapseGroups                // --collapse-groups / config: start folded
 	m.groupIx = indexOf(groupByLabels(), flags.GroupBy) // keep g-cycle in sync with launch flags
 	m.leafIx = indexOf(leafModes, leafOrDefault(flags.Leaf))
 	if flags.Sort != "" {
@@ -288,6 +290,34 @@ func indent(depth int) string {
 	return strings.Repeat("  ", depth)
 }
 
+// isCollapsed reports whether the group at path is folded: an explicit user
+// override (Enter/←/→) wins; otherwise the current default applies (set by
+// fold-all `c`/`C` and the --collapse-groups launch flag), so groups that appear
+// after a fold-all — or on regroup — follow it too.
+func (m *Model) isCollapsed(path string) bool {
+	if v, ok := m.collapsed[path]; ok {
+		return v
+	}
+	return m.foldDefault
+}
+
+// foldAll folds (or unfolds) every group at once by flipping the default and
+// dropping per-group overrides, so the whole tree — including groups not yet
+// materialised — follows. A view-only change (no re-query), so it works paused.
+func (m *Model) foldAll(collapse bool) {
+	if !m.hasGroups {
+		m.status = "flat list — press g to group first"
+		return
+	}
+	m.foldDefault = collapse
+	m.collapsed = map[string]bool{}
+	m.status = "all groups expanded"
+	if collapse {
+		m.status = "all groups collapsed"
+	}
+	m.rebuildRows()
+}
+
 // flattenTree walks the result tree depth-first, giving each row a stable path
 // (ancestor keys joined) and skipping the children of collapsed groups, so the
 // visible list reflects the fold state.
@@ -305,7 +335,7 @@ func (m *Model) flattenTree() []flatRow {
 			if r.Kind == query.RowGroup || r.Kind == query.RowHost {
 				m.hasGroups = true
 			}
-			folded := kids && m.collapsed[path]
+			folded := kids && m.isCollapsed(path)
 			out = append(out, flatRow{row: r, depth: depth, path: path, hasKids: kids, collapsed: folded})
 			if kids && !folded {
 				walk(r.Sub, depth+1, path)

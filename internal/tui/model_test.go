@@ -91,6 +91,52 @@ func TestModel_ExpandCollapse(t *testing.T) {
 	}
 }
 
+func TestModel_FoldAll(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(80, 24)
+	res, cols := groupedResult()
+	m.SetResult(res, cols)
+
+	// c folds every group at once (view-only, no re-query).
+	m.Update(KeyEvent{Rune: 'c'})
+	if len(m.rows) != 1 {
+		t.Fatalf("fold-all should hide all children, got %d rows", len(m.rows))
+	}
+	if !strings.Contains(m.Frame()[2], "[+]") {
+		t.Fatalf("folded group should show [+]: %q", m.Frame()[2])
+	}
+	if m.Dirty() {
+		t.Fatal("fold-all is view-only; must not request a re-query")
+	}
+	// The default now folds groups that appear later (regroup/refresh).
+	res, cols = groupedResult()
+	m.SetResult(res, cols)
+	if len(m.rows) != 1 {
+		t.Fatalf("groups appearing after fold-all should start folded, got %d rows", len(m.rows))
+	}
+	// C unfolds every group and clears the fold-all default.
+	m.Update(KeyEvent{Rune: 'C'})
+	if len(m.rows) != 3 {
+		t.Fatalf("unfold-all should reveal children, got %d rows", len(m.rows))
+	}
+}
+
+func TestModel_CollapseGroupsLaunchFlag(t *testing.T) {
+	m := NewModel(queryspec.Flags{CollapseGroups: true})
+	m.SetSize(80, 24)
+	res, cols := groupedResult()
+	m.SetResult(res, cols)
+	// --collapse-groups starts every group folded shut.
+	if len(m.rows) != 1 {
+		t.Fatalf("--collapse-groups should start folded, got %d rows", len(m.rows))
+	}
+	// A per-group override still wins: Enter expands just this one.
+	m.Update(KeyEvent{Name: "enter"})
+	if len(m.rows) != 3 {
+		t.Fatalf("Enter should expand the folded group despite the default, got %d rows", len(m.rows))
+	}
+}
+
 func TestModel_FrameAndScroll(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	m.SetSize(80, 6) // 2 chrome (status+header) + 4 body rows

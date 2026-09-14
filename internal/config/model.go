@@ -23,6 +23,7 @@ type rawConfig struct {
 	Presets                    map[string]rawPreset `toml:"presets" yaml:"presets" json:"presets"`
 	Managed                    []rawManaged         `toml:"managed" yaml:"managed" json:"managed"`
 	TargetWidth                *int                 `toml:"target_width" yaml:"target_width" json:"target_width"`
+	CollapseGroups             *bool                `toml:"collapse_groups" yaml:"collapse_groups" json:"collapse_groups"`
 	AllowBuiltinPresetOverride *bool                `toml:"allow_builtin_preset_override" yaml:"allow_builtin_preset_override" json:"allow_builtin_preset_override"`
 }
 
@@ -93,6 +94,7 @@ type Config struct {
 	Presets                    map[string]Preset
 	Managed                    []Managed
 	TargetWidth                int
+	CollapseGroups             bool
 	AllowBuiltinPresetOverride bool
 }
 

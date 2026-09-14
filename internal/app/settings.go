@@ -49,6 +49,12 @@ var viewSettings = []setting{
 		}
 		return "", false
 	}},
+	{"collapse-groups", func(c config.Config) (string, bool) {
+		if c.CollapseGroups {
+			return "true", true
+		}
+		return "", false // absent/false leaves the default (off) in place
+	}},
 	{flag: "format"},
 	{flag: "select"},
 	{flag: "having"},

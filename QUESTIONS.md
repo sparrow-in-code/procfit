@@ -72,5 +72,12 @@ going. Override any of them and I'll adjust.
   Say if you'd rather keep Space as pause permanently.
 - **G. Default grouping stays flat (ps-like).** `--group-by none` is the default;
   hierarchy is opt-in via `g`/`--group-by`. Tell me if you want a grouped default.
+- **H. `--collapse-groups` is a shared view knob that only the TUI acts on.** It
+  starts the TUI with every group folded (also `collapse_groups` in config,
+  `PROCFIT_COLLAPSE_GROUPS` env; `c`/`C` fold/unfold all live). I wired it through
+  the shared query-flags + config precedence machinery (like `target-width`) for a
+  consistent, testable path, so `ps`/`stat` *accept but ignore* it today. If you'd
+  rather it be TUI-only at the CLI surface (rejected by `ps`), or have `ps` honour
+  it as a "group summary" view (print only group rows, hide leaves), say so.
 
 _Last updated by the autonomous build session._

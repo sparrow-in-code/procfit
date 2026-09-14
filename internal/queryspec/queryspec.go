@@ -33,6 +33,9 @@ type Flags struct {
 	Human bool
 	// TargetWidth caps the TARGET column width (0 = auto-size to content).
 	TargetWidth int
+	// CollapseGroups starts the TUI with every group folded shut (view-only;
+	// the query pipeline ignores it). New groups appearing later fold too.
+	CollapseGroups bool
 }
 
 // Resolved is a compiled query plus the metrics it needs and the columns to

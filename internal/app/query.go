@@ -9,23 +9,24 @@ import (
 
 // queryFlags holds the shared observation flags (RFC §8.1) parsed for ps/stat.
 type queryFlags struct {
-	groupBy     string
-	leaf        string
-	sortSpec    string
-	columns     string
-	profile     string
-	metricOver  stringList
-	format      string
-	selectExpr  string
-	havingExpr  string
-	number      int
-	human       bool
-	targetWidth int
-	configPath  string
-	noConfig    bool
-	configPrec  string
-	showConfig  bool
-	sources     map[string]Source // resolved layer per setting (for --show-config)
+	groupBy        string
+	leaf           string
+	sortSpec       string
+	columns        string
+	profile        string
+	metricOver     stringList
+	format         string
+	selectExpr     string
+	havingExpr     string
+	number         int
+	human          bool
+	targetWidth    int
+	collapseGroups bool
+	configPath     string
+	noConfig       bool
+	configPrec     string
+	showConfig     bool
+	sources        map[string]Source // resolved layer per setting (for --show-config)
 }
 
 // stringList is a repeatable string flag (e.g. --metric).
@@ -56,6 +57,7 @@ func bindQueryFlags(fs *flag.FlagSet) *queryFlags {
 	fs.BoolVar(&qf.human, "human", false, "human-readable units K/M/G (default: raw bytes/numbers)")
 	fs.BoolVar(&qf.human, "h", false, "alias for --human")
 	fs.IntVar(&qf.targetWidth, "target-width", 0, "cap the TARGET column width in chars (default: 0 = auto-size)")
+	fs.BoolVar(&qf.collapseGroups, "collapse-groups", false, "TUI: start with every group folded shut (c folds all, C unfolds; ps/stat ignore it)")
 	fs.StringVar(&qf.configPath, "config", "", "config file to load (defaults: $PROCFIT_CONFIG or XDG)")
 	fs.BoolVar(&qf.noConfig, "no-config", false, "ignore any config file")
 	fs.StringVar(&qf.configPrec, "config-precedence", "", "layer order low→high (default: config,env,args); 'default' is always the floor")
@@ -77,6 +79,7 @@ func (qf *queryFlags) toSpecFlags() queryspec.Flags {
 		Number:          qf.number,
 		Human:           qf.human,
 		TargetWidth:     qf.targetWidth,
+		CollapseGroups:  qf.collapseGroups,
 	}
 }
 

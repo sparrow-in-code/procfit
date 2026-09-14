@@ -49,6 +49,42 @@ direction = "desc"
 	}
 }
 
+func TestApplyConfigDefaults_CollapseGroups(t *testing.T) {
+	cfg := writeCfg(t, "version = 1\ncollapse_groups = true\n")
+
+	// Config turns it on.
+	fs := flag.NewFlagSet("tui", flag.ContinueOnError)
+	qf := bindQueryFlags(fs)
+	if err := fs.Parse([]string{"--config", cfg}); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyConfigDefaults(fs, qf); err != nil {
+		t.Fatal(err)
+	}
+	if !qf.collapseGroups || qf.sources["collapse-groups"] != SourceConfig {
+		t.Fatalf("config should set collapse-groups (source config), got %v/%s",
+			qf.collapseGroups, qf.sources["collapse-groups"])
+	}
+	if !qf.toSpecFlags().CollapseGroups {
+		t.Fatal("toSpecFlags must carry CollapseGroups to the TUI model")
+	}
+
+	// Env overrides config off; a later --collapse-groups on the CLI wins again.
+	t.Setenv("PROCFIT_COLLAPSE_GROUPS", "false")
+	fs2 := flag.NewFlagSet("tui", flag.ContinueOnError)
+	qf2 := bindQueryFlags(fs2)
+	if err := fs2.Parse([]string{"--config", cfg, "--collapse-groups"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyConfigDefaults(fs2, qf2); err != nil {
+		t.Fatal(err)
+	}
+	if !qf2.collapseGroups || qf2.sources["collapse-groups"] != SourceArgs {
+		t.Fatalf("CLI --collapse-groups must win, got %v/%s",
+			qf2.collapseGroups, qf2.sources["collapse-groups"])
+	}
+}
+
 func TestApplyConfigDefaults_NoConfig(t *testing.T) {
 	cfg := writeCfg(t, "version = 1\ntarget_width = 99\n")
 	fs := flag.NewFlagSet("ps", flag.ContinueOnError)
