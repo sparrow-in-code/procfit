@@ -92,7 +92,7 @@ func (c *ctlAsm) resolveInstances(spec string) ([]control.Instance, error) {
 		}
 		out := make([]control.Instance, 0, len(t.Bindings))
 		for _, b := range t.Bindings {
-			out = append(out, control.Instance{ID: b.ID, PID: b.PID})
+			out = append(out, control.Instance{ID: b.ID, PID: b.PID, Name: b.Name})
 		}
 		return out, nil
 	case "selector":
@@ -134,7 +134,7 @@ func (c *ctlAsm) instancesBySelector(sel string) ([]control.Instance, error) {
 	for i := range procs {
 		p := &procs[i]
 		if prog.Eval(queryspec.EntityEnv{P: p}) {
-			out = append(out, control.Instance{ID: p.ID, PID: p.PID})
+			out = append(out, control.Instance{ID: p.ID, PID: p.PID, Name: p.DisplayName()})
 		}
 	}
 	return out, nil
@@ -153,9 +153,9 @@ func (c *ctlAsm) instancesByGroup(arg string) ([]control.Instance, error) {
 	for i := range procs {
 		p := &procs[i]
 		if v := queryspec.EntityField(p, dim); v.Kind == expr.KindString && v.Str == val {
-			out = append(out, control.Instance{ID: p.ID, PID: p.PID})
+			out = append(out, control.Instance{ID: p.ID, PID: p.PID, Name: p.DisplayName()})
 		} else if v.Kind == expr.KindNumber && fmt.Sprintf("%d", int64(v.Num)) == val {
-			out = append(out, control.Instance{ID: p.ID, PID: p.PID})
+			out = append(out, control.Instance{ID: p.ID, PID: p.PID, Name: p.DisplayName()})
 		}
 	}
 	return out, nil

@@ -57,6 +57,7 @@ type StopField struct {
 type Binding struct {
 	ID   model.ProcessInstanceID `json:"id"`
 	PID  int                     `json:"pid"`
+	Name string                  `json:"name,omitempty"` // last-known process name (for orphans display)
 	Nice *NiceField              `json:"nice,omitempty"`
 	Stop *StopField              `json:"stop,omitempty"`
 }

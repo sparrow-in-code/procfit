@@ -110,6 +110,19 @@ func TestRestoreNice_NiceOnly(t *testing.T) {
 	}
 }
 
+func TestManage_PersistsBindingName(t *testing.T) {
+	m, _, _ := newMgr(t)
+	m.Manage("t", ModeSnapshot, "", []Instance{{ID: idFor(10, 100), PID: 10, Name: "idea"}})
+	if got := m.Find("t").Bindings[0].Name; got != "idea" {
+		t.Fatalf("binding should persist the name, got %q", got)
+	}
+	// A rebind without a name keeps the last-known name (so orphans stay labelled).
+	m.Manage("t", ModeSnapshot, "", []Instance{{ID: idFor(10, 100), PID: 10}})
+	if got := m.Find("t").Bindings[0].Name; got != "idea" {
+		t.Fatalf("rebind should keep the last-known name, got %q", got)
+	}
+}
+
 func TestSetFreeze_NoCgroupUnavailable(t *testing.T) {
 	m, fc, _ := newMgr(t)
 	fc.Add(10, 0, idFor(10, 100)) // no cgroup configured

@@ -9,10 +9,13 @@ import (
 	"github.com/netikras/procfit/internal/ports"
 )
 
-// Instance is a resolved (identity, pid) pair the manager can act on.
+// Instance is a resolved (identity, pid) pair the manager can act on. Name is a
+// human display name captured at manage time so a target stays identifiable
+// after the process exits.
 type Instance struct {
-	ID  model.ProcessInstanceID
-	PID int
+	ID   model.ProcessInstanceID
+	PID  int
+	Name string
 }
 
 // BindingResult is the per-instance outcome of an apply/restore (RFC §21.4).
@@ -129,10 +132,13 @@ func (m *Manager) bindInstances(t *Target, instances []Instance) {
 	}
 	var next []Binding
 	for _, in := range instances {
-		b := Binding{ID: in.ID, PID: in.PID}
+		b := Binding{ID: in.ID, PID: in.PID, Name: in.Name}
 		if prev, ok := old[in.ID.Key()]; ok {
 			b.Nice = prev.Nice
 			b.Stop = prev.Stop
+			if b.Name == "" {
+				b.Name = prev.Name // keep the last-known name across rebinds
+			}
 		}
 		next = append(next, b)
 	}

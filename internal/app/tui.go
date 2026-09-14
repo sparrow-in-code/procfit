@@ -122,6 +122,9 @@ func tuiControl() tui.ControlFunc {
 			if len(insts) == 0 {
 				return "", fmt.Errorf("no live instances for the selection")
 			}
+			for i := range insts { // persist a display name for orphans
+				insts[i].Name = req.Label
+			}
 			name = tuiTargetName(req)
 			c.mgr.Manage(name, control.ModeSnapshot, "", insts)
 		}
