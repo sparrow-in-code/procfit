@@ -17,13 +17,14 @@ gated on a fast verify step so a broken tag can never ship.
 
 ## Scope
 
-- `.github/workflows/release.yml` triggered by `push: tags: ['v*']` (and
-  `workflow_dispatch` for manual rebuilds).
+- `.github/workflows/release.yml` triggered by `push: tags: ['v*']` or a manual
+  `workflow_dispatch` with a required `tag` input (both publish; a manual run
+  creates the tag + Release at the dispatched commit).
 - **verify** job: `go vet` + `go test ./...` — a hard gate the rest depend on.
 - **binaries** job: `CGO_ENABLED=0 -trimpath` builds for linux/amd64 + arm64,
   version-stamped from the tag/commit, packaged as `.tar.gz` + `.sha256`.
 - **release** job: `softprops/action-gh-release` attaches artifacts + auto notes,
-  gated on `refs/tags/*`.
+  on a tag push or a manual run (`tag_name` from the tag / `tag` input).
 - **image** job: multi-arch GHCR image tagged `:X.Y.Z`, `:X.Y`, `:latest`, pushed
   only on tags.
 - Docs: DEVELOPMENT.md §9 "Releasing" (how to cut a release, what runs); README

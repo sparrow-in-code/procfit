@@ -471,8 +471,8 @@ Phases 0–2 complete.
 
 ## 9. Releasing (GitHub Releases + GHCR)
 
-Releases are **tag-driven** — there is nothing to click. Pushing an annotated
-`vX.Y.Z` tag runs `.github/workflows/release.yml`, which:
+Releases are **version-driven**: a `vX.Y.Z` either pushed as a git tag or entered
+in the *Run workflow* dialog runs `.github/workflows/release.yml`, which:
 
 1. **verify** — `go vet` + `go test ./...` (a broken tag never ships).
 2. **binaries** — builds static, `CGO_ENABLED=0`, `-trimpath` binaries for
@@ -481,25 +481,33 @@ Releases are **tag-driven** — there is nothing to click. Pushing an annotated
    `.sha256`.
 3. **release** — publishes a **GitHub Release** for the tag via
    `softprops/action-gh-release`, attaching the tarballs + checksums with
-   auto-generated notes. Gated on `refs/tags/*`.
+   auto-generated notes. Runs on a tag push or a manual run.
 4. **image** — builds and pushes a multi-arch **GHCR** image
-   (`ghcr.io/<owner>/procfit`) tagged `:X.Y.Z`, `:X.Y`, and `:latest`.
+   (`ghcr.io/<owner>/procfit`) tagged `:X.Y.Z`, `:X.Y`, and `:latest`, on the
+   same conditions.
 
-Cutting a release:
+Two equivalent ways to cut a release — pick one:
 
 ```console
-# main is green (CI passed) and docs/tickets are updated
+# A) push a tag (scriptable, the usual path)
 git tag -a v1.2.3 -m "procfit v1.2.3"
-git push origin v1.2.3        # triggers the release workflow
+git push origin v1.2.3
 ```
 
-The version string comes from the tag (`GITHUB_REF_NAME`), matching the local
-`make build` stamp (`git describe --tags`). Use SemVer; pre-releases like
-`v1.2.3-rc1` publish too (mark them pre-release in the GitHub UI if desired).
+**B) the Actions UI** — open *Actions → release → Run workflow*, choose the
+branch/commit, and enter the version (e.g. `v1.2.3`) in the **tag** input. This
+runs the same pipeline and **creates the tag + Release at that commit**.
 
-`workflow_dispatch` can run the workflow manually (e.g. to rebuild artifacts),
-but the **release** and image **push** steps only fire on a tag ref — a manual
-run on a branch verifies and builds without publishing.
+Both paths publish. The version string comes from the tag (`github.ref_name`) or,
+for a manual run, the `tag` input — matching the local `make build` stamp
+(`git describe --tags`). Use SemVer; pre-releases like `v1.2.3-rc1` publish too
+(mark them pre-release in the GitHub UI if desired).
+
+> **Why might "publish GitHub release" show as _skipped_?** The publish + image
+> **push** steps are guarded to a tag ref or a manual run. If you trigger the
+> workflow some other way (or an old `workflow_dispatch` with no tag), `verify`
+> and `binaries` still run but publishing is skipped by design. Use one of the two
+> paths above to actually publish.
 
 Permissions are declared in the workflow (`contents: write` for the Release,
 `packages: write` for GHCR) and use the default `GITHUB_TOKEN`; no extra secrets
