@@ -33,6 +33,22 @@ func (m *Manager) Restore(target string, force bool) (*ApplyResult, error) {
 	return res, nil
 }
 
+// RestoreNice reverts only the nice field of a target to its captured original
+// (the uppercase "lift" of a renice), clearing the nice intent.
+func (m *Manager) RestoreNice(target string) (*ApplyResult, error) {
+	t := m.Find(target)
+	if t == nil {
+		return nil, fmt.Errorf("target %q not found", target)
+	}
+	res := newApplyResult()
+	for i := range t.Bindings {
+		m.restoreNiceBinding(&t.Bindings[i], false, res)
+	}
+	t.DesiredNice = nil
+	m.state.UpdatedAt = m.clk.Now()
+	return res, nil
+}
+
 // restoreStopBinding resumes a process procfit itself stopped (SIGCONT).
 func (m *Manager) restoreStopBinding(b *Binding, res *ApplyResult) {
 	if b.Stop == nil || !b.Stop.DesiredStop {

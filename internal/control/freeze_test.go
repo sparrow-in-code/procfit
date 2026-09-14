@@ -88,6 +88,28 @@ func TestRestore_ResumesStopAndThaws(t *testing.T) {
 	}
 }
 
+func TestRestoreNice_NiceOnly(t *testing.T) {
+	m, fc, _ := newMgr(t)
+	fc.Add(10, 5, idFor(10, 100)) // starts at nice 5
+	m.Manage("t", ModeFollow, "", []Instance{{ID: idFor(10, 100), PID: 10}})
+	if _, err := m.SetNice("t", 15, false); err != nil {
+		t.Fatal(err)
+	}
+	res, err := m.RestoreNice("t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Counts[StatusRestored] != 1 {
+		t.Fatalf("RestoreNice should restore, got %+v", res.Counts)
+	}
+	if b := m.Find("t").Bindings[0].Nice; b == nil || b.Desired != b.Original {
+		t.Fatalf("nice should be back to original: %+v", b)
+	}
+	if m.Find("t").DesiredNice != nil {
+		t.Fatal("RestoreNice should clear the nice intent")
+	}
+}
+
 func TestSetFreeze_NoCgroupUnavailable(t *testing.T) {
 	m, fc, _ := newMgr(t)
 	fc.Add(10, 0, idFor(10, 100)) // no cgroup configured

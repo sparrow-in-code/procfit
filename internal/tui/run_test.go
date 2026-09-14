@@ -401,7 +401,7 @@ func TestModel_ManagedControlActsOnTarget(t *testing.T) {
 	m.Update(KeyEvent{Name: "tab"}) // into managed panel
 	// Continue the selected (stopped) target: routes through the control confirm
 	// flow, addressing the EXISTING target by name (not a new pid: target).
-	m.Update(KeyEvent{Rune: 'c'})
+	m.Update(KeyEvent{Rune: 'X'})
 	if !m.confirming {
 		t.Fatalf("control key in managed panel should open the confirm gate; got %+v", got)
 	}

@@ -100,10 +100,12 @@ affected count and requires `y` to confirm):
 
 | Key | Action |
 |---|---|
-| `n` | renice (type a value `-20..19`, then confirm) |
-| `x` / `c` | stop (SIGSTOP) / continue (SIGCONT) |
+| `n` / `N` | renice (type `-20..19`) / restore original nice |
+| `x` / `X` | stop (SIGSTOP) / continue (SIGCONT) |
 | `z` / `Z` | freeze / thaw the whole **cgroup subtree** (v2, if delegated) — see the safety note |
-| `R` | restore captured original values |
+
+Control keys follow one convention: **lowercase applies/enforces, uppercase lifts
+it** (`n`/`N`, `x`/`X`, `z`/`Z`). Every action shows a preview and needs `y`.
 
 > **Freeze safety.** `x` stop is per-process (SIGSTOP); `z` **freeze acts on the
 > whole cgroup subtree**. procfit refuses to freeze a cgroup that is your login
@@ -128,9 +130,10 @@ target* (so continuing/thawing/renicing what you paused is right here):
 
 | Key | Action (managed panel) |
 |---|---|
-| `n` `x` `c` `z` `Z` | nice / stop / continue / freeze / thaw the selected target |
-| `R` | **restore** — revert the target to its captured original values |
-| `d` | **drop** — stop tracking the target (does **not** revert; use `R` first to undo) |
+| `n` / `N` | renice / restore original nice on the selected target |
+| `x` / `X` | stop / continue |
+| `z` / `Z` | freeze / thaw |
+| `d` | **drop** — stop tracking the target (does **not** revert; lift first with `N`/`X`/`Z` to undo) |
 | `r` / `Tab` / `q` | refresh / back to browser / quit |
 
 Group rows are **aggregates** of their members; the `PID`/`TID` columns are blank

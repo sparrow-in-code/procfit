@@ -108,7 +108,7 @@ func (m *Model) statusBar() string {
 	}
 	ctl := ""
 	if m.control != nil {
-		ctl = "[n]ice [x]stop [c]ont [z]freeze-cg [R]estore "
+		ctl = "[n]ice/[N]restore [x]stop/[X]cont [z]freeze-cg/[Z]thaw "
 	}
 	if m.managedFn != nil {
 		ctl += "[Tab]managed "

@@ -34,12 +34,15 @@ var runeKeys = map[rune]func(*Model){
 	'p': (*Model).togglePause,
 	' ': (*Model).togglePause,
 	'u': (*Model).toggleUnits,
+	// Control keys follow a consistent convention: lowercase applies/enforces a
+	// constraint, uppercase lifts it. n/N renice/restore-nice, x/X stop/continue,
+	// z/Z freeze/thaw.
 	'n': func(m *Model) { m.startControl(CtrlNice) },
+	'N': func(m *Model) { m.startControl(CtrlRestoreNice) },
 	'x': func(m *Model) { m.startControl(CtrlStop) },
-	'c': func(m *Model) { m.startControl(CtrlContinue) },
+	'X': func(m *Model) { m.startControl(CtrlContinue) },
 	'z': func(m *Model) { m.startControl(CtrlFreeze) },
 	'Z': func(m *Model) { m.startControl(CtrlThaw) },
-	'R': func(m *Model) { m.startControl(CtrlRestore) },
 	'/': (*Model).startFilter,
 	'f': (*Model).startFilter,
 	'[': func(m *Model) { m.adjustInterval(-1) },

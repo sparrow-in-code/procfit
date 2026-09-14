@@ -27,7 +27,7 @@ func cmdTUI(env Env, args []string) int {
 	qf := bindQueryFlags(fs)
 	interval := fs.Duration("interval", time.Second, "starting refresh interval, e.g. 500ms, 2s ([ ] adjust live)")
 	setupUsage(env, fs, "tui", "interactive explorer (default on a TTY)",
-		"procfit tui                                  # nav g(group) t(leaf) s/S / u; control n(ice) x/c z/Z R (confirm y)",
+		"procfit tui                                  # nav g/t/s/S//u; control n/N x/X z/Z (lower=apply, UPPER=lift; confirm y)",
 		"procfit tui --interval 2s --group-by name --sort cpu:desc   # 2s refresh, grouped by name",
 		"procfit tui -h                               # start with human units (toggle live with 'u')")
 	if err := fs.Parse(args); err != nil {
@@ -291,24 +291,35 @@ func applyTUIControl(c *ctlAsm, name string, req tui.ControlRequest) (string, er
 		}
 		return synthForecast(req), nil
 	}
-	var res *control.ApplyResult
-	switch req.Kind {
-	case tui.CtrlStop:
-		res, _ = c.mgr.SetStop(name, true)
-	case tui.CtrlContinue:
-		res, _ = c.mgr.SetStop(name, false)
-	case tui.CtrlFreeze:
-		res, _ = c.mgr.SetFreeze(name, true, false, false) // TUI never force-freezes the session
-	case tui.CtrlThaw:
-		res, _ = c.mgr.SetFreeze(name, false, false, false)
-	case tui.CtrlRestore:
-		r, err := c.mgr.Restore(name, false)
-		if err != nil {
-			return "", err
-		}
-		res = r
+	res, err := applyControlKind(c, name, req.Kind)
+	if err != nil {
+		return "", err
 	}
 	return summarizeResult(res), nil
+}
+
+// applyControlKind runs the non-nice control action on a named target. The TUI
+// never force-freezes; the freeze safeguard applies.
+func applyControlKind(c *ctlAsm, name string, kind tui.ControlKind) (*control.ApplyResult, error) {
+	switch kind {
+	case tui.CtrlRestoreNice:
+		return c.mgr.RestoreNice(name)
+	case tui.CtrlStop:
+		r, _ := c.mgr.SetStop(name, true)
+		return r, nil
+	case tui.CtrlContinue:
+		r, _ := c.mgr.SetStop(name, false)
+		return r, nil
+	case tui.CtrlFreeze:
+		r, _ := c.mgr.SetFreeze(name, true, false, false)
+		return r, nil
+	case tui.CtrlThaw:
+		r, _ := c.mgr.SetFreeze(name, false, false, false)
+		return r, nil
+	case tui.CtrlRestore:
+		return c.mgr.Restore(name, false)
+	}
+	return nil, nil
 }
 
 // niceForecast builds the §19.3 preview for a group renice: a summary line, then

@@ -13,6 +13,7 @@ type ControlKind int
 
 const (
 	CtrlNice ControlKind = iota
+	CtrlRestoreNice
 	CtrlStop
 	CtrlContinue
 	CtrlFreeze
@@ -25,6 +26,8 @@ func (k ControlKind) Verb() string {
 	switch k {
 	case CtrlNice:
 		return "renice"
+	case CtrlRestoreNice:
+		return "restore nice"
 	case CtrlStop:
 		return "stop (SIGSTOP)"
 	case CtrlContinue:
