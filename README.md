@@ -106,7 +106,11 @@ affected count and requires `y` to confirm):
 | `z` / `Z` | freeze / thaw the whole **cgroup subtree** (v2, if delegated) — see the safety note |
 
 Control keys follow one convention: **lowercase applies/enforces, uppercase lifts
-it** (`n`/`N`, `x`/`X`, `z`/`Z`). Every action shows a preview and needs `y`.
+it** (`n`/`N`, `x`/`X`, `z`/`Z`). Every action shows a preview and needs `y`. The
+action is **pinned to the process(es) selected when you pressed the key**, and the
+view **freezes while the confirmation gate is open**, so a background refresh
+re-sorting the list can never retarget your action — confirming always hits the
+process you previewed, not whatever row drifted under the cursor.
 
 > **Freeze safety.** `x` stop is per-process (SIGSTOP); `z` **freeze acts on the
 > whole cgroup subtree**. procfit refuses to freeze a cgroup that is your login

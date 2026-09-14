@@ -169,6 +169,17 @@ func (m *Model) Quit() bool { return m.quit }
 // the ticker tick; explicit actions (refresh, sort, filter, …) still re-query.
 func (m *Model) Paused() bool { return m.paused }
 
+// RefreshSuspended reports whether ticker-driven auto-refresh must hold off:
+// either the user paused, or a modal gate is open (a control confirmation, its
+// forecast overlay, or the nice-value prompt). Freezing the view during a
+// control decision keeps the row list from reordering under the user mid-gate.
+// The action itself is already pinned to the pids captured when it began, so
+// this is about a steady view, not correctness — a reorder can never retarget a
+// confirmed action.
+func (m *Model) RefreshSuspended() bool {
+	return m.paused || m.confirming || m.previewing || m.niceEditing
+}
+
 // Dirty reports (and clears) whether a re-query is needed.
 func (m *Model) Dirty() bool {
 	d := m.dirty

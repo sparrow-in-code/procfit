@@ -343,6 +343,60 @@ func TestModel_ControlStopCancel(t *testing.T) {
 	}
 }
 
+// TestModel_ControlPinnedAcrossReorder proves the confirm gate acts on the pids
+// captured when the action began, even if a background refresh reorders the list
+// under the cursor (e.g. sorted by cpu%): confirming can never retarget a
+// different process than the one previewed.
+func TestModel_ControlPinnedAcrossReorder(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(80, 24)
+	res, cols := sampleResult(2) // flat rows: index 0 = pid 1, index 1 = pid 2
+	m.SetResult(res, cols)
+	var got ControlRequest
+	m.SetControl(func(req ControlRequest) (string, error) { got = req; return "ok", nil })
+
+	// Aim at pid 1 (cursor index 0) and open the confirm gate.
+	m.Update(KeyEvent{Rune: 'x'})
+	if !m.confirming || len(got.PIDs) != 1 || got.PIDs[0] != 1 {
+		t.Fatalf("stop on pid 1 should preview pid 1, got %+v", got)
+	}
+
+	// A background tick refreshes and reorders: pid 2 sorts to index 0 (now under
+	// the cursor). The pending action must NOT follow the cursor.
+	res2, cols2 := sampleResult(2)
+	res2.Rows[0], res2.Rows[1] = res2.Rows[1], res2.Rows[0]
+	m.SetResult(res2, cols2)
+
+	m.Update(KeyEvent{Rune: 'y'}) // confirm
+	if got.DryRun {
+		t.Fatal("confirm must apply (not dry-run)")
+	}
+	if len(got.PIDs) != 1 || got.PIDs[0] != 1 {
+		t.Fatalf("confirm must act on the captured pid 1, not the reordered cursor row, got %+v", got.PIDs)
+	}
+}
+
+// TestModel_ConfirmSuspendsRefresh checks that a modal control gate freezes
+// ticker-driven auto-refresh, so the list can't churn under a pending decision.
+func TestModel_ConfirmSuspendsRefresh(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	res, cols := sampleResult(2)
+	m.SetResult(res, cols)
+	m.SetControl(func(ControlRequest) (string, error) { return "ok", nil })
+
+	if m.RefreshSuspended() {
+		t.Fatal("auto-refresh should run normally before any gate")
+	}
+	m.Update(KeyEvent{Rune: 'x'}) // open confirm gate
+	if !m.RefreshSuspended() {
+		t.Fatal("an open confirm gate must suspend auto-refresh")
+	}
+	m.Update(KeyEvent{Rune: 'n'}) // cancel
+	if m.RefreshSuspended() {
+		t.Fatal("cancelling the gate must resume auto-refresh")
+	}
+}
+
 func TestModel_ManagedPanel(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	m.SetSize(80, 12)

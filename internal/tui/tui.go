@@ -68,7 +68,7 @@ func Run(screen tcell.Screen, deps Deps, flags queryspec.Flags) (string, error) 
 		case ev := <-events:
 			handleEvent(screen, m, ev, deps)
 		case <-ticker.C:
-			if !m.Paused() {
+			if !m.RefreshSuspended() {
 				requery(m, deps)
 			}
 		}
