@@ -129,14 +129,37 @@ func tuiControl() tui.ControlFunc {
 	}
 }
 
-// tuiTargetName names the managed target for a TUI action: pid:N for a single
-// process (so the CLI's `set`/`restore pid:N` share it), or tui:<label> for a
-// group (stable across repeated actions on the same group, enabling restore).
+// tuiTargetName names the managed target for a TUI action recognizably in the
+// managed panel: "<label>#<pid>" for a single process (e.g. "idea#281839"), or
+// "tui:<label>" for a group. Stable across repeated actions on the same
+// selection, so restore/unmanage address the same target.
 func tuiTargetName(req tui.ControlRequest) string {
 	if len(req.PIDs) == 1 {
-		return targetName(fmt.Sprintf("pid:%d", req.PIDs[0]))
+		return fmt.Sprintf("%s#%d", sanitizeName(req.Label), req.PIDs[0])
 	}
-	return "tui:" + req.Label
+	return "tui:" + sanitizeName(req.Label)
+}
+
+// sanitizeName makes a row label safe and compact for use as a managed-target
+// name (no spaces/slashes/control chars, bounded length).
+func sanitizeName(s string) string {
+	s = strings.Map(func(r rune) rune {
+		switch {
+		case r == ' ', r == '\t', r == '/':
+			return '_'
+		case r < 0x20:
+			return -1
+		default:
+			return r
+		}
+	}, strings.TrimSpace(s))
+	if len(s) > 24 {
+		s = s[:24]
+	}
+	if s == "" {
+		return "target"
+	}
+	return s
 }
 
 // tuiHistory returns recent control-history events for a pid (most recent last),

@@ -105,6 +105,27 @@ func TestTUIControl_Group(t *testing.T) {
 	}
 }
 
+func TestTUIControl_StopAutoManagesWithFriendlyName(t *testing.T) {
+	_, restore := fakeControl(t, pstat(100, "idea", 0))
+	defer restore()
+
+	// Stopping a process from the TUI must auto-manage it under a recognizable
+	// name (not "pid:100"), and appear in the managed panel with stop intent.
+	if _, err := tuiControl()(tui.ControlRequest{PIDs: []int{100}, Label: "idea", Kind: tui.CtrlStop}); err != nil {
+		t.Fatal(err)
+	}
+	rows := tuiManaged()()
+	if len(rows) != 1 {
+		t.Fatalf("stop should auto-manage the process, got %d rows", len(rows))
+	}
+	if rows[0].Name != "idea#100" {
+		t.Fatalf("managed target should be recognizable, got %q", rows[0].Name)
+	}
+	if !rows[0].Stopped {
+		t.Fatalf("managed row should reflect stop intent: %+v", rows[0])
+	}
+}
+
 func TestTUIManaged_ListRestoreUnmanage(t *testing.T) {
 	_, restore := fakeControl(t, pstat(100, "a", 0))
 	defer restore()
