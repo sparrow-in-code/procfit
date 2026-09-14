@@ -10,8 +10,23 @@ permissions:
   packages: write # push to GHCR
 
 jobs:
+  verify:
+    name: verify (vet + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          check-latest: true
+      # Gate the release on the same fast checks CI runs, so a broken tag can
+      # never publish binaries or an image.
+      - run: go vet ./...
+      - run: go test ./...
+
   binaries:
     name: build static binaries
+    needs: verify
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -68,6 +83,7 @@ jobs:
 
   image:
     name: build + push GHCR image
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
