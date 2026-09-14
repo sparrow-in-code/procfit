@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/netikras/procfit/internal/collect"
 	"github.com/netikras/procfit/internal/control"
@@ -23,9 +24,10 @@ func cmdTUI(env Env, args []string) int {
 	fs := flag.NewFlagSet("tui", flag.ContinueOnError)
 	fs.SetOutput(env.Stderr)
 	qf := bindQueryFlags(fs)
+	interval := fs.Duration("interval", time.Second, "starting refresh interval, e.g. 500ms, 2s ([ ] adjust live)")
 	setupUsage(env, fs, "tui", "interactive explorer (default on a TTY)",
 		"procfit tui                                  # nav g(group) t(leaf) s/S / u; control n(ice) x/c z/Z R (confirm y)",
-		"procfit tui --group-by name --sort cpu:desc  # start grouped by name, sorted by CPU",
+		"procfit tui --interval 2s --group-by name --sort cpu:desc   # 2s refresh, grouped by name",
 		"procfit tui -h                               # start with human units (toggle live with 'u')")
 	if err := fs.Parse(args); err != nil {
 		return parseExit(err)
@@ -53,6 +55,7 @@ func cmdTUI(env Env, args []string) int {
 		Managed:       tuiManaged(),
 		ManagedAction: tuiManagedAction(),
 		History:       tuiHistory(),
+		Interval:      *interval,
 	}
 	cli, err := tui.RunTerminal(deps, qf.toSpecFlags())
 	if err != nil {

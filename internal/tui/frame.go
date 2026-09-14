@@ -13,9 +13,12 @@ var intervals = []time.Duration{250 * time.Millisecond, 500 * time.Millisecond, 
 // defaultIntervalIdx selects the initial refresh interval (1s).
 const defaultIntervalIdx = 2
 
-// IntervalHint returns the currently selected refresh interval. The step is
-// clamped to the available range (it does not wrap).
+// IntervalHint returns the currently selected refresh interval: an explicit
+// --interval value if set, otherwise the selected preset (clamped, no wrap).
 func (m *Model) IntervalHint() time.Duration {
+	if m.interval > 0 {
+		return m.interval
+	}
 	i := m.intervalStep
 	if i < 0 {
 		i = 0
@@ -24,6 +27,22 @@ func (m *Model) IntervalHint() time.Duration {
 		i = len(intervals) - 1
 	}
 	return intervals[i]
+}
+
+// nearestPresetIdx returns the preset index closest to d (for snapping a custom
+// interval back onto the [ / ] steps).
+func nearestPresetIdx(d time.Duration) int {
+	best, bestDiff := 0, time.Duration(1<<62)
+	for i, iv := range intervals {
+		diff := iv - d
+		if diff < 0 {
+			diff = -diff
+		}
+		if diff < bestDiff {
+			best, bestDiff = i, diff
+		}
+	}
+	return best
 }
 
 // bodyHeight is the number of table body rows visible (excluding status + header).

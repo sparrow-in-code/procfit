@@ -6,6 +6,7 @@ package tui
 
 import (
 	"strings"
+	"time"
 
 	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/queryspec"
@@ -54,6 +55,7 @@ type Model struct {
 	sortIx       int
 	sortDsc      bool
 	intervalStep int
+	interval     time.Duration // explicit --interval; 0 = use presets
 	status       string
 	quit         bool
 	dirty        bool // a re-query is needed
@@ -144,6 +146,15 @@ func indexOf(xs []string, v string) int {
 
 // Flags returns the current query flags (for the sampler).
 func (m *Model) Flags() queryspec.Flags { return m.flags }
+
+// SetInterval sets an explicit starting refresh interval (from --interval). The
+// [ / ] keys still snap back to the preset steps from the nearest value.
+func (m *Model) SetInterval(d time.Duration) {
+	if d > 0 {
+		m.interval = d
+		m.intervalStep = nearestPresetIdx(d)
+	}
+}
 
 // Quit reports whether the user asked to exit.
 func (m *Model) Quit() bool { return m.quit }

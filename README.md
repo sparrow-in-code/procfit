@@ -89,7 +89,7 @@ shows the same grouped tree as `ps`, refreshed on an interval.
 | `s` / `S` | cycle the sort column / toggle ascending↔descending |
 | `/` or `f` | filter (see below) |
 | `u` | toggle human units (K/M/G) vs raw bytes |
-| `[` / `]` | slower / faster refresh interval |
+| `[` / `]` | faster / slower refresh interval (start value via `--interval`, e.g. `procfit tui --interval 2s`) |
 | `p` or `Space` | pause/resume auto-refresh (freeze the view to aim at a moving target) |
 | `r` | refresh once |
 | `q` / `Ctrl-C` | quit (prints the equivalent `procfit ps …` command for the current view) |

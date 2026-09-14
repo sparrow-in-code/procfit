@@ -26,6 +26,7 @@ type Deps struct {
 	Managed       ManagedFunc
 	ManagedAction ManagedActionFunc
 	History       HistoryFunc
+	Interval      time.Duration // starting refresh interval (0 = default 1s)
 }
 
 func RunTerminal(deps Deps, flags queryspec.Flags) (string, error) {
@@ -49,6 +50,7 @@ func Run(screen tcell.Screen, deps Deps, flags queryspec.Flags) (string, error) 
 	m.SetControl(deps.Control)
 	m.SetManaged(deps.Managed, deps.ManagedAction)
 	m.SetHistory(deps.History)
+	m.SetInterval(deps.Interval)
 	refresh := deps.Refresh
 	w, h := screen.Size()
 	m.SetSize(w, h)

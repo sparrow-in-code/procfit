@@ -453,8 +453,13 @@ func (m *Model) applySort() {
 }
 
 func (m *Model) adjustInterval(step int) {
-	// Interval is advisory here; the driver reads Flags-independent interval via
-	// IntervalHint. Kept simple: cycle common intervals.
+	// The driver reads the interval via IntervalHint. [ / ] cycle the preset
+	// steps; if an explicit --interval was set, snap onto the nearest preset
+	// first so stepping is predictable.
+	if m.interval > 0 {
+		m.intervalStep = nearestPresetIdx(m.interval)
+		m.interval = 0
+	}
 	m.intervalStep += step
 	m.status = fmt.Sprintf("interval: %s", m.IntervalHint())
 }

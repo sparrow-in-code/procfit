@@ -182,6 +182,19 @@ func TestModel_LeafIndependentOfGroup(t *testing.T) {
 	}
 }
 
+func TestModel_SetInterval(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetInterval(3 * time.Second)
+	if m.IntervalHint() != 3*time.Second {
+		t.Fatalf("explicit --interval not honored, got %v", m.IntervalHint())
+	}
+	// '[' snaps the custom value onto the nearest preset (2s) then steps to 1s.
+	m.Update(KeyEvent{Rune: '['})
+	if m.IntervalHint() != time.Second {
+		t.Fatalf("after '[' want 1s, got %v", m.IntervalHint())
+	}
+}
+
 func TestModel_IntervalCycle(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	start := m.IntervalHint()
