@@ -80,8 +80,13 @@ make check      # full local gate (fmt, vet, lint, test, race, cover)
 Run `procfit` on a TTY (or `procfit tui`) to launch the interactive explorer. It
 shows the same grouped tree as `ps`, refreshed on an interval.
 
+The status line stays intentionally minimal — name, `gen`/`rows`, interval, the
+nav hint, and `[?]help [q]uit`. Press **`?`** for the full keymap overlay (scrolls
+on a short terminal; `?`/`Esc`/`q` closes). The tables below are that keymap.
+
 | Key | Action |
 |---|---|
+| `?` | toggle the in-TUI help overlay (the full keymap) |
 | `↑`/`↓`, `k`/`j`, `PgUp`/`PgDn` | move the cursor |
 | `Enter` / `←` / `→` | fold/unfold the group under the cursor (`[-]` open, `[+]` collapsed; leaves have no marker) |
 | `c` / `C` | fold **all** groups shut / unfold **all** at once (a per-group `Enter` still overrides afterwards) |

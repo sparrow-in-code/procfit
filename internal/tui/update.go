@@ -30,6 +30,7 @@ var runeKeys = map[rune]func(*Model){
 	'C': func(m *Model) { m.foldAll(false) }, // unfold every group
 	't': (*Model).cycleLeaf,
 	'i': (*Model).openDetail,
+	'?': (*Model).openHelp,
 	's': (*Model).cycleSort,
 	'S': (*Model).toggleSortDir,
 	'r': (*Model).refreshAction,
@@ -70,6 +71,10 @@ func (m *Model) Update(ev KeyEvent) {
 	}
 	if m.editing {
 		m.editKey(ev)
+		return
+	}
+	if m.help {
+		m.helpKey(ev)
 		return
 	}
 	if m.detail {

@@ -79,8 +79,10 @@ type Model struct {
 	pending     ControlRequest // the action awaiting a value/confirmation
 	preview     string         // dry-run preview shown in the confirmation gate
 
-	detail    bool // inspect overlay open
-	historyFn HistoryFunc
+	detail     bool // inspect overlay open
+	help       bool // help overlay open (?)
+	helpScroll int  // top line of the help overlay (scroll on short terminals)
+	historyFn  HistoryFunc
 
 	// managed panel: renders the SAME tree as the browser, fed by the managed
 	// data source; only the legend, the drop action, and the data differ.

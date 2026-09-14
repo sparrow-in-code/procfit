@@ -57,6 +57,9 @@ func (m *Model) bodyHeight() int {
 // Frame renders the current view as text lines: a status bar, a header, then the
 // visible slice of the (flattened) tree with the cursor marked.
 func (m *Model) Frame() []string {
+	if m.help {
+		return m.helpFrame()
+	}
 	if m.confirming && m.previewing {
 		return m.previewFrame()
 	}
@@ -95,6 +98,14 @@ func (m *Model) statusBar() string {
 		}
 		return truncate(line, m.width)
 	}
+	return truncate(m.slimBar(), m.width)
+}
+
+// slimBar is the steady-state status line: identity, gen/rows, interval, the
+// essential nav hint, and pointers to help + quit — then the status outlet. The
+// full keymap lives in the `?` help overlay so this line stops growing as keys
+// are added.
+func (m *Model) slimBar() string {
 	gen, procs := 0, len(m.rows)
 	if m.result != nil {
 		gen = m.result.Generation
@@ -103,19 +114,12 @@ func (m *Model) statusBar() string {
 	if m.paused {
 		refresh = "PAUSED"
 	}
-	ctl := ""
-	if m.control != nil {
-		ctl = "[n]ice/[N]restore [x]stop/[X]cont [z]freeze-cg/[Z]thaw "
-	}
+	name := meta.Name
 	if m.panel == PanelManaged {
-		return truncate(fmt.Sprintf("%s  MANAGED  gen=%d rows=%d  %s  [g]roup [t]leaf [enter/←→]fold [c/C]fold-all [i]nspect [s]ort %s[d]rop [Tab]browser [r]efresh [q]uit  %s",
-			meta.Name, gen, procs, refresh, ctl, m.status), m.width)
+		name += " MANAGED"
 	}
-	if m.hasMgr {
-		ctl += "[Tab]managed "
-	}
-	return truncate(fmt.Sprintf("%s  gen=%d rows=%d  %s  [g]roup [t]leaf [enter/←→]fold [c/C]fold-all [i]nspect [s]ort [S]dir [/]filter [u]nits %s[p]ause [r]efresh [q]uit  %s",
-		meta.Name, gen, procs, refresh, ctl, m.status), m.width)
+	return fmt.Sprintf("%s  gen=%d rows=%d  %s   [↑↓ enter]nav  [?]help [q]uit   %s",
+		name, gen, procs, refresh, m.status)
 }
 
 func (m *Model) header() string {
