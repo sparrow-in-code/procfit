@@ -43,6 +43,7 @@ var runeKeys = map[rune]func(*Model){
 	'X': func(m *Model) { m.startControl(CtrlContinue) },
 	'z': func(m *Model) { m.startControl(CtrlFreeze) },
 	'Z': func(m *Model) { m.startControl(CtrlThaw) },
+	'd': (*Model).dropSelected, // managed panel only (drop = stop tracking)
 	'/': (*Model).startFilter,
 	'f': (*Model).startFilter,
 	'[': func(m *Model) { m.adjustInterval(-1) },
@@ -75,10 +76,6 @@ func (m *Model) Update(ev KeyEvent) {
 	}
 	if ev.Name == "tab" {
 		m.togglePanel()
-		return
-	}
-	if m.panel == PanelManaged {
-		m.managedKey(ev)
 		return
 	}
 	if h, ok := nameKeys[ev.Name]; ok && ev.Name != "" {

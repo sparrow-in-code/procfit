@@ -1,7 +1,7 @@
 ---
 id: PM-0311
 title: Extract a reusable TUI table/view component (browser + managed share it)
-state: TODO
+state: DONE
 phase: 3
 depends: ["PM-0303", "PM-0306"]
 owner:
@@ -34,10 +34,10 @@ browser and managed panel (and any future panel) are instances of it.
 
 ## Acceptance criteria
 
-- [ ] One view component renders both panels; no duplicated row/column/cursor
+- [x] One view component renders both panels; no duplicated row/column/cursor
       code between browser and managed.
-- [ ] Legends/keymaps are data per panel, not hardcoded per render function.
-- [ ] All existing TUI tests pass unchanged (behaviour preserved); component has
+- [x] Legends/keymaps are data per panel, not hardcoded per render function.
+- [x] All existing TUI tests pass unchanged (behaviour preserved); component has
       its own unit tests (nav/scroll/render with a fake item set).
 
 ## Notes
@@ -45,3 +45,15 @@ browser and managed panel (and any future panel) are instances of it.
 Prompted by the observation that the managed panel "could reuse the same view,
 only changing actions, legend and items." Also a natural home for the managed
 panel to gain the browser's grouping/tree rendering of a target's members.
+
+## Status: DONE (2026-09-14)
+
+The managed panel no longer has its own render/keymap path: the duplicated
+`ManagedRow`/`managedFrame`/`managedHeader`/`managedKey` code is gone. Both panels
+are now the same browser view (`Frame`) fed a different `RefreshFunc` provider and
+a per-panel legend; the driver picks the provider per active panel. `tui.Deps`
+carries `Refresh` (browser) and `ManagedTree` (managed) as interchangeable
+`RefreshFunc`s, plus `Drop` for the managed-only `d` key. Verified via the headless
+Model tests (rewritten `TestModel_ManagedPanel`,
+`TestModel_ManagedControlActsOnTarget`) and `make check` green. Landed together
+with PM-0312, which supplies the managed provider.

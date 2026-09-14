@@ -14,6 +14,7 @@ import (
 	"github.com/netikras/procfit/internal/control"
 	"github.com/netikras/procfit/internal/history"
 	"github.com/netikras/procfit/internal/meta"
+	"github.com/netikras/procfit/internal/model"
 	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/queryspec"
 	"github.com/netikras/procfit/internal/render"
@@ -51,12 +52,12 @@ func cmdTUI(env Env, args []string) int {
 		return ExitRuntime
 	}
 	deps := tui.Deps{
-		Refresh:       a.tuiRefresh(context.Background()),
-		Control:       tuiControl(),
-		Managed:       tuiManaged(),
-		ManagedAction: tuiManagedAction(),
-		History:       tuiHistory(),
-		Interval:      *interval,
+		Refresh:     a.tuiRefresh(context.Background()),
+		ManagedTree: a.tuiManagedTree(context.Background()),
+		Control:     tuiControl(),
+		Drop:        tuiDrop(),
+		History:     tuiHistory(),
+		Interval:    *interval,
 	}
 	cli, err := tui.RunTerminal(deps, qf.toSpecFlags())
 	if err != nil {
@@ -111,12 +112,16 @@ func tuiControl() tui.ControlFunc {
 			return "", err
 		}
 		name := req.Target
-		if name != "" {
-			// Managed panel: act on the retained target as-is.
+		switch {
+		case name != "":
 			if c.mgr.Find(name) == nil {
 				return "", fmt.Errorf("managed target %q not found", name)
 			}
-		} else {
+		case pickExistingTarget(c, req.PIDs) != "":
+			// Already managed (e.g. acting from the managed panel): reuse the
+			// existing target rather than creating a duplicate.
+			name = pickExistingTarget(c, req.PIDs)
+		default:
 			// Browser: auto-manage the selected process(es) under a friendly name.
 			insts := c.instancesForPIDs(req.PIDs)
 			if len(insts) == 0 {
@@ -193,70 +198,163 @@ func tuiHistory() tui.HistoryFunc {
 	}
 }
 
-// tuiManaged lists the current managed targets for the TUI managed panel.
-func tuiManaged() tui.ManagedFunc {
-	return func() []tui.ManagedRow {
-		dir, _ := resolveStateDir("")
-		c, err := newControlAsmFn(dir)
+// tuiManagedTree renders the managed processes with the SAME grouping/tree as the
+// browser (PM-0311/0312): it samples live processes, keeps only the managed pids,
+// groups them via the engine per the current flags, and buckets exited/unresolved
+// bindings under a built-in "orphans" group (ghost rows carrying the persisted
+// pid + name). Names of live bindings are backfilled + saved so orphans stay
+// labelled after exit.
+func (a *assembly) tuiManagedTree(ctx context.Context) tui.RefreshFunc {
+	sampler := collect.NewSampler(a.src, a.clk)
+	return func(f queryspec.Flags) (*query.Result, []render.Column, error) {
+		r, err := queryspec.Build(a.reg, a.dims, f)
 		if err != nil {
-			return nil
+			return nil, nil, err
 		}
-		st := c.mgr.State()
-		rows := make([]tui.ManagedRow, 0, len(st.Targets))
-		for _, t := range st.Targets {
-			nice := ""
-			if t.DesiredNice != nil {
-				nice = strconv.Itoa(*t.DesiredNice)
-			}
-			seen := "-"
-			if !t.LastSeen.IsZero() {
-				seen = t.LastSeen.Format("15:04:05")
-			}
-			pids := make([]int, 0, len(t.Bindings))
-			for _, b := range t.Bindings {
-				pids = append(pids, b.PID)
-			}
-			rows = append(rows, tui.ManagedRow{
-				Name: t.Name, Mode: string(t.BindingMode), Active: t.Active,
-				Members: len(t.Bindings), PIDs: pids, Nice: nice,
-				Stopped:  t.DesiredStop != nil && *t.DesiredStop,
-				Frozen:   t.DesiredFreeze != nil && *t.DesiredFreeze,
-				LastSeen: seen,
-			})
+		setThreadEnum(a.src, r.Spec.Leaf == query.LeafThread)
+		snap, err := sampler.Sample(ctx, r.Needed)
+		if err != nil {
+			return nil, nil, err
 		}
-		return rows
+		a.applyResolvers(snap.Processes)
+		a.enrich(ctx, snap.Processes, r.Needed)
+
+		managed, names := a.managedPIDs(snap.Processes)
+		live := make([]model.Process, 0, len(managed))
+		liveSeen := map[int]bool{}
+		for i := range snap.Processes {
+			if managed[snap.Processes[i].PID] {
+				live = append(live, snap.Processes[i])
+				liveSeen[snap.Processes[i].PID] = true
+			}
+		}
+		res, err := a.engine.Build(query.Input{
+			Generation: snap.Generation, WallTime: snap.WallTime, Elapsed: snap.Elapsed, Processes: live,
+		}, r.Spec)
+		if err != nil {
+			return nil, nil, err
+		}
+		if orphans := orphanGroup(managed, liveSeen, names); orphans != nil {
+			res.Rows = append(res.Rows, orphans)
+		}
+		cols, err := render.ResolveColumnsMode(a.reg, r.Columns, r.Human)
+		if err != nil {
+			return nil, nil, err
+		}
+		return res, cols, nil
 	}
 }
 
-// tuiManagedAction restores or unmanages a target by name from the managed panel.
-func tuiManagedAction() tui.ManagedActionFunc {
-	return func(name string, kind tui.ManagedActionKind) (string, error) {
+// managedPIDs returns the set of managed pids and their display names, backfilling
+// (and persisting) each binding's name from the matching live process.
+func (a *assembly) managedPIDs(live []model.Process) (map[int]bool, map[int]string) {
+	managed, names := map[int]bool{}, map[int]string{}
+	dir, _ := resolveStateDir("")
+	c, err := newControlAsmFn(dir)
+	if err != nil {
+		return managed, names
+	}
+	byPID := map[int]string{}
+	for i := range live {
+		byPID[live[i].PID] = live[i].DisplayName()
+	}
+	changed := false
+	st := c.mgr.State()
+	for ti := range st.Targets {
+		for bi := range st.Targets[ti].Bindings {
+			b := &st.Targets[ti].Bindings[bi]
+			managed[b.PID] = true
+			if n, ok := byPID[b.PID]; ok && n != "" && n != b.Name {
+				b.Name = n // capture the name while alive, for later orphan display
+				changed = true
+			}
+			names[b.PID] = b.Name
+		}
+	}
+	if changed {
+		_ = c.save()
+	}
+	return managed, names
+}
+
+// orphanGroup builds the synthetic "orphans" group for managed pids that are no
+// longer live, as ghost process rows labelled by their persisted name/pid.
+func orphanGroup(managed, liveSeen map[int]bool, names map[int]string) *query.Row {
+	var sub []*query.Row
+	for pid := range managed {
+		if liveSeen[pid] {
+			continue
+		}
+		label := names[pid]
+		if label == "" {
+			label = fmt.Sprintf("pid:%d", pid)
+		}
+		sub = append(sub, &query.Row{
+			Kind: query.RowProcess, Key: fmt.Sprintf("orphan:%d", pid), Label: label,
+			Procs: 1, Leaves: 1, Process: &model.Process{PID: pid, Comm: names[pid]},
+		})
+	}
+	if len(sub) == 0 {
+		return nil
+	}
+	sort.Slice(sub, func(i, j int) bool { return sub[i].Label < sub[j].Label })
+	return &query.Row{
+		Kind: query.RowGroup, Key: "orphans", Label: "orphans",
+		Children: len(sub), Leaves: len(sub), Sub: sub,
+	}
+}
+
+// tuiDrop unmanages the target(s) owning the selected pids (managed-panel `d`).
+func tuiDrop() tui.DropFunc {
+	return func(pids []int) (string, error) {
 		dir, _ := resolveStateDir("")
 		c, err := newControlAsmFn(dir)
 		if err != nil {
 			return "", err
 		}
-		switch kind {
-		case tui.ManagedRestore:
-			res, err := c.mgr.Restore(name, false)
-			if err != nil {
-				return "", err
-			}
-			if err := c.save(); err != nil {
-				return "", err
-			}
-			return "restored " + name + ": " + summarizeResult(res), nil
-		case tui.ManagedUnmanage:
+		targets := targetsForPIDs(c, pids)
+		if len(targets) == 0 {
+			return "", fmt.Errorf("no managed target for the selection")
+		}
+		for _, name := range targets {
 			if err := c.mgr.Unmanage(name); err != nil {
 				return "", err
 			}
-			if err := c.save(); err != nil {
-				return "", err
-			}
-			return "unmanaged " + name, nil
 		}
-		return "", fmt.Errorf("unknown managed action")
+		if err := c.save(); err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("dropped %d target(s)", len(targets)), nil
 	}
+}
+
+// targetsForPIDs returns the distinct managed target names that bind any of pids.
+func targetsForPIDs(c *ctlAsm, pids []int) []string {
+	want := map[int]bool{}
+	for _, p := range pids {
+		want[p] = true
+	}
+	var names []string
+	seen := map[string]bool{}
+	st := c.mgr.State()
+	for ti := range st.Targets {
+		t := &st.Targets[ti]
+		for _, b := range t.Bindings {
+			if want[b.PID] && !seen[t.Name] {
+				seen[t.Name] = true
+				names = append(names, t.Name)
+			}
+		}
+	}
+	return names
+}
+
+// pickExistingTarget returns the single managed target covering pids, or "".
+func pickExistingTarget(c *ctlAsm, pids []int) string {
+	if n := targetsForPIDs(c, pids); len(n) == 1 {
+		return n[0]
+	}
+	return ""
 }
 
 // instancesForPIDs resolves each pid to a live instance, skipping any that

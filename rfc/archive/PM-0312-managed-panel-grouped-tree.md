@@ -1,7 +1,7 @@
 ---
 id: PM-0312
 title: Managed panel as a grouped tree (persist name; orphans group)
-state: TODO
+state: DONE
 phase: 3
 depends: ["PM-0311", "PM-0306"]
 owner:
@@ -38,13 +38,16 @@ identifiable after the process is gone.
 
 ## Acceptance criteria
 
-- [ ] Managed bindings persist pid + display name; both survive process exit
+- [x] Managed bindings persist pid + display name; both survive process exit
       (shown in the orphans group).
-- [ ] Managed panel renders managed processes grouped like the browser (same
+- [x] Managed panel renders managed processes grouped like the browser (same
       group-by/leaf), with per-node control/restore/drop.
-- [ ] Exited/unresolvable bindings appear under an "orphans" group by their
+- [x] Exited/unresolvable bindings appear under an "orphans" group by their
       persisted name.
 - [ ] Live vs orphan is derived from identity revalidation (pid reuse ⇒ orphan).
+      **Deferred:** live/orphan is currently derived from pid presence in the live
+      sample, not full BootID/StartTime revalidation, so a reused pid shows as
+      live under a stale name. See follow-up below.
 
 ## Tests required
 
@@ -57,3 +60,26 @@ Directly requested: "persist pid + process name, resolve into the same group-tre
 when rendering managed processes; if the process is gone, drop them under a
 built-in 'orphans' group." Depends on the reusable view (PM-0311) to avoid a
 third rendering path.
+
+## Status: DONE (2026-09-14)
+
+Managed bindings now persist `Name` (process display name, captured at manage time
+and backfilled from the live process while alive) alongside the pid. The managed
+panel is fed by `assembly.tuiManagedTree`: it samples live processes, keeps only
+managed pids, and runs them through the *same* query grouping/aggregation pipeline
+as the browser (honouring the current group-by/leaf). `managedPIDs` resolves the
+managed set + names; `orphanGroup` buckets managed pids absent from the live sample
+under a synthetic built-in **orphans** group, each a ghost row carrying the
+persisted pid + name so `d`rop / restore still address it. Control/drop act on the
+selected node. Covered by `TestTUIManagedTree_LiveThenOrphan` and `TestOrphanGroup`
+(fake source); `make check` green at 80.3%.
+
+### Follow-up (new ticket worthy)
+
+Orphan detection is by **pid membership** in the live sample, not identity
+revalidation. A pid reused by an unrelated process after the managed process exits
+would be shown as a *live* managed row under the old name, rather than orphaning
+the old binding. Closing this needs comparing the persisted
+`ProcessInstanceID` (BootID + StartTime) against the sampled process and treating a
+mismatch as an orphan. Deferred to keep this change behaviour-preserving; tracked
+as the remaining unchecked acceptance criterion.

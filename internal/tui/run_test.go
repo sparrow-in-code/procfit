@@ -43,9 +43,9 @@ func TestRun_SimulationScreen(t *testing.T) {
 // TestRun_RefreshError verifies a failing refresh sets a status without crashing.
 func TestRun_RefreshError(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
-	requery(m, func(queryspec.Flags) (*query.Result, []render.Column, error) {
+	requery(m, Deps{Refresh: func(queryspec.Flags) (*query.Result, []render.Column, error) {
 		return nil, nil, errBoom{}
-	})
+	}})
 	// The model should still be usable (no panic); status reflects the error.
 	if m.Quit() {
 		t.Fatal("refresh error must not quit")
@@ -346,70 +346,50 @@ func TestModel_ControlStopCancel(t *testing.T) {
 func TestModel_ManagedPanel(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	m.SetSize(80, 12)
-	res, cols := sampleResult(3)
+	res, cols := sampleResult(2) // process rows pid 1, 2
 	m.SetResult(res, cols)
-	var acted []string
-	m.SetManaged(
-		func() []ManagedRow {
-			return []ManagedRow{
-				{Name: "chrome", Mode: "snapshot", Active: true, Members: 12, Nice: "10"},
-				{Name: "idea", Mode: "snapshot", Active: false, Members: 1},
-			}
-		},
-		func(name string, kind ManagedActionKind) (string, error) {
-			verb := "restore"
-			if kind == ManagedUnmanage {
-				verb = "unmanage"
-			}
-			acted = append(acted, verb+":"+name)
-			return "ok", nil
-		},
-	)
-	// Tab -> managed panel, list loaded and rendered.
+	var dropped []int
+	m.SetManaged(true, func(pids []int) (string, error) { dropped = pids; return "dropped", nil })
+
+	// Tab -> managed panel: renders the same tree, legend switches to MANAGED.
 	m.Update(KeyEvent{Name: "tab"})
-	if m.panel != PanelManaged || len(m.managed) != 2 {
-		t.Fatalf("Tab should open managed panel with 2 rows, got panel=%v n=%d", m.panel, len(m.managed))
+	if m.Panel() != PanelManaged {
+		t.Fatal("Tab should open the managed panel")
 	}
-	fr := m.Frame()
-	if !strings.Contains(fr[0], "MANAGED") || !strings.Contains(fr[2], "chrome") {
-		t.Fatalf("managed frame wrong: %q / %q", fr[0], fr[2])
+	if !strings.Contains(m.Frame()[0], "MANAGED") {
+		t.Fatalf("managed legend expected: %q", m.Frame()[0])
 	}
-	// Move to 'idea' and drop it (unmanage) via the managed action callback.
-	m.Update(KeyEvent{Name: "down"})
+	// 'd' drops the selected row's process(es).
 	m.Update(KeyEvent{Rune: 'd'})
-	if len(acted) != 1 || acted[0] != "unmanage:idea" {
-		t.Fatalf("drop should unmanage the selection, got %v", acted)
+	if len(dropped) != 1 || dropped[0] != 1 {
+		t.Fatalf("drop should pass the selected pid, got %v", dropped)
 	}
 	// Tab back to the browser.
 	m.Update(KeyEvent{Name: "tab"})
-	if m.panel != PanelBrowser {
+	if m.Panel() != PanelBrowser {
 		t.Fatal("Tab should return to the browser")
 	}
 }
 
-func TestModel_ManagedControlActsOnTarget(t *testing.T) {
+func TestModel_ManagedControlConfirmVisible(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	m.SetSize(80, 12)
+	res, cols := sampleResult(2)
+	m.SetResult(res, cols)
 	var got ControlRequest
 	m.SetControl(func(req ControlRequest) (string, error) { got = req; return "ok", nil })
-	m.SetManaged(
-		func() []ManagedRow {
-			return []ManagedRow{{Name: "idea#100", Members: 1, PIDs: []int{100}, Stopped: true}}
-		},
-		func(string, ManagedActionKind) (string, error) { return "", nil },
-	)
-	m.Update(KeyEvent{Name: "tab"}) // into managed panel
-	// Continue the selected (stopped) target: routes through the control confirm
-	// flow, addressing the EXISTING target by name (not a new pid: target).
-	m.Update(KeyEvent{Rune: 'X'})
+	m.SetManaged(true, func([]int) (string, error) { return "", nil })
+
+	m.Update(KeyEvent{Name: "tab"}) // managed panel
+	m.Update(KeyEvent{Rune: 'X'})   // continue the selected process
 	if !m.confirming {
-		t.Fatalf("control key in managed panel should open the confirm gate; got %+v", got)
+		t.Fatalf("control in the managed panel should open the confirm gate; got %+v", got)
 	}
-	if got.Target != "idea#100" || got.Kind != CtrlContinue || len(got.PIDs) != 1 || got.PIDs[0] != 100 {
-		t.Fatalf("managed control should target the retained target: %+v", got)
+	if got.Kind != CtrlContinue || len(got.PIDs) != 1 || got.PIDs[0] != 1 {
+		t.Fatalf("managed control should target the selected process: %+v", got)
 	}
-	// The confirm prompt must be visible in the managed panel (not hidden behind
-	// the panel legend) — otherwise it looks frozen waiting for 'y'.
+	// The confirm prompt must be visible in the managed panel, not hidden behind
+	// the panel legend — otherwise it looks frozen waiting for 'y'.
 	if !strings.Contains(m.Frame()[0], "CONFIRM") {
 		t.Fatalf("managed panel must show the confirm prompt: %q", m.Frame()[0])
 	}

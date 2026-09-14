@@ -63,9 +63,6 @@ func (m *Model) Frame() []string {
 	if m.detail {
 		return m.detailFrame()
 	}
-	if m.panel == PanelManaged {
-		return m.managedFrame()
-	}
 	lines := []string{m.statusBar(), m.header()}
 	body := m.bodyHeight()
 	for i := 0; i < body; i++ {
@@ -110,7 +107,11 @@ func (m *Model) statusBar() string {
 	if m.control != nil {
 		ctl = "[n]ice/[N]restore [x]stop/[X]cont [z]freeze-cg/[Z]thaw "
 	}
-	if m.managedFn != nil {
+	if m.panel == PanelManaged {
+		return truncate(fmt.Sprintf("%s  MANAGED  gen=%d rows=%d  %s  [g]roup [t]leaf [enter/←→]fold [i]nspect [s]ort %s[d]rop [Tab]browser [r]efresh [q]uit  %s",
+			meta.Name, gen, procs, refresh, ctl, m.status), m.width)
+	}
+	if m.hasMgr {
 		ctl += "[Tab]managed "
 	}
 	return truncate(fmt.Sprintf("%s  gen=%d rows=%d  %s  [g]roup [t]leaf [enter/←→]fold [i]nspect [s]ort [S]dir [/]filter [u]nits %s[p]ause [r]efresh [q]uit  %s",

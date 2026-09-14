@@ -81,18 +81,22 @@ type Model struct {
 	detail    bool // inspect overlay open
 	historyFn HistoryFunc
 
-	// managed panel
-	panel      Panel
-	managed    []ManagedRow
-	mCursor    int
-	managedFn  ManagedFunc
-	managedAct ManagedActionFunc
+	// managed panel: renders the SAME tree as the browser, fed by the managed
+	// data source; only the legend, the drop action, and the data differ.
+	panel  Panel
+	hasMgr bool     // a managed data source is available (enables Tab)
+	dropFn DropFunc // unmanage the selected row's target(s)
 }
 
-// SetManaged installs the managed-panel data + action callbacks (enables Tab).
-func (m *Model) SetManaged(list ManagedFunc, act ManagedActionFunc) {
-	m.managedFn = list
-	m.managedAct = act
+// Panel reports which view is active (browser vs managed), so the driver can pick
+// the matching data source.
+func (m *Model) Panel() Panel { return m.panel }
+
+// SetManaged enables the managed panel: hasSource toggles Tab availability, drop
+// unmanages the selected row's target(s).
+func (m *Model) SetManaged(hasSource bool, drop DropFunc) {
+	m.hasMgr = hasSource
+	m.dropFn = drop
 }
 
 // SetControl installs the control callback (enables throttling keys). Nil keeps

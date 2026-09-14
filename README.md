@@ -124,9 +124,11 @@ or the TUI) are recorded to an opt-in audit log; `procfit history [--pid N]`
 prints recent events, and the detail overlay (`i`) shows them per process.
 
 Press **`Tab`** to switch to the **managed panel** — the targets you've controlled
-(named e.g. `idea#281839`), showing mode, active state, desired nice/stop/freeze,
-and their member PIDs. The same control keys work here, acting on the *retained
-target* (so continuing/thawing/renicing what you paused is right here):
+(named e.g. `idea#281839`). It renders with the *same* grouped tree as the browser,
+resolving each managed pid to its live process; targets whose process has exited
+move under a built-in **orphans** group, still labelled by the name they had while
+alive. The same control keys work here, acting on the *retained target* (so
+continuing/thawing/renicing what you paused is right here):
 
 | Key | Action (managed panel) |
 |---|---|

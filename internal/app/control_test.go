@@ -110,19 +110,20 @@ func TestTUIControl_StopAutoManagesWithFriendlyName(t *testing.T) {
 	defer restore()
 
 	// Stopping a process from the TUI must auto-manage it under a recognizable
-	// name (not "pid:100"), and appear in the managed panel with stop intent.
+	// name (not "pid:100"), with the stop intent recorded.
 	if _, err := tuiControl()(tui.ControlRequest{PIDs: []int{100}, Label: "idea", Kind: tui.CtrlStop}); err != nil {
 		t.Fatal(err)
 	}
-	rows := tuiManaged()()
-	if len(rows) != 1 {
-		t.Fatalf("stop should auto-manage the process, got %d rows", len(rows))
+	c, err := newControlAsmFn("")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if rows[0].Name != "idea#100" {
-		t.Fatalf("managed target should be recognizable, got %q", rows[0].Name)
+	tgt := c.mgr.Find("idea#100")
+	if tgt == nil {
+		t.Fatal("stop should auto-manage the process as 'idea#100'")
 	}
-	if !rows[0].Stopped {
-		t.Fatalf("managed row should reflect stop intent: %+v", rows[0])
+	if tgt.DesiredStop == nil || !*tgt.DesiredStop {
+		t.Fatalf("managed target should record stop intent: %+v", tgt)
 	}
 }
 
@@ -147,28 +148,63 @@ func TestTUIControl_ByTargetName(t *testing.T) {
 	}
 }
 
-func TestTUIManaged_ListRestoreUnmanage(t *testing.T) {
+func TestTUIDrop_UnmanagesByPID(t *testing.T) {
 	_, restore := fakeControl(t, pstat(100, "a", 0))
 	defer restore()
 
-	// Create a managed target by renicing via the TUI control path.
+	// Create a managed target via the TUI control path.
 	if _, err := tuiControl()(tui.ControlRequest{PIDs: []int{100}, Label: "a", Kind: tui.CtrlNice, Nice: 5}); err != nil {
 		t.Fatal(err)
 	}
-	rows := tuiManaged()()
-	if len(rows) != 1 || rows[0].Nice != "5" {
-		t.Fatalf("managed list should show the target with nice=5, got %+v", rows)
+	// Drop by pid (managed-panel `d`) unmanages the owning target.
+	if _, err := tuiDrop()([]int{100}); err != nil {
+		t.Fatal(err)
 	}
-	name := rows[0].Name
-	act := tuiManagedAction()
-	if _, err := act(name, tui.ManagedRestore); err != nil {
-		t.Fatalf("restore: %v", err)
+	c, err := newControlAsmFn("")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := act(name, tui.ManagedUnmanage); err != nil {
-		t.Fatalf("unmanage: %v", err)
+	if n := len(c.mgr.State().Targets); n != 0 {
+		t.Fatalf("target should be gone after drop, got %d", n)
 	}
-	if got := tuiManaged()(); len(got) != 0 {
-		t.Fatalf("target should be gone after unmanage, got %+v", got)
+}
+
+func TestManagedPIDs_Backfill(t *testing.T) {
+	_, restore := fakeControl(t, pstat(100, "idea", 0))
+	defer restore()
+	if _, err := tuiControl()(tui.ControlRequest{PIDs: []int{100}, Label: "old", Kind: tui.CtrlNice, Nice: 5}); err != nil {
+		t.Fatal(err)
+	}
+	// A live process backfills (and persists) the binding's display name.
+	live := []model.Process{{PID: 100, Cmdline: []string{"idea"}}}
+	managed, names := (&assembly{}).managedPIDs(live)
+	if !managed[100] || names[100] != "idea" {
+		t.Fatalf("managedPIDs should include pid 100 with backfilled name: managed=%v names=%v", managed, names)
+	}
+	c, err := newControlAsmFn("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.mgr.Find("old#100").Bindings[0].Name; got != "idea" {
+		t.Fatalf("name should be persisted after backfill, got %q", got)
+	}
+}
+
+func TestPickExistingTarget(t *testing.T) {
+	_, restore := fakeControl(t, pstat(100, "a", 0))
+	defer restore()
+	if _, err := tuiControl()(tui.ControlRequest{PIDs: []int{100}, Label: "a", Kind: tui.CtrlNice, Nice: 5}); err != nil {
+		t.Fatal(err)
+	}
+	c, err := newControlAsmFn("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := pickExistingTarget(c, []int{100}); got != "a#100" {
+		t.Fatalf("should reuse the existing target, got %q", got)
+	}
+	if got := pickExistingTarget(c, []int{999}); got != "" {
+		t.Fatalf("unknown pid should have no target, got %q", got)
 	}
 }
 

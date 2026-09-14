@@ -1,185 +1,56 @@
 package tui
 
-import (
-	"fmt"
-	"strings"
-
-	"github.com/netikras/procfit/internal/meta"
-)
-
-// Panel selects which view the explorer shows.
+// Panel selects which view the explorer shows. Both panels render the same tree
+// (rows/columns/cursor/fold); only the data source, legend and drop action
+// differ (PM-0311/0312).
 type Panel int
 
 const (
-	PanelBrowser Panel = iota // the process/group tree
-	PanelManaged              // the managed-targets side plane
+	PanelBrowser Panel = iota
+	PanelManaged
 )
 
-// ManagedRow is one managed target as shown in the managed panel.
-type ManagedRow struct {
-	Name     string
-	Mode     string
-	Active   bool
-	Members  int
-	PIDs     []int  // the bound process ids (for display + acting on the target)
-	Nice     string // "" when nice is not controlled
-	Stopped  bool
-	Frozen   bool
-	LastSeen string
-}
+// DropFunc unmanages the target(s) owning the given pids (stops tracking; it does
+// not revert applied control — lift with N/X/Z first).
+type DropFunc func(pids []int) (string, error)
 
-// ManagedFunc returns the current managed targets (queried fresh on demand).
-type ManagedFunc func() []ManagedRow
-
-// ManagedActionKind is a managed-panel action on the selected target.
-type ManagedActionKind int
-
-const (
-	ManagedRestore ManagedActionKind = iota
-	ManagedUnmanage
-)
-
-// ManagedActionFunc restores or unmanages a target by name, returning a summary.
-type ManagedActionFunc func(name string, kind ManagedActionKind) (string, error)
-
-// togglePanel switches between the browser and the managed panel, refreshing the
-// managed list on entry. No-op when the managed backend is absent.
+// togglePanel switches between the browser and the managed panel. The driver
+// re-queries the active panel's data source on the resulting dirty flag.
 func (m *Model) togglePanel() {
-	if m.managedFn == nil {
+	if !m.hasMgr {
 		m.status = "managed panel unavailable"
 		return
 	}
 	if m.panel == PanelBrowser {
 		m.panel = PanelManaged
-		m.mCursor = 0
-		m.refreshManaged()
 		m.status = "managed targets"
 	} else {
 		m.panel = PanelBrowser
 		m.status = ""
 	}
+	m.cursor, m.scroll = 0, 0
+	m.dirty = true
 }
 
-func (m *Model) refreshManaged() {
-	if m.managedFn == nil {
+// dropSelected stops tracking the target(s) owning the selected row's processes.
+func (m *Model) dropSelected() {
+	if m.dropFn == nil || m.panel != PanelManaged {
 		return
 	}
-	m.managed = m.managedFn()
-	if m.mCursor >= len(m.managed) {
-		m.mCursor = maxInt(0, len(m.managed)-1)
-	}
-}
-
-// managedControlKeys route managed-panel control to the shared confirm/preview
-// flow, acting on the retained target by name (see controlTarget).
-var managedControlKeys = map[rune]ControlKind{
-	'n': CtrlNice, 'N': CtrlRestoreNice,
-	'x': CtrlStop, 'X': CtrlContinue,
-	'z': CtrlFreeze, 'Z': CtrlThaw,
-}
-
-func (m *Model) managedKey(ev KeyEvent) {
-	if k, ok := managedControlKeys[ev.Rune]; ok {
-		m.startControl(k)
+	fr, ok := m.currentRow()
+	if !ok {
 		return
 	}
-	switch {
-	case ev.Name == "up" || ev.Rune == 'k':
-		m.mCursor = maxInt(0, m.mCursor-1)
-	case ev.Name == "down" || ev.Rune == 'j':
-		m.mCursor = minInt(maxInt(0, len(m.managed)-1), m.mCursor+1)
-	case ev.Rune == 'd': // drop = stop tracking (does NOT revert changes)
-		m.managedDo(ManagedUnmanage)
-	case ev.Rune == 'r':
-		m.refreshManaged()
-		m.status = "refreshed"
-	case ev.Rune == 'q', ev.Name == "ctrl-c":
-		m.quit = true
-	}
-}
-
-func (m *Model) managedDo(kind ManagedActionKind) {
-	if m.managedAct == nil || m.mCursor < 0 || m.mCursor >= len(m.managed) {
+	pids := collectPIDs(fr.row)
+	if len(pids) == 0 {
+		m.status = "nothing to drop under the selection"
 		return
 	}
-	name := m.managed[m.mCursor].Name
-	res, err := m.managedAct(name, kind)
+	res, err := m.dropFn(pids)
 	if err != nil {
-		m.status = "managed: " + err.Error()
+		m.status = "drop: " + err.Error()
 	} else {
 		m.status = res
 	}
-	m.refreshManaged()
-}
-
-// managedFrame renders the managed panel: a status bar, header, then targets.
-// While a control confirm/nice prompt is active it must be visible here too, so
-// the top line shows that prompt instead of the panel legend.
-func (m *Model) managedFrame() []string {
-	top := m.managedStatus()
-	if m.confirming || m.niceEditing {
-		top = m.statusBar() // renders the CONFIRM …? / nice> prompt
-	}
-	lines := []string{top, m.managedHeader()}
-	body := m.bodyHeight()
-	for i := 0; i < body; i++ {
-		if i >= len(m.managed) {
-			lines = append(lines, "")
-			continue
-		}
-		lines = append(lines, m.managedLine(i))
-	}
-	return lines
-}
-
-func (m *Model) managedStatus() string {
-	return truncate(fmt.Sprintf(
-		"%s  MANAGED (%d)  [↑↓]move [n]ice/[N]restore [x]stop/[X]cont [z]freeze-cg/[Z]thaw [d]rop [Tab]browser [q]uit  %s",
-		meta.Name, len(m.managed), m.status), m.width)
-}
-
-func (m *Model) managedHeader() string {
-	return truncate("  TARGET                MODE      STATE     NICE  STOP  FRZ   PIDS", m.width)
-}
-
-func (m *Model) managedLine(i int) string {
-	t := m.managed[i]
-	cursor := "  "
-	if i == m.mCursor {
-		cursor = "> "
-	}
-	state := "INACTIVE"
-	if t.Active {
-		state = "ACTIVE"
-	}
-	nice := t.Nice
-	if nice == "" {
-		nice = "-"
-	}
-	return truncate(fmt.Sprintf("%s%-20s %-9s %-9s %-5s %-5s %-5s %s",
-		cursor, t.Name, t.Mode, state, nice, yesNo(t.Stopped), yesNo(t.Frozen), pidList(t.PIDs)), m.width)
-}
-
-// pidList renders a target's member pids compactly, e.g. "281839 281840 +3".
-func pidList(pids []int) string {
-	if len(pids) == 0 {
-		return "-"
-	}
-	const show = 4
-	parts := make([]string, 0, show+1)
-	for i, p := range pids {
-		if i >= show {
-			parts = append(parts, fmt.Sprintf("+%d", len(pids)-show))
-			break
-		}
-		parts = append(parts, fmt.Sprintf("%d", p))
-	}
-	return strings.Join(parts, " ")
-}
-
-func yesNo(b bool) string {
-	if b {
-		return "yes"
-	}
-	return "-"
+	m.dirty = true
 }

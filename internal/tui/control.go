@@ -87,17 +87,12 @@ func (m *Model) startControl(kind ControlKind) {
 // panel, the existing target name (so control addresses the retained target
 // rather than creating a new one).
 func (m *Model) controlTarget() (pids []int, label, target string, ok bool) {
-	if m.panel == PanelManaged {
-		if m.mCursor >= 0 && m.mCursor < len(m.managed) {
-			r := m.managed[m.mCursor]
-			return r.PIDs, r.Name, r.Name, true
-		}
-		return nil, "", "", false
-	}
 	fr, ok := m.currentRow()
 	if !ok {
 		return nil, "", "", false
 	}
+	// Both panels render process rows now; the app reuses an existing managed
+	// target when the pids are already managed (no duplicate targets).
 	return collectPIDs(fr.row), fr.row.Label, "", true
 }
 
@@ -178,10 +173,7 @@ func (m *Model) confirmKey(ev KeyEvent) {
 			return
 		}
 		m.status = res
-		m.dirty = true // reflect the change on the next refresh
-		if m.panel == PanelManaged {
-			m.refreshManaged() // keep the managed panel current after acting on it
-		}
+		m.dirty = true // re-query the active panel (browser or managed) to reflect it
 	case ev.Rune == 'v', ev.Rune == 'V':
 		m.previewing = true // show the full per-pid forecast
 	case ev.Name == "esc", ev.Name == "ctrl-c", ev.Rune == 'n', ev.Rune == 'N', ev.Rune == 'q':

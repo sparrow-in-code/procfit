@@ -21,12 +21,12 @@ type RefreshFunc func(queryspec.Flags) (*query.Result, []render.Column, error)
 // Deps are the backend callbacks the explorer needs. Only Refresh is required;
 // Control/Managed enable the control side plane when present.
 type Deps struct {
-	Refresh       RefreshFunc
-	Control       ControlFunc
-	Managed       ManagedFunc
-	ManagedAction ManagedActionFunc
-	History       HistoryFunc
-	Interval      time.Duration // starting refresh interval (0 = default 1s)
+	Refresh     RefreshFunc // browser data source
+	ManagedTree RefreshFunc // managed panel data source (same shape; managed subset + orphans)
+	Control     ControlFunc
+	Drop        DropFunc // unmanage the target(s) owning the selected pids
+	History     HistoryFunc
+	Interval    time.Duration // starting refresh interval (0 = default 1s)
 }
 
 func RunTerminal(deps Deps, flags queryspec.Flags) (string, error) {
@@ -48,13 +48,12 @@ func RunTerminal(deps Deps, flags queryspec.Flags) (string, error) {
 func Run(screen tcell.Screen, deps Deps, flags queryspec.Flags) (string, error) {
 	m := NewModel(flags)
 	m.SetControl(deps.Control)
-	m.SetManaged(deps.Managed, deps.ManagedAction)
+	m.SetManaged(deps.ManagedTree != nil, deps.Drop)
 	m.SetHistory(deps.History)
 	m.SetInterval(deps.Interval)
-	refresh := deps.Refresh
 	w, h := screen.Size()
 	m.SetSize(w, h)
-	requery(m, refresh)
+	requery(m, deps)
 
 	events := make(chan tcell.Event, 16)
 	go pollEvents(screen, events)
@@ -67,10 +66,10 @@ func Run(screen tcell.Screen, deps Deps, flags queryspec.Flags) (string, error) 
 	for !m.Quit() {
 		select {
 		case ev := <-events:
-			handleEvent(screen, m, ev, refresh)
+			handleEvent(screen, m, ev, deps)
 		case <-ticker.C:
 			if !m.Paused() {
-				requery(m, refresh)
+				requery(m, deps)
 			}
 		}
 		if ni := m.IntervalHint(); ni != interval {
@@ -92,7 +91,7 @@ func pollEvents(screen tcell.Screen, out chan<- tcell.Event) {
 	}
 }
 
-func handleEvent(screen tcell.Screen, m *Model, ev tcell.Event, refresh RefreshFunc) {
+func handleEvent(screen tcell.Screen, m *Model, ev tcell.Event, deps Deps) {
 	switch e := ev.(type) {
 	case *tcell.EventResize:
 		w, h := e.Size()
@@ -101,13 +100,18 @@ func handleEvent(screen tcell.Screen, m *Model, ev tcell.Event, refresh RefreshF
 	case *tcell.EventKey:
 		m.Update(mapKey(e))
 		if m.Dirty() {
-			requery(m, refresh)
+			requery(m, deps)
 		}
 	}
 }
 
-func requery(m *Model, refresh RefreshFunc) {
-	res, cols, err := refresh(m.Flags())
+// requery re-queries the active panel's data source (browser or managed).
+func requery(m *Model, deps Deps) {
+	fn := deps.Refresh
+	if m.Panel() == PanelManaged && deps.ManagedTree != nil {
+		fn = deps.ManagedTree
+	}
+	res, cols, err := fn(m.Flags())
 	if err != nil {
 		m.status = "error: " + err.Error()
 		return
