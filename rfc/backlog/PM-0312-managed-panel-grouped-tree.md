@@ -18,9 +18,10 @@ identifiable after the process is gone.
 
 ## Scope
 
-- **Persist identity for display:** store the process name/comm (and pid) with
-  each managed binding in the state file, captured at manage time (currently only
-  ID + pid + control fields are stored).
+- **Persist identity for display:** store the **pid + process name/comm** with
+  each managed binding in the state file, captured at manage time (the pid is
+  already persisted; add the name so an exited target is still identifiable by
+  both pid and name).
 - **Grouped tree rendering:** feed the managed pids through the existing query
   grouping/aggregation pipeline (honouring the current group-by/leaf), so the
   managed panel shows the same hierarchy as the browser, restricted to managed
@@ -37,7 +38,8 @@ identifiable after the process is gone.
 
 ## Acceptance criteria
 
-- [ ] Managed bindings persist a display name; it survives process exit.
+- [ ] Managed bindings persist pid + display name; both survive process exit
+      (shown in the orphans group).
 - [ ] Managed panel renders managed processes grouped like the browser (same
       group-by/leaf), with per-node control/restore/drop.
 - [ ] Exited/unresolvable bindings appear under an "orphans" group by their
