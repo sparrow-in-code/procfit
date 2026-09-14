@@ -4,6 +4,10 @@
 pm
 *.exe
 
+# Nix build symlinks
+/result
+/result-*
+
 # Go
 *.test
 *.out

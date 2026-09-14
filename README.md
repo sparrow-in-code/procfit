@@ -37,6 +37,31 @@ implemented as well. See [`PROGRESS.md`](PROGRESS.md) for live status and
 | [`rfc/`](rfc/) | Tickets, tracked by state in `backlog/` (TODO), `wip/` (WIP), `archive/` (DONE). See [`rfc/README.md`](rfc/README.md). |
 | [`docs/`](docs/) | User and architecture documentation. |
 
+## Installing
+
+**Release binary** (static, Linux amd64/arm64) — from the
+[GitHub Releases](https://github.com/sparrow-in-code/procfit/releases):
+
+```bash
+curl -sSL https://github.com/sparrow-in-code/procfit/releases/latest/download/procfit_<version>_linux_amd64.tar.gz | tar xz
+./procfit ps
+```
+
+**Nix flake:**
+
+```bash
+nix run   github:sparrow-in-code/procfit -- ps   # run without installing
+nix build github:sparrow-in-code/procfit          # -> ./result/bin/procfit
+nix develop                                        # dev shell (go, make, lint, gcc, clang)
+```
+
+**Container** (GHCR, multi-arch). procfit observes the host, so share the host PID
+namespace (its `/proc` then shows host processes):
+
+```bash
+docker run --rm --pid=host ghcr.io/sparrow-in-code/procfit ps
+```
+
 ## Building & testing
 
 Requires Go (1.26+). The Makefile wraps the common tasks:
