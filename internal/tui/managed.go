@@ -127,7 +127,7 @@ func (m *Model) managedFrame() []string {
 
 func (m *Model) managedStatus() string {
 	return truncate(fmt.Sprintf(
-		"%s  MANAGED (%d)  [↑↓]move [n]ice [x]stop [c]ont [z]freeze [Z]thaw [R]estore-orig [d]rop [Tab]browser [q]uit  %s",
+		"%s  MANAGED (%d)  [↑↓]move [n]ice [x]stop [c]ont [z]freeze-cg [Z]thaw [R]estore-orig [d]rop [Tab]browser [q]uit  %s",
 		meta.Name, len(m.managed), m.status), m.width)
 }
 
