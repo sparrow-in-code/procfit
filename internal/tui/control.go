@@ -181,7 +181,7 @@ func (m *Model) confirmKey(ev KeyEvent) {
 		}
 	case ev.Rune == 'v', ev.Rune == 'V':
 		m.previewing = true // show the full per-pid forecast
-	case ev.Name == "esc", ev.Name == "ctrl-c", ev.Rune == 'n', ev.Rune == 'N':
+	case ev.Name == "esc", ev.Name == "ctrl-c", ev.Rune == 'n', ev.Rune == 'N', ev.Rune == 'q':
 		m.confirming = false
 		m.status = "control cancelled"
 	}

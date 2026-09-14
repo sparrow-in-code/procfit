@@ -57,6 +57,37 @@ func TestSetFreeze_RefusesOwnSession(t *testing.T) {
 	}
 }
 
+func TestRestore_ResumesStopAndThaws(t *testing.T) {
+	m, fc, _ := newMgr(t)
+	fc.Add(10, 0, idFor(10, 100))
+	fc.Cgroups[10] = "/system.slice/app.service"
+	m.Manage("t", ModeFollow, "", []Instance{{ID: idFor(10, 100), PID: 10}})
+
+	if _, err := m.SetStop("t", true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.SetFreeze("t", true, false, false); err != nil {
+		t.Fatal(err)
+	}
+	if !fc.Frozen["/system.slice/app.service"] {
+		t.Fatal("target should be frozen before restore")
+	}
+
+	res, err := m.Restore("t", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fc.Frozen["/system.slice/app.service"] {
+		t.Fatal("restore must thaw the cgroup")
+	}
+	if res.Counts[StatusRestored] == 0 {
+		t.Fatalf("restore should report a resumed process: %+v", res.Counts)
+	}
+	if tgt := m.Find("t"); tgt.DesiredStop != nil || tgt.DesiredFreeze != nil {
+		t.Fatal("restore must clear stop/freeze intents")
+	}
+}
+
 func TestSetFreeze_NoCgroupUnavailable(t *testing.T) {
 	m, fc, _ := newMgr(t)
 	fc.Add(10, 0, idFor(10, 100)) // no cgroup configured

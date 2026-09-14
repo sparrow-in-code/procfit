@@ -16,18 +16,45 @@ func (m *Manager) Restore(target string, force bool) (*ApplyResult, error) {
 		return nil, fmt.Errorf("target %q not found", target)
 	}
 	res := newApplyResult()
+	// Thaw FIRST: a frozen task can block /proc reads, so unblock it before
+	// revalidating/renicing (otherwise restore could hang on a frozen target).
+	if t.DesiredFreeze != nil && *t.DesiredFreeze {
+		done := map[string]bool{}
+		for i := range t.Bindings {
+			m.freezeBinding(&t.Bindings[i], false, false, false, done, res)
+		}
+	}
 	for i := range t.Bindings {
 		m.restoreNiceBinding(&t.Bindings[i], force, res)
+		m.restoreStopBinding(&t.Bindings[i], res)
 	}
-	t.DesiredNice = nil
+	t.DesiredNice, t.DesiredStop, t.DesiredFreeze = nil, nil, nil
 	m.state.UpdatedAt = m.clk.Now()
 	return res, nil
 }
 
+// restoreStopBinding resumes a process procfit itself stopped (SIGCONT).
+func (m *Manager) restoreStopBinding(b *Binding, res *ApplyResult) {
+	if b.Stop == nil || !b.Stop.DesiredStop {
+		return // not stopped by procfit; nothing to undo
+	}
+	if !m.revalidate(b) {
+		res.add(b.PID, StatusStale, "identity changed (pid reused)")
+		return
+	}
+	if err := m.ctrl.SendSignal(b.PID, ports.SigCont); err != nil {
+		res.add(b.PID, StatusDenied, err.Error())
+		return
+	}
+	b.Stop.DesiredStop = false
+	b.Stop.Status = StatusRestored
+	m.audit("continued", b.PID, "stop", "", "false")
+	res.add(b.PID, StatusRestored, "")
+}
+
 func (m *Manager) restoreNiceBinding(b *Binding, force bool, res *ApplyResult) {
 	if b.Nice == nil {
-		res.add(b.PID, StatusUnchanged, "no captured original")
-		return
+		return // nothing to restore for nice; stop/freeze handled separately
 	}
 	if !m.revalidate(b) {
 		res.add(b.PID, StatusStale, "identity changed (pid reused)")
