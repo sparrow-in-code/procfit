@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -46,6 +47,37 @@ func Open(dir string) (*FileRecorder, error) {
 		return nil, err
 	}
 	return &FileRecorder{path: filepath.Join(dir, "events.ndjson")}, nil
+}
+
+// ReadRecent returns up to limit most-recent events from dir/events.ndjson that
+// satisfy keep (keep==nil keeps all). A missing log is not an error (history may
+// be disabled or nothing recorded yet) — it returns no events.
+func ReadRecent(dir string, keep func(Event) bool, limit int) ([]Event, error) {
+	data, err := os.ReadFile(filepath.Join(dir, "events.ndjson"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var out []Event
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		var e Event
+		if json.Unmarshal([]byte(line), &e) != nil {
+			continue // skip a corrupt line rather than fail the whole read
+		}
+		if keep == nil || keep(e) {
+			out = append(out, e)
+		}
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[len(out)-limit:]
+	}
+	return out, nil
 }
 
 // Record appends one event (best-effort; audit must never break control flow).

@@ -10,6 +10,7 @@ import (
 
 	"github.com/netikras/procfit/internal/collect"
 	"github.com/netikras/procfit/internal/control"
+	"github.com/netikras/procfit/internal/history"
 	"github.com/netikras/procfit/internal/meta"
 	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/queryspec"
@@ -51,6 +52,7 @@ func cmdTUI(env Env, args []string) int {
 		Control:       tuiControl(),
 		Managed:       tuiManaged(),
 		ManagedAction: tuiManagedAction(),
+		History:       tuiHistory(),
 	}
 	cli, err := tui.RunTerminal(deps, qf.toSpecFlags())
 	if err != nil {
@@ -131,6 +133,25 @@ func tuiTargetName(req tui.ControlRequest) string {
 		return targetName(fmt.Sprintf("pid:%d", req.PIDs[0]))
 	}
 	return "tui:" + req.Label
+}
+
+// tuiHistory returns recent control-history events for a pid (most recent last),
+// read from the opt-in audit log; empty when history is disabled/none.
+func tuiHistory() tui.HistoryFunc {
+	return func(pid int) []tui.HistoryEntry {
+		dir, _ := resolveStateDir("")
+		evs, err := history.ReadRecent(historyDir(dir), func(e history.Event) bool { return e.PID == pid }, 20)
+		if err != nil {
+			return nil
+		}
+		out := make([]tui.HistoryEntry, 0, len(evs))
+		for _, e := range evs {
+			out = append(out, tui.HistoryEntry{
+				Time: e.Time.Format("15:04:05"), Action: e.Action, Field: e.Field, From: e.From, To: e.To,
+			})
+		}
+		return out
+	}
 }
 
 // tuiManaged lists the current managed targets for the TUI managed panel.

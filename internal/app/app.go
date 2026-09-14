@@ -106,6 +106,7 @@ func commands() []command {
 		{name: "restore", summary: "Restore captured original control fields", run: cmdRestore},
 		{name: "unmanage", summary: "Remove managed membership", run: cmdUnmanage},
 		{name: "signal", summary: "Send a signal to a resolved target", run: cmdSignal},
+		{name: "history", summary: "Print recent control-history (opt-in audit log)", run: cmdHistory},
 		{name: "daemon", summary: "Run/query the per-user engine daemon", run: cmdDaemon},
 		{name: "service", summary: "Install/remove the user systemd unit", run: cmdService},
 		{name: "tui", summary: "Interactive explorer (default on a TTY)", run: cmdTUI},

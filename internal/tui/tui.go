@@ -25,6 +25,7 @@ type Deps struct {
 	Control       ControlFunc
 	Managed       ManagedFunc
 	ManagedAction ManagedActionFunc
+	History       HistoryFunc
 }
 
 func RunTerminal(deps Deps, flags queryspec.Flags) (string, error) {
@@ -47,6 +48,7 @@ func Run(screen tcell.Screen, deps Deps, flags queryspec.Flags) (string, error) 
 	m := NewModel(flags)
 	m.SetControl(deps.Control)
 	m.SetManaged(deps.Managed, deps.ManagedAction)
+	m.SetHistory(deps.History)
 	refresh := deps.Refresh
 	w, h := screen.Size()
 	m.SetSize(w, h)

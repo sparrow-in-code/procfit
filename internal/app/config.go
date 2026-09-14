@@ -3,6 +3,7 @@ package app
 import (
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/netikras/procfit/internal/config"
 	"github.com/netikras/procfit/internal/metrics"
@@ -174,7 +175,7 @@ func extractPositional(args []string) (string, []string) {
 
 func loadEffectiveConfig(explicit string) (config.Config, error) {
 	v := configValidator()
-	d := config.Discovery{Explicit: explicit, ConfigDir: config.DefaultConfigDir()}
+	d := config.Discovery{Explicit: explicit, EnvValue: os.Getenv("PROCFIT_CONFIG"), ConfigDir: config.DefaultConfigDir()}
 	path, err := d.Discover()
 	if err != nil {
 		return config.Config{}, err

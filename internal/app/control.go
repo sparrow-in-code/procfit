@@ -11,6 +11,7 @@ import (
 	"github.com/netikras/procfit/internal/collect"
 	"github.com/netikras/procfit/internal/control"
 	"github.com/netikras/procfit/internal/expr"
+	"github.com/netikras/procfit/internal/history"
 	"github.com/netikras/procfit/internal/meta"
 	"github.com/netikras/procfit/internal/model"
 	"github.com/netikras/procfit/internal/ports"
@@ -49,8 +50,20 @@ func newControlAsm(stateDir string) (*ctlAsm, error) {
 	if st, ok, err := store.Load(); err == nil && ok {
 		mgr.LoadState(st)
 	}
+	// Opt-in audit history: when [state].history is enabled, record control
+	// actions (same log the daemon uses), so `history` and the TUI overlay can
+	// show them. Best-effort — never block control.
+	if cfg, err := loadEffectiveConfig(""); err == nil && cfg.State.History {
+		if rec, err := history.Open(historyDir(stateDir)); err == nil {
+			mgr.SetRecorder(rec)
+		}
+	}
 	return &ctlAsm{src: src, ctrl: ctrl, clk: clk, mgr: mgr, store: store}, nil
 }
+
+// historyDir is the audit-log directory under the runtime state dir (matches the
+// daemon's layout).
+func historyDir(stateDir string) string { return filepath.Join(stateDir, "history") }
 
 func (c *ctlAsm) save() error { return c.store.Save(c.mgr.State()) }
 

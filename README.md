@@ -59,7 +59,7 @@ shows the same grouped tree as `ps`, refreshed on an interval.
 |---|---|
 | `↑`/`↓`, `k`/`j`, `PgUp`/`PgDn` | move the cursor |
 | `Enter` / `←` / `→` | fold/unfold the group under the cursor (`[-]` open, `[+]` collapsed; leaves have no marker) |
-| `i` | inspect the selected row (identity overlay; `Esc`/`i` to close) |
+| `i` | inspect the selected row — identity + recent control history (when `[state].history` is enabled); `Esc`/`i` to close |
 | `g` | cycle the grouping preset |
 | `s` / `S` | cycle the sort column / toggle ascending↔descending |
 | `/` or `f` | filter (see below) |
@@ -85,6 +85,10 @@ PIDs are skipped, changes are recorded for restore). In the confirmation gate,
 press `v` to view the full per-process forecast — each pid's current→desired
 value, which are protected/skipped, and a warning when raising priority (lower
 nice) needs privilege and may not be restorable.
+
+When `[state].history` is enabled, control actions (from the CLI `set`/`restore`
+or the TUI) are recorded to an opt-in audit log; `procfit history [--pid N]`
+prints recent events, and the detail overlay (`i`) shows them per process.
 
 Press **`Tab`** to switch to the **managed panel** — the targets you've controlled,
 with their mode, active state, member count and desired nice/stop/freeze. There,

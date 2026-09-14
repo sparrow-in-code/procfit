@@ -408,6 +408,24 @@ func TestModel_DetailOverlay(t *testing.T) {
 	}
 }
 
+func TestModel_DetailHistory(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(80, 16)
+	res, cols := sampleResult(1) // pid 1
+	m.SetResult(res, cols)
+	m.SetHistory(func(pid int) []HistoryEntry {
+		if pid != 1 {
+			return nil
+		}
+		return []HistoryEntry{{Time: "10:00:00", Action: "applied", Field: "nice", From: "0", To: "5"}}
+	})
+	m.Update(KeyEvent{Rune: 'i'})
+	joined := strings.Join(m.Frame(), "\n")
+	if !strings.Contains(joined, "history") || !strings.Contains(joined, "applied") || !strings.Contains(joined, "0→5") {
+		t.Fatalf("detail overlay should include control history:\n%s", joined)
+	}
+}
+
 func TestModel_ControlUnavailable(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	res, cols := sampleResult(2)
