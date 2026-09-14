@@ -408,6 +408,11 @@ func TestModel_ManagedControlActsOnTarget(t *testing.T) {
 	if got.Target != "idea#100" || got.Kind != CtrlContinue || len(got.PIDs) != 1 || got.PIDs[0] != 100 {
 		t.Fatalf("managed control should target the retained target: %+v", got)
 	}
+	// The confirm prompt must be visible in the managed panel (not hidden behind
+	// the panel legend) — otherwise it looks frozen waiting for 'y'.
+	if !strings.Contains(m.Frame()[0], "CONFIRM") {
+		t.Fatalf("managed panel must show the confirm prompt: %q", m.Frame()[0])
+	}
 }
 
 func TestModel_DetailOverlay(t *testing.T) {

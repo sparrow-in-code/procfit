@@ -112,8 +112,14 @@ func (m *Model) managedDo(kind ManagedActionKind) {
 }
 
 // managedFrame renders the managed panel: a status bar, header, then targets.
+// While a control confirm/nice prompt is active it must be visible here too, so
+// the top line shows that prompt instead of the panel legend.
 func (m *Model) managedFrame() []string {
-	lines := []string{m.managedStatus(), m.managedHeader()}
+	top := m.managedStatus()
+	if m.confirming || m.niceEditing {
+		top = m.statusBar() // renders the CONFIRM …? / nice> prompt
+	}
+	lines := []string{top, m.managedHeader()}
 	body := m.bodyHeight()
 	for i := 0; i < body; i++ {
 		if i >= len(m.managed) {
