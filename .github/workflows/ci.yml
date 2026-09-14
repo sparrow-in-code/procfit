@@ -44,9 +44,13 @@ jobs:
         run: FUZZTIME=8s ./scripts/fuzz-smoke.sh
 
       - name: golangci-lint (size caps + static analysis)
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: latest
+          # Pin a golangci-lint v2 built with Go >= go.mod's target (1.26.7).
+          # `latest` on action@v6 resolves to the v1 line (1.64.8, built with
+          # go1.24), which both rejects our v2 .golangci.yml and refuses a
+          # newer Go target. v2.13.2 is built with go1.27.1 and matches local.
+          version: v2.13.2
 
   nix:
     name: nix flake build
