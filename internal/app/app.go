@@ -133,7 +133,7 @@ Common view flags (ps, stat, tui):
   --leaf process|thread|none   terminal rows under groups (default: process)
   --sort FIELD[:asc|desc][,...]   multi-key sort, e.g. cpu:desc (default: unsorted)
   --columns COL[,COL]    explicit columns (default: auto; ids from 'procfit metrics')
-  --metrics PROFILE      none,light,process,io,network,power,perf,all (default: light)
+  --metrics PROFILE      none,light,process,io,network,power,battery,perf,all (default: light)
   --metric [+|-]NAME     add/remove a metric (repeatable)
   --select EXPR          pre-group entity filter, e.g. 'uid == 0'
   --having EXPR          post-group row filter, e.g. 'cpu > 5'

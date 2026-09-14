@@ -80,6 +80,23 @@ func TestProfileResolve(t *testing.T) {
 	if len(io) == 0 {
 		t.Fatal("io profile should include existing io metrics")
 	}
+	// battery: a known profile that always yields at least the no-root signals
+	// (cpu / cpu-normalized / ctxsw-voluntary), regardless of eBPF availability.
+	if !IsKnownProfile("battery") {
+		t.Fatal("battery must be a known profile")
+	}
+	bat, _ := r.Resolve(ProfileBattery)
+	has := func(id model.MetricID) bool {
+		for _, m := range bat {
+			if m == id {
+				return true
+			}
+		}
+		return false
+	}
+	if !has("cpu") || !has("cpu-normalized") || !has("ctxsw-voluntary") {
+		t.Fatalf("battery profile missing the no-root signals: %v", bat)
+	}
 }
 
 func TestResolveSelection(t *testing.T) {

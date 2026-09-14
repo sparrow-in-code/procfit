@@ -75,6 +75,28 @@ func containsCol(cols []string, id string) bool {
 	return false
 }
 
+func TestChooseColumns_ProfileDriven(t *testing.T) {
+	reg, dims := regDims()
+	// An explicit profile drives the default display: identity + its metrics.
+	r, _ := Build(reg, dims, Flags{Profile: "io"})
+	if r.Columns[0] != "target" || !containsCol(r.Columns, "pid") || !containsCol(r.Columns, "disk-rbps") {
+		t.Fatalf("io profile should drive columns (target,pid,+io metrics): %v", r.Columns)
+	}
+	if containsCol(r.Columns, "pstate") {
+		t.Fatalf("profile columns should be identity+metrics, not the compact defaults: %v", r.Columns)
+	}
+	// Explicit --columns still overrides the profile.
+	rc, _ := Build(reg, dims, Flags{Profile: "io", Columns: "target,cpu"})
+	if len(rc.Columns) != 2 {
+		t.Fatalf("explicit --columns must override the profile: %v", rc.Columns)
+	}
+	// No profile (default light) keeps the compact defaults.
+	rd, _ := Build(reg, dims, Flags{})
+	if !containsCol(rd.Columns, "pt") {
+		t.Fatalf("default should keep compact columns: %v", rd.Columns)
+	}
+}
+
 func TestBuild_SelectHavingValidated(t *testing.T) {
 	reg, dims := regDims()
 	if _, err := Build(reg, dims, Flags{Select: "uid == 0"}); err != nil {

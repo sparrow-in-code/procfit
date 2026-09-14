@@ -46,7 +46,7 @@ func bindQueryFlags(fs *flag.FlagSet) *queryFlags {
 	fs.StringVar(&qf.sortSpec, "sort", "", "sort keys 'field[:asc|desc]', comma-separated, e.g. cpu:desc,comm (default: unsorted)")
 	fs.StringVar(&qf.columns, "columns", "", "explicit columns, comma-separated; ids from 'procfit metrics' plus "+
 		"target,pid,tid,pt,user,pstate,... (default: auto for the leaf mode)")
-	fs.StringVar(&qf.profile, "metrics", "", "metric profile; values: none,light,process,io,network,power,perf,all (default: light)")
+	fs.StringVar(&qf.profile, "metrics", "", "metric profile; values: none,light,process,io,network,power,battery,perf,all (default: light)")
 	fs.Var(&qf.metricOver, "metric", "add/remove one metric: NAME, +NAME, or -NAME (repeatable; ids from 'procfit metrics')")
 	fs.StringVar(&qf.format, "format", "table", "output format; values: table,wide,json,ndjson,csv")
 	fs.StringVar(&qf.selectExpr, "select", "", "pre-group entity filter expression, e.g. 'uid == 0 && cpu > 5'")

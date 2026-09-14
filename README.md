@@ -147,6 +147,22 @@ In the TUI filter line:
   `Esc` cancels; an empty filter clears. Only the **displayed** columns may be
   referenced (the prompt lists them).
 
+## Finding battery drain
+
+CPU% alone misses the usual culprit — a low-CPU process that wakes the CPU out of
+idle thousands of times a second. The `battery` profile pairs the eBPF wakeup
+signals with light, no-root proxies:
+
+```bash
+procfit ps --metrics battery --sort wakeups:desc          # needs root/eBPF for wakeups
+procfit ps --metrics battery --sort ctxsw-voluntary:desc  # no-root proxy for wake/sleep churn
+```
+
+Selecting a profile also chooses the columns, so `--metrics battery` shows
+`cpu, cpu-normalized, wakeups, timer-wakeups, ctxsw-voluntary` without needing
+`--columns`. Without privilege, `wakeups`/`timer-wakeups` render as unavailable
+and `ctxsw-voluntary` carries the signal.
+
 ## Configuration & precedence
 
 View settings (grouping, columns, sort, format, target width, …) can come from

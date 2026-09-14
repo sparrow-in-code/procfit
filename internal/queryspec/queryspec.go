@@ -69,7 +69,7 @@ func Build(reg *metrics.Registry, dims *query.Dimensions, f Flags) (Resolved, er
 	if err != nil {
 		return r, err
 	}
-	cols := chooseColumns(f)
+	cols := chooseColumns(reg, f)
 	r.Columns = cols
 
 	sortKeys, err := parseSort(f.Sort)
@@ -111,17 +111,50 @@ func resolveSelection(reg *metrics.Registry, f Flags) ([]model.MetricID, error) 
 	return reg.ResolveSelection(metrics.ProfileName(profile), overrides)
 }
 
-func chooseColumns(f Flags) []string {
+func chooseColumns(reg *metrics.Registry, f Flags) []string {
 	if f.Columns != "" {
 		return SplitComma(f.Columns)
 	}
 	if f.Format == "wide" {
 		return WideColumns
 	}
+	// An explicit metric profile drives the default display, so e.g.
+	// `--metrics battery` actually shows the battery metrics (identity + members).
+	if cols, ok := profileColumns(reg, f.Profile); ok {
+		return leafIdentifiers(f.Leaf, cols)
+	}
 	if f.Leaf == string(query.LeafThread) {
 		return withTID(DefaultColumns) // thread views expose the thread id too
 	}
 	return DefaultColumns
+}
+
+// profileColumns returns an explicit non-default profile's metric ids as columns
+// (ok=false for the default/derived profiles, which keep the compact defaults).
+func profileColumns(reg *metrics.Registry, profile string) ([]string, bool) {
+	switch profile {
+	case "", "none", "light", "all":
+		return nil, false
+	}
+	ids, err := reg.Resolve(metrics.ProfileName(profile))
+	if err != nil || len(ids) == 0 {
+		return nil, false
+	}
+	cols := make([]string, 0, len(ids))
+	for _, id := range ids {
+		cols = append(cols, string(id))
+	}
+	return cols, true
+}
+
+// leafIdentifiers prepends the identity columns (target, pid, and tid for thread
+// views) to a set of metric columns.
+func leafIdentifiers(leaf string, metricCols []string) []string {
+	head := []string{"target", "pid"}
+	if leaf == string(query.LeafThread) {
+		head = append(head, "tid")
+	}
+	return append(head, metricCols...)
 }
 
 // withTID returns cols with a "tid" column inserted right after "pid".

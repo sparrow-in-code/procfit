@@ -18,6 +18,7 @@ const (
 	ProfileIO      ProfileName = "io"
 	ProfileNetwork ProfileName = "network"
 	ProfilePower   ProfileName = "power"
+	ProfileBattery ProfileName = "battery"
 	ProfilePerf    ProfileName = "perf"
 	ProfileAll     ProfileName = "all"
 )
@@ -25,7 +26,7 @@ const (
 // KnownProfiles lists the built-in profile names.
 var KnownProfiles = []ProfileName{
 	ProfileNone, ProfileLight, ProfileProcess, ProfileIO,
-	ProfileNetwork, ProfilePower, ProfilePerf, ProfileAll,
+	ProfileNetwork, ProfilePower, ProfileBattery, ProfilePerf, ProfileAll,
 }
 
 // profileMembers maps explicit profiles to canonical metric ids. Profiles whose
@@ -35,6 +36,12 @@ var profileMembers = map[ProfileName][]model.MetricID{
 	ProfileIO:      {"disk-rbps", "disk-wbps", "io-rchar", "io-wchar", "read-syscalls", "write-syscalls"},
 	ProfileNetwork: {"net-rx-bps", "net-tx-bps", "net-rx-pps", "net-tx-pps"},
 	ProfilePower:   {"cpu", "wakeups", "timer-wakeups"},
+	// battery: what actually drains a laptop. Wakeups (eBPF, needs privilege) are
+	// the real signal — a process can be ~0% cpu yet keep the package out of deep
+	// C-states. ctxsw-voluntary is a light, no-root proxy for that wake/sleep
+	// churn, so the profile still says something useful without eBPF; cpu-normalized
+	// frames cpu against total host capacity.
+	ProfileBattery: {"cpu", "cpu-normalized", "wakeups", "timer-wakeups", "ctxsw-voluntary"},
 	ProfilePerf:    {"cycles", "instructions", "ipc", "cache-misses"},
 }
 
