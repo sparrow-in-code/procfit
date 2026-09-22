@@ -254,8 +254,22 @@ func probeCapabilities() []capability {
 		}
 	}
 	caps = append(caps, capability{"proc-io", ioStatus, ioDetail})
-	caps = append(caps, probeCgroup(), probePerf(), probeEBPF())
+	caps = append(caps, probeCgroup(), probePerf(), probeEBPF(), probeSchedWakeups())
 	return caps
+}
+
+// probeSchedWakeups reports the no-root fallback source for `wakeups`: whether
+// /proc/self/sched exposes nr_wakeups (needs CONFIG_SCHEDSTATS). eBPF, when
+// available, is preferred; this is what backs wakeups without it (PM-0509).
+func probeSchedWakeups() capability {
+	data, err := os.ReadFile("/proc/self/sched")
+	if err != nil {
+		return capability{"wakeups-procfs", "unsupported", "/proc/PID/sched not readable"}
+	}
+	if strings.Contains(string(data), "nr_wakeups") {
+		return capability{"wakeups-procfs", "available", "per-process wakeups via /proc/PID/sched (used unless eBPF is active)"}
+	}
+	return capability{"wakeups-procfs", "unsupported", "nr_wakeups absent (CONFIG_SCHEDSTATS off)"}
 }
 
 func probeCgroup() capability {

@@ -51,6 +51,9 @@ func newAssemblyWith(src ports.ProcessSource, clk ports.Clock) *assembly {
 	collectors := []ports.MetricCollector{
 		procfs.NewFDCollector(""), procfs.NewGPUCollector(""), procfs.NewProcMemCollector(""),
 		procfs.NewSchedstatCollector(""), procfs.NewPerfCollector(), procfs.NewWakeupsCollector(),
+		// Fallback for wakeups; runs after the eBPF collector and only fills what
+		// eBPF did not (PM-0509), so eBPF (waker attribution) stays preferred.
+		procfs.NewSchedWakeupsCollector(""),
 	}
 	return &assembly{
 		reg: reg, dims: dims, src: src, clk: clk, engine: query.NewEngine(reg, dims),

@@ -1,12 +1,27 @@
 ---
 id: PM-0509
 title: Non-eBPF wakeups from /proc/PID/sched (fallback)
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0503"]
 owner:
 rfc: ["§13", "§13.6"]
 ---
+
+## Status: DONE (2026-09-23)
+
+`procfs.SchedWakeupsCollector` (`internal/procfs/sched_wakeups.go`) parses
+`/proc/PID/sched` `nr_wakeups` and self-windows (read, 200ms, read) into a
+per-second `wakeups` rate — no root, no eBPF. Registered in `assembly` after the
+eBPF `WakeupsCollector`; it is a fallback that only fills processes whose
+`wakeups` the eBPF source did not set (`Metric("wakeups").Present()`), so eBPF
+stays preferred and there is no double counting — and it skips its measurement
+window entirely when nothing is pending. Absent `CONFIG_SCHEDSTATS` (field
+missing) or file → `Unsupported`, never zero. `procfit capabilities` gains a
+`wakeups-procfs` line (probes `/proc/self/sched` for `nr_wakeups`). `parseSchedField`
+is a reusable `key : value` sched parser. Source label on values is `sched`.
+Tests: `TestParseSchedField`, `TestSchedWakeupsCollector_Window`,
+`TestSchedWakeupsCollector_EBPFPreferred`. Commit: (local).
 
 ## Summary
 
@@ -32,12 +47,12 @@ scheduler wakeup counts (with `CONFIG_SCHEDSTATS`), giving a truer no-root signa
 
 ## Acceptance criteria
 
-- [ ] `/proc/PID/sched` parsed for wakeup counters; per-second rate computed by
+- [x] `/proc/PID/sched` parsed for wakeup counters; per-second rate computed by
       the sampler like other rate metrics.
-- [ ] `wakeups` resolves via eBPF when available, else procfs; the active source
+- [x] `wakeups` resolves via eBPF when available, else procfs; the active source
       is reported and there is no double counting.
-- [ ] Absent scheduler stats → unavailable (with a clear reason).
-- [ ] Arch-neutral (scheduler stats are not vendor/arch specific).
+- [x] Absent scheduler stats → unavailable (with a clear reason).
+- [x] Arch-neutral (scheduler stats are not vendor/arch specific).
 
 ## Tests required
 

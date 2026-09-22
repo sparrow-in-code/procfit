@@ -6,7 +6,7 @@ import "github.com/netikras/procfit/internal/model"
 // backed by eBPF. They are registered so profiles and columns resolve, but
 // remain unavailable until an eBPF backend is active (never fabricated as zero).
 var builtinEvent = []Descriptor{
-	eventRate("wakeups", "scheduler wakeups per second (waking-task attribution, eBPF)"),
+	eventRate("wakeups", "scheduler wakeups per second (eBPF waker attribution; falls back to /proc/PID/sched nr_wakeups, no root)"),
 	eventRate("timer-wakeups", "timer-driven wakeups per second"),
 	eventRate("net-rx-bps", "per-process received bytes/sec (requires eBPF/accounting)"),
 	eventRate("net-tx-bps", "per-process transmitted bytes/sec (requires eBPF/accounting)"),
