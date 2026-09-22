@@ -25,7 +25,7 @@ func (s *Server) control(c *ControlReq) Response {
 	if err != nil {
 		return Response{Version: ProtocolVersion, Error: err.Error()}
 	}
-	if s.saver != nil {
+	if s.saver != nil && !c.DryRun {
 		if err := s.saver(); err != nil {
 			return Response{Version: ProtocolVersion, Error: "save state: " + err.Error()}
 		}
@@ -38,7 +38,7 @@ func (s *Server) runControl(c *ControlReq) (*control.ApplyResult, error) {
 	mgr := s.engine.mgr
 	switch c.Op {
 	case "restore":
-		return mgr.Restore(targetName(c.Target), c.Force)
+		return mgr.Restore(targetName(c.Target), c.Force, c.DryRun)
 	case "unmanage":
 		return &control.ApplyResult{Counts: map[control.FieldStatus]int{}}, mgr.Unmanage(targetName(c.Target))
 	case "signal":
@@ -46,7 +46,7 @@ func (s *Server) runControl(c *ControlReq) (*control.ApplyResult, error) {
 		if err != nil {
 			return nil, err
 		}
-		return mgr.Signal(instances, ports.Signal(strings.ToUpper(c.Signal))), nil
+		return mgr.Signal(instances, ports.Signal(strings.ToUpper(c.Signal)), c.DryRun), nil
 	}
 	name, err := s.ensureTarget(c.Target)
 	if err != nil {
@@ -57,15 +57,15 @@ func (s *Server) runControl(c *ControlReq) (*control.ApplyResult, error) {
 		if c.Nice == nil {
 			return nil, fmt.Errorf("set-nice requires a nice value")
 		}
-		return mgr.SetNice(name, *c.Nice, false)
+		return mgr.SetNice(name, *c.Nice, c.DryRun)
 	case "stop":
-		return mgr.SetStop(name, true)
+		return mgr.SetStop(name, true, c.DryRun)
 	case "continue":
-		return mgr.SetStop(name, false)
+		return mgr.SetStop(name, false, c.DryRun)
 	case "freeze":
-		return mgr.SetFreeze(name, true, false, false)
+		return mgr.SetFreeze(name, true, false, c.DryRun)
 	case "thaw":
-		return mgr.SetFreeze(name, false, false, false)
+		return mgr.SetFreeze(name, false, false, c.DryRun)
 	default:
 		return nil, fmt.Errorf("unknown control op %q", c.Op)
 	}

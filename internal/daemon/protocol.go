@@ -53,6 +53,7 @@ type ControlReq struct {
 	Nice   *int   `json:"nice,omitempty"`
 	Force  bool   `json:"force,omitempty"`
 	Signal string `json:"signal,omitempty"`
+	DryRun bool   `json:"dry_run,omitempty"`
 }
 
 // Response is the daemon's reply.

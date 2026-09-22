@@ -198,7 +198,7 @@ func (c *ctlAsm) applySetOps(env Env, tname string, o setOps) int {
 		exit = maxExit(exit, exitForResult(res))
 	}
 	if o.stop || o.cont {
-		res, _ := c.mgr.SetStop(tname, o.stop)
+		res, _ := c.mgr.SetStop(tname, o.stop, o.dryRun)
 		printResult(env, res)
 		exit = maxExit(exit, exitForResult(res))
 	}
@@ -231,9 +231,11 @@ func cmdRestore(env Env, args []string) int {
 	fs.SetOutput(env.Stderr)
 	stateDir := fs.String("state-dir", "", "runtime state directory")
 	force := fs.Bool("force", false, "overwrite externally-drifted state")
+	dryRun := fs.Bool("dry-run", false, "show what would be restored without acting")
 	setupUsage(env, fs, "restore", "restore captured original control values",
 		"procfit restore managed:chrome          # revert nice to originals; exit 7 if it drifted",
-		"procfit restore managed:chrome --force  # overwrite external drift back to originals")
+		"procfit restore managed:chrome --force  # overwrite external drift back to originals",
+		"procfit restore managed:chrome --dry-run  # preview without acting")
 	spec, rest := extractPositional(args)
 	if err := fs.Parse(rest); err != nil {
 		return parseExit(err)
@@ -246,15 +248,17 @@ func cmdRestore(env Env, args []string) int {
 	if code != ExitOK {
 		return code
 	}
-	res, err := c.mgr.Restore(targetName(spec), *force)
+	res, err := c.mgr.Restore(targetName(spec), *force, *dryRun)
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitNotFound
 	}
 	printResult(env, res)
-	if err := c.save(); err != nil {
-		fmt.Fprintf(env.Stderr, "save state: %v\n", err)
-		return ExitRuntime
+	if !*dryRun {
+		if err := c.save(); err != nil {
+			fmt.Fprintf(env.Stderr, "save state: %v\n", err)
+			return ExitRuntime
+		}
 	}
 	return exitForResult(res)
 }
@@ -294,9 +298,11 @@ func cmdSignal(env Env, args []string) int {
 	fs.SetOutput(env.Stderr)
 	stateDir := fs.String("state-dir", "", "runtime state directory")
 	yes := fs.Bool("yes", false, "skip confirmation for destructive signals")
+	dryRun := fs.Bool("dry-run", false, "show what would be signalled without acting")
 	setupUsage(env, fs, "signal", "send a signal to a resolved target",
 		"procfit signal HUP pid:1234        # SIGHUP a process (identity revalidated first)",
-		"procfit signal TERM managed:chrome --yes   # TERM all bound pids (--yes: non-interactive)")
+		"procfit signal TERM managed:chrome --yes   # TERM all bound pids (--yes: non-interactive)",
+		"procfit signal TERM managed:chrome --dry-run   # preview per-pid without delivering")
 	// Two positionals: <sig> <target>.
 	var positionals []string
 	var flagArgs []string
@@ -316,7 +322,7 @@ func cmdSignal(env Env, args []string) int {
 	}
 	sig := ports.Signal(strings.ToUpper(strings.TrimPrefix(positionals[0], "SIG")))
 	spec := positionals[1]
-	if destructive(sig) && !*yes && !env.IsTTY {
+	if destructive(sig) && !*yes && !*dryRun && !env.IsTTY {
 		fmt.Fprintf(env.Stderr, "%s is destructive; pass --yes to confirm non-interactively\n", sig)
 		return ExitUsage
 	}
@@ -329,7 +335,7 @@ func cmdSignal(env Env, args []string) int {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitNotFound
 	}
-	res := c.mgr.Signal(instances, sig)
+	res := c.mgr.Signal(instances, sig, *dryRun)
 	printResult(env, res)
 	return exitForResult(res)
 }

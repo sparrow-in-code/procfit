@@ -10,7 +10,7 @@ import (
 // Restore returns controlled fields to their captured originals. It refuses to
 // overwrite externally-drifted state unless force is set (RFC §15.8): a drifted
 // binding yields StatusDrifted and the caller maps that to exit code 7.
-func (m *Manager) Restore(target string, force bool) (*ApplyResult, error) {
+func (m *Manager) Restore(target string, force, dryRun bool) (*ApplyResult, error) {
 	t := m.Find(target)
 	if t == nil {
 		return nil, fmt.Errorf("target %q not found", target)
@@ -21,41 +21,49 @@ func (m *Manager) Restore(target string, force bool) (*ApplyResult, error) {
 	if t.DesiredFreeze != nil && *t.DesiredFreeze {
 		done := map[string]bool{}
 		for i := range t.Bindings {
-			m.freezeBinding(&t.Bindings[i], false, false, false, done, res)
+			m.freezeBinding(&t.Bindings[i], false, false, dryRun, done, res)
 		}
 	}
 	for i := range t.Bindings {
-		m.restoreNiceBinding(&t.Bindings[i], force, res)
-		m.restoreStopBinding(&t.Bindings[i], res)
+		m.restoreNiceBinding(&t.Bindings[i], force, dryRun, res)
+		m.restoreStopBinding(&t.Bindings[i], dryRun, res)
 	}
-	t.DesiredNice, t.DesiredStop, t.DesiredFreeze = nil, nil, nil
+	if !dryRun {
+		t.DesiredNice, t.DesiredStop, t.DesiredFreeze = nil, nil, nil
+	}
 	m.state.UpdatedAt = m.clk.Now()
 	return res, nil
 }
 
 // RestoreNice reverts only the nice field of a target to its captured original
 // (the uppercase "lift" of a renice), clearing the nice intent.
-func (m *Manager) RestoreNice(target string) (*ApplyResult, error) {
+func (m *Manager) RestoreNice(target string, dryRun bool) (*ApplyResult, error) {
 	t := m.Find(target)
 	if t == nil {
 		return nil, fmt.Errorf("target %q not found", target)
 	}
 	res := newApplyResult()
 	for i := range t.Bindings {
-		m.restoreNiceBinding(&t.Bindings[i], false, res)
+		m.restoreNiceBinding(&t.Bindings[i], false, dryRun, res)
 	}
-	t.DesiredNice = nil
+	if !dryRun {
+		t.DesiredNice = nil
+	}
 	m.state.UpdatedAt = m.clk.Now()
 	return res, nil
 }
 
 // restoreStopBinding resumes a process procfit itself stopped (SIGCONT).
-func (m *Manager) restoreStopBinding(b *Binding, res *ApplyResult) {
+func (m *Manager) restoreStopBinding(b *Binding, dryRun bool, res *ApplyResult) {
 	if b.Stop == nil || !b.Stop.DesiredStop {
 		return // not stopped by procfit; nothing to undo
 	}
 	if !m.revalidate(b) {
 		res.add(b.PID, StatusStale, "identity changed (pid reused)")
+		return
+	}
+	if dryRun {
+		res.add(b.PID, StatusUnchanged, "dry-run: would continue (SIGCONT)")
 		return
 	}
 	if err := m.ctrl.SendSignal(b.PID, ports.SigCont); err != nil {
@@ -68,7 +76,7 @@ func (m *Manager) restoreStopBinding(b *Binding, res *ApplyResult) {
 	res.add(b.PID, StatusRestored, "")
 }
 
-func (m *Manager) restoreNiceBinding(b *Binding, force bool, res *ApplyResult) {
+func (m *Manager) restoreNiceBinding(b *Binding, force, dryRun bool, res *ApplyResult) {
 	if b.Nice == nil {
 		return // nothing to restore for nice; stop/freeze handled separately
 	}
@@ -76,16 +84,25 @@ func (m *Manager) restoreNiceBinding(b *Binding, force bool, res *ApplyResult) {
 		res.add(b.PID, StatusStale, "identity changed (pid reused)")
 		return
 	}
-	// Detect external drift before overwriting (RFC §15.8).
+	// Detect external drift before overwriting (RFC §15.8). This is a read, so it
+	// is safe to evaluate even in dry-run to preview a refuse-on-drift outcome.
 	obs, err := m.ctrl.GetNice(b.PID)
 	if err != nil {
 		res.add(b.PID, StatusVanished, err.Error())
 		return
 	}
 	if obs != b.Nice.Desired && !force {
+		if dryRun {
+			res.add(b.PID, StatusDrifted, "dry-run: would refuse (drifted; use --force)")
+			return
+		}
 		b.Nice.Observed = obs
 		b.Nice.Status = StatusDrifted
 		res.add(b.PID, StatusDrifted, "observed value drifted from desired; refuse to overwrite (use --force)")
+		return
+	}
+	if dryRun {
+		res.add(b.PID, StatusUnchanged, fmt.Sprintf("dry-run: would restore nice→%d", b.Nice.Original))
 		return
 	}
 	if err := m.ctrl.SetNice(b.PID, b.Nice.Original); err != nil {
@@ -115,7 +132,7 @@ func (m *Manager) Unmanage(target string) error {
 // Signal delivers a signal to a set of instances, applying safeguards and
 // revalidating identity first (RFC §21.2). Destructive-signal confirmation is a
 // caller (CLI) concern.
-func (m *Manager) Signal(instances []Instance, sig ports.Signal) *ApplyResult {
+func (m *Manager) Signal(instances []Instance, sig ports.Signal, dryRun bool) *ApplyResult {
 	res := newApplyResult()
 	for _, in := range instances {
 		if ok, _ := m.sg.CheckPID(in.PID); !ok {
@@ -125,6 +142,10 @@ func (m *Manager) Signal(instances []Instance, sig ports.Signal) *ApplyResult {
 		id, ok := m.ctrl.ReadIdentity(in.PID)
 		if !ok || !id.SameProcess(in.ID) {
 			res.add(in.PID, StatusStale, "identity changed or vanished")
+			continue
+		}
+		if dryRun {
+			res.add(in.PID, StatusUnchanged, "dry-run: would send SIG"+string(sig))
 			continue
 		}
 		if err := m.ctrl.SendSignal(in.PID, sig); err != nil {
@@ -139,25 +160,27 @@ func (m *Manager) Signal(instances []Instance, sig ports.Signal) *ApplyResult {
 // SetStop records procfit's SIGSTOP/SIGCONT intent for a target and delivers the
 // signal. The intent is tracked separately from the observed kernel state
 // (RFC §15.4); a pre-stopped task is never blindly continued on restore.
-func (m *Manager) SetStop(target string, stop bool) (*ApplyResult, error) {
+func (m *Manager) SetStop(target string, stop, dryRun bool) (*ApplyResult, error) {
 	t := m.Find(target)
 	if t == nil {
 		return nil, fmt.Errorf("target %q not found", target)
 	}
-	t.DesiredStop = &stop
+	if !dryRun {
+		t.DesiredStop = &stop
+	}
 	sig := ports.SigStop
 	if !stop {
 		sig = ports.SigCont
 	}
 	res := newApplyResult()
 	for i := range t.Bindings {
-		m.applyStopBinding(&t.Bindings[i], stop, sig, res)
+		m.applyStopBinding(&t.Bindings[i], stop, sig, dryRun, res)
 	}
 	m.state.UpdatedAt = m.clk.Now()
 	return res, nil
 }
 
-func (m *Manager) applyStopBinding(b *Binding, stop bool, sig ports.Signal, res *ApplyResult) {
+func (m *Manager) applyStopBinding(b *Binding, stop bool, sig ports.Signal, dryRun bool, res *ApplyResult) {
 	if ok, _ := m.sg.CheckPID(b.PID); !ok {
 		res.add(b.PID, StatusSkipped, "protected")
 		return
@@ -169,6 +192,14 @@ func (m *Manager) applyStopBinding(b *Binding, stop bool, sig ports.Signal, res 
 	// Continue is only honoured for stops procfit owns (RFC §15.4).
 	if !stop && (b.Stop == nil || !b.Stop.DesiredStop) {
 		res.add(b.PID, StatusSkipped, "not stopped by procfit; refusing to continue")
+		return
+	}
+	if dryRun {
+		verb := "stop (SIGSTOP)"
+		if !stop {
+			verb = "continue (SIGCONT)"
+		}
+		res.add(b.PID, StatusUnchanged, "dry-run: would "+verb)
 		return
 	}
 	if err := m.ctrl.SendSignal(b.PID, sig); err != nil {

@@ -419,12 +419,12 @@ func applyTUIControl(c *ctlAsm, name string, req tui.ControlRequest) (string, er
 func applyControlKind(c *ctlAsm, name string, kind tui.ControlKind) (*control.ApplyResult, error) {
 	switch kind {
 	case tui.CtrlRestoreNice:
-		return c.mgr.RestoreNice(name)
+		return c.mgr.RestoreNice(name, false)
 	case tui.CtrlStop:
-		r, _ := c.mgr.SetStop(name, true)
+		r, _ := c.mgr.SetStop(name, true, false)
 		return r, nil
 	case tui.CtrlContinue:
-		r, _ := c.mgr.SetStop(name, false)
+		r, _ := c.mgr.SetStop(name, false, false)
 		return r, nil
 	case tui.CtrlFreeze:
 		r, _ := c.mgr.SetFreeze(name, true, false, false)
@@ -433,7 +433,7 @@ func applyControlKind(c *ctlAsm, name string, kind tui.ControlKind) (*control.Ap
 		r, _ := c.mgr.SetFreeze(name, false, false, false)
 		return r, nil
 	case tui.CtrlRestore:
-		return c.mgr.Restore(name, false)
+		return c.mgr.Restore(name, false, false)
 	}
 	return nil, nil
 }

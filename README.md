@@ -123,7 +123,13 @@ process you previewed, not whatever row drifted under the cursor.
 > whole cgroup subtree**. procfit refuses to freeze a cgroup that is your login
 > session / user slice or an ancestor of procfit itself (it would lock you out) —
 > the TUI shows `⚠ REFUSED` in the forecast and skips it. To override from the CLI:
-> `procfit set <target> --freeze-cgroup --force`. `--dry-run` never acts.
+> `procfit set <target> --freeze-cgroup --force`.
+>
+> **`--dry-run` never acts.** Every mutating control op honours it uniformly —
+> `set --nice/--stop/--continue/--freeze`, `signal`, and `restore` all report the
+> would-be per-pid outcome (`dry-run: would …`) without touching a process,
+> recording state, or writing an audit event. A destructive `signal --dry-run`
+> needs no `--yes`, since nothing is delivered.
 
 Control reuses the same safeguards as the CLI `set`/`restore` commands (protected
 PIDs are skipped, changes are recorded for restore). In the confirmation gate,

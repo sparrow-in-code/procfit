@@ -72,6 +72,38 @@ func TestControl_SetStopContinueAndDryRun(t *testing.T) {
 	if fc.Nice[1234] != 0 {
 		t.Fatal("dry-run must not change nice")
 	}
+	// dry-run --stop delivers no signal and previews (PM-0510).
+	before := len(fc.Signals[1234])
+	out.Reset()
+	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"set", "managed:w", "--stop", "--dry-run"}); code != ExitOK {
+		t.Fatalf("dry-run --stop exit %d stderr=%s", code, errb.String())
+	}
+	if len(fc.Signals[1234]) != before {
+		t.Fatalf("dry-run --stop delivered a signal: %v", fc.Signals[1234])
+	}
+	if !strings.Contains(out.String(), "dry-run") {
+		t.Fatalf("dry-run --stop should print a preview:\n%s", out.String())
+	}
+	// dry-run signal (destructive TERM, non-TTY) needs no --yes and delivers nothing.
+	out.Reset()
+	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"signal", "TERM", "pid:1234", "--dry-run"}); code != ExitOK {
+		t.Fatalf("dry-run signal exit %d stderr=%s", code, errb.String())
+	}
+	if len(fc.Signals[1234]) != before {
+		t.Fatalf("dry-run signal delivered a signal: %v", fc.Signals[1234])
+	}
+	// dry-run restore does not revert a real renice.
+	run(Env{Stdout: &out, Stderr: &errb}, []string{"set", "managed:w", "--nice", "7", "--set-nice"})
+	if fc.Nice[1234] != 7 {
+		t.Fatalf("setup renice failed: %v", fc.Nice)
+	}
+	out.Reset()
+	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"restore", "managed:w", "--dry-run"}); code != ExitOK {
+		t.Fatalf("dry-run restore exit %d stderr=%s", code, errb.String())
+	}
+	if fc.Nice[1234] != 7 {
+		t.Fatalf("dry-run restore reverted nice to %d", fc.Nice[1234])
+	}
 }
 
 func TestControl_ManageGroupResolution(t *testing.T) {

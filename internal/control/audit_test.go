@@ -17,7 +17,7 @@ func TestManager_AuditsApplyAndRestore(t *testing.T) {
 	fc.Add(7, 0, idFor(7, 70))
 	m.Manage("t", ModeFollow, "", []Instance{{ID: idFor(7, 70), PID: 7}})
 	_, _ = m.SetNice("t", 10, false)
-	_, _ = m.Restore("t", false)
+	_, _ = m.Restore("t", false, false)
 
 	var applied, restored bool
 	for _, e := range rec.events {

@@ -63,7 +63,7 @@ func TestRestore_ResumesStopAndThaws(t *testing.T) {
 	fc.Cgroups[10] = "/system.slice/app.service"
 	m.Manage("t", ModeFollow, "", []Instance{{ID: idFor(10, 100), PID: 10}})
 
-	if _, err := m.SetStop("t", true); err != nil {
+	if _, err := m.SetStop("t", true, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := m.SetFreeze("t", true, false, false); err != nil {
@@ -73,7 +73,7 @@ func TestRestore_ResumesStopAndThaws(t *testing.T) {
 		t.Fatal("target should be frozen before restore")
 	}
 
-	res, err := m.Restore("t", false)
+	res, err := m.Restore("t", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func TestRestoreNice_NiceOnly(t *testing.T) {
 	if _, err := m.SetNice("t", 15, false); err != nil {
 		t.Fatal(err)
 	}
-	res, err := m.RestoreNice("t")
+	res, err := m.RestoreNice("t", false)
 	if err != nil {
 		t.Fatal(err)
 	}

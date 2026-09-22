@@ -90,7 +90,7 @@ func TestExternalDrift_DetectedAndRestoreRefuses(t *testing.T) {
 	// External actor changes nice.
 	fc.Nice[1234] = 5
 	// Restore without force refuses to overwrite drift (exit 7 territory).
-	res, _ := m.Restore("t", false)
+	res, _ := m.Restore("t", false, false)
 	if res.Counts[StatusDrifted] != 1 {
 		t.Fatalf("restore should detect drift, got %+v", res.Counts)
 	}
@@ -98,7 +98,7 @@ func TestExternalDrift_DetectedAndRestoreRefuses(t *testing.T) {
 		t.Fatal("restore must not overwrite drifted state without force")
 	}
 	// Forced restore returns to original.
-	res, _ = m.Restore("t", true)
+	res, _ = m.Restore("t", true, false)
 	if res.Counts[StatusRestored] != 1 || fc.Nice[1234] != 0 {
 		t.Fatalf("forced restore failed: counts=%+v nice=%d", res.Counts, fc.Nice[1234])
 	}
@@ -109,7 +109,7 @@ func TestRestore_Normal(t *testing.T) {
 	fc.Add(7, 2, idFor(7, 70))
 	m.Manage("t", ModeFollow, "", []Instance{{ID: idFor(7, 70), PID: 7}})
 	_, _ = m.SetNice("t", 12, false)
-	res, _ := m.Restore("t", false)
+	res, _ := m.Restore("t", false, false)
 	if res.Counts[StatusRestored] != 1 || fc.Nice[7] != 2 {
 		t.Fatalf("restore to original failed: %+v nice=%d", res.Counts, fc.Nice[7])
 	}
@@ -146,12 +146,12 @@ func TestStopIntent_SeparateFromObserved_AndOwnership(t *testing.T) {
 	m.Manage("t", ModeFollow, "", []Instance{{ID: idFor(50, 500), PID: 50}})
 
 	// Continuing a task procfit did not stop is refused (RFC §15.4).
-	res, _ := m.SetStop("t", false)
+	res, _ := m.SetStop("t", false, false)
 	if res.Counts[StatusSkipped] != 1 {
 		t.Fatalf("continue on non-owned stop should be skipped, got %+v", res.Counts)
 	}
 	// Stop, then continue is allowed.
-	res, _ = m.SetStop("t", true)
+	res, _ = m.SetStop("t", true, false)
 	if res.Counts[StatusApplied] != 1 {
 		t.Fatalf("stop should apply, got %+v", res.Counts)
 	}
@@ -159,7 +159,7 @@ func TestStopIntent_SeparateFromObserved_AndOwnership(t *testing.T) {
 	if last != ports.SigStop {
 		t.Fatalf("expected SIGSTOP, got %v", last)
 	}
-	res, _ = m.SetStop("t", false)
+	res, _ = m.SetStop("t", false, false)
 	if res.Counts[StatusApplied] != 1 || fc.Signals[50][len(fc.Signals[50])-1] != ports.SigCont {
 		t.Fatalf("continue after owned stop should apply SIGCONT")
 	}
