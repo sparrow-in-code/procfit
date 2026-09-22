@@ -82,8 +82,10 @@ func NewDimensions() *Dimensions {
 		strField("exe", "EXE", func(p *model.Process) string { return p.Exe }),
 		strField("app", "APP", func(p *model.Process) string { return p.AppID }),
 		strField("cgroup", "CGROUP", func(p *model.Process) string { return p.CgroupPath }),
-		// Grouping by wchan clusters every task blocked in the same kernel
-		// function — instant root cause for D-state stalls (jbd2/NFS/reclaim/…).
+		// Grouping by state (R/S/D/…) buckets the load contributors; by wchan
+		// clusters every task blocked in the same kernel function — instant root
+		// cause for D-state stalls (jbd2/NFS/reclaim/…).
+		strField("pstate", "PSTATE", func(p *model.Process) string { return string(p.State.Code) }),
 		strField("wchan", "WCHAN", func(p *model.Process) string { return p.Wchan }),
 		strField("systemd-unit", "UNIT", func(p *model.Process) string { return p.SystemdUnit }),
 		strField("container", "CONTAINER", func(p *model.Process) string { return p.ContainerID }),

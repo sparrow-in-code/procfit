@@ -30,6 +30,10 @@ type Column struct {
 	// filter only offer properties that are actually displayed AND usable.
 	Sortable   bool
 	Filterable bool
+	// Groupable reports whether this column's id is also a group-by dimension
+	// (a categorical/identity field, not a continuous metric). The TUI offers
+	// grouping by any displayed groupable column.
+	Groupable bool
 }
 
 // ResolveColumns turns column ids into Columns with human-readable metric
@@ -90,15 +94,15 @@ var structuralColumns = map[string]Column{
 	"threads": {ID: "threads", Header: "THREADS", RightAlign: true, Sortable: true, Filterable: true, Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Threads) }},
 	"pid":     {ID: "pid", Header: "PID", RightAlign: true, Sortable: true, Cell: cellPID},
 	"tid":     {ID: "tid", Header: "TID", RightAlign: true, Sortable: true, Cell: cellTID},
-	"ppid":    {ID: "ppid", Header: "PPID", RightAlign: true, Cell: cellPPID},
-	"comm":    {ID: "comm", Header: "COMM", Sortable: true, Filterable: true, Cell: cellComm},
-	"name":    {ID: "name", Header: "NAME", Sortable: true, Filterable: true, Cell: cellName},
-	"uid":     {ID: "uid", Header: "UID", RightAlign: true, Cell: cellUID},
-	"user":    {ID: "user", Header: "USER", Cell: cellUser},
-	"pstate":  {ID: "pstate", Header: "PSTATE", Cell: cellPState},
+	"ppid":    {ID: "ppid", Header: "PPID", RightAlign: true, Groupable: true, Cell: cellPPID},
+	"comm":    {ID: "comm", Header: "COMM", Sortable: true, Filterable: true, Groupable: true, Cell: cellComm},
+	"name":    {ID: "name", Header: "NAME", Sortable: true, Filterable: true, Groupable: true, Cell: cellName},
+	"uid":     {ID: "uid", Header: "UID", RightAlign: true, Groupable: true, Cell: cellUID},
+	"user":    {ID: "user", Header: "USER", Groupable: true, Cell: cellUser},
+	"pstate":  {ID: "pstate", Header: "PSTATE", Groupable: true, Cell: cellPState},
 	"kind":    {ID: "kind", Header: "KIND", Filterable: true, Cell: func(r *query.Row) string { return string(r.Kind) }},
 	"cmdline": {ID: "cmdline", Header: "CMDLINE", Cell: cellCmdline},
-	"wchan":   {ID: "wchan", Header: "WCHAN", Sortable: true, Filterable: true, Cell: cellWchan},
+	"wchan":   {ID: "wchan", Header: "WCHAN", Sortable: true, Filterable: true, Groupable: true, Cell: cellWchan},
 }
 
 // cellWchan renders the kernel symbol a blocked process is sleeping in.

@@ -91,6 +91,43 @@ func TestModel_ExpandCollapse(t *testing.T) {
 	}
 }
 
+func TestModel_GroupCycleIncludesDisplayedDimensions(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(80, 24)
+	res, _ := sampleResult(2)
+	cols, _ := render.ResolveColumns(metrics.NewDefault(), []string{"target", "pstate", "wchan", "cpu"})
+	m.SetResult(res, cols)
+
+	has := func(cycle []groupPreset, gb string) bool {
+		for _, p := range cycle {
+			if p.groupBy == gb {
+				return true
+			}
+		}
+		return false
+	}
+	cycle := m.groupCycle()
+	// Built-in presets stay; displayed groupable columns (pstate/wchan) are added.
+	if !has(cycle, "none") || !has(cycle, "comm") {
+		t.Fatalf("cycle should keep built-in presets: %+v", cycle)
+	}
+	if !has(cycle, "wchan") || !has(cycle, "pstate") {
+		t.Fatalf("displayed dimension columns should be groupable: %+v", cycle)
+	}
+	// A numeric metric column is not a dimension and must not be groupable.
+	if has(cycle, "cpu") {
+		t.Fatalf("a metric column must not be in the group cycle: %+v", cycle)
+	}
+	// Pressing g eventually reaches the displayed wchan grouping.
+	for i := 0; i < len(cycle); i++ {
+		m.Update(KeyEvent{Rune: 'g'})
+		if m.flags.GroupBy == "wchan" {
+			return
+		}
+	}
+	t.Fatalf("g-cycle never reached wchan grouping")
+}
+
 func TestModel_FoldAll(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	m.SetSize(80, 24)

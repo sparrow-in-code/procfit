@@ -407,12 +407,37 @@ func (m *Model) clampScroll() {
 }
 
 func (m *Model) cycleGroup() {
-	m.groupIx = (m.groupIx + 1) % len(groupPresets)
-	p := groupPresets[m.groupIx]
-	m.flags.GroupBy = p.groupBy
+	cycle := m.groupCycle()
+	cur := 0
+	for i, p := range cycle {
+		if p.groupBy == m.flags.GroupBy {
+			cur = i
+			break
+		}
+	}
+	next := cycle[(cur+1)%len(cycle)]
+	m.flags.GroupBy = next.groupBy
 	m.cursor, m.scroll = 0, 0
-	m.status = "group: " + p.label
+	m.status = "group: " + next.label
 	m.dirty = true
+}
+
+// groupCycle is the `g` rotation: the built-in group presets plus any displayed
+// column that is itself a group dimension (Groupable), so e.g. a wchan or pstate
+// column on screen becomes groupable. Ungrouped stays first.
+func (m *Model) groupCycle() []groupPreset {
+	out := append([]groupPreset(nil), groupPresets...)
+	seen := map[string]bool{}
+	for _, p := range out {
+		seen[p.groupBy] = true
+	}
+	for _, c := range m.cols {
+		if c.Groupable && !seen[c.ID] {
+			out = append(out, groupPreset{label: "by " + c.ID, groupBy: c.ID})
+			seen[c.ID] = true
+		}
+	}
+	return out
 }
 
 // cycleLeaf changes the terminal-row mode (process/thread/none) independently of

@@ -50,7 +50,6 @@ type Model struct {
 	height       int
 	scroll       int
 	cursor       int
-	groupIx      int
 	leafIx       int
 	sortIx       int
 	sortDsc      bool
@@ -117,21 +116,12 @@ type flatRow struct {
 // NewModel builds a model with initial flags and a 1s default refresh interval.
 func NewModel(flags queryspec.Flags) *Model {
 	m := &Model{flags: flags, height: 24, width: 100, intervalStep: defaultIntervalIdx, collapsed: map[string]bool{}}
-	m.foldDefault = flags.CollapseGroups                // --collapse-groups / config: start folded
-	m.groupIx = indexOf(groupByLabels(), flags.GroupBy) // keep g-cycle in sync with launch flags
+	m.foldDefault = flags.CollapseGroups // --collapse-groups / config: start folded
 	m.leafIx = indexOf(leafModes, leafOrDefault(flags.Leaf))
 	if flags.Sort != "" {
 		m.status = "sorted by " + flags.Sort
 	}
 	return m
-}
-
-func groupByLabels() []string {
-	out := make([]string, len(groupPresets))
-	for i, p := range groupPresets {
-		out[i] = p.groupBy
-	}
-	return out
 }
 
 func leafOrDefault(leaf string) string {

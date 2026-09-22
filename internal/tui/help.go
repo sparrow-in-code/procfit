@@ -46,7 +46,7 @@ func (m *Model) helpEntries() []helpEntry {
 		{"c / C", "fold all groups / unfold all groups"},
 		{"", ""},
 		{"", "VIEW"},
-		{"g", "cycle the grouping preset"},
+		{"g", "cycle grouping — presets + any displayed dimension column (wchan, state, user, …)"},
 		{"t", "cycle the leaf mode (process/thread/none)"},
 		{"s / S", "cycle sort column / toggle asc↔desc"},
 		{"/  or  f", "filter (having expression; !, !=, !~, not in)"},

@@ -91,7 +91,7 @@ on a short terminal; `?`/`Esc`/`q` closes). The tables below are that keymap.
 | `Enter` / `←` / `→` | fold/unfold the group under the cursor (`[-]` open, `[+]` collapsed; leaves have no marker) |
 | `c` / `C` | fold **all** groups shut / unfold **all** at once (a per-group `Enter` still overrides afterwards) |
 | `i` | inspect the selected row — identity + recent control history (when `[state].history` is enabled); `Esc`/`i` to close |
-| `g` | cycle the grouping preset |
+| `g` | cycle grouping — the built-in presets **plus any displayed column that is a dimension** (e.g. `wchan`, `pstate`, `user`), so you can group by what's on screen |
 | `s` / `S` | cycle the sort column / toggle ascending↔descending |
 | `/` or `f` | filter (see below) |
 | `u` | toggle human units (K/M/G) vs raw bytes |

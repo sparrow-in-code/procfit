@@ -40,7 +40,7 @@ func TestModel_HelpOverlay(t *testing.T) {
 		t.Fatal("`?` should open the help overlay")
 	}
 	joined := strings.Join(m.Frame(), "\n")
-	for _, want := range []string{"HELP", "NAVIGATION", "cycle the grouping preset", "fold all groups", "quit"} {
+	for _, want := range []string{"HELP", "NAVIGATION", "cycle grouping", "fold all groups", "quit"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("help overlay missing %q:\n%s", want, joined)
 		}
