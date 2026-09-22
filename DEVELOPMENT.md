@@ -498,10 +498,15 @@ git push origin v1.2.3
 branch/commit, and enter the version (e.g. `v1.2.3`) in the **tag** input. This
 runs the same pipeline and **creates the tag + Release at that commit**.
 
-Both paths publish. The version string comes from the tag (`github.ref_name`) or,
-for a manual run, the `tag` input — matching the local `make build` stamp
-(`git describe --tags`). Use SemVer; pre-releases like `v1.2.3-rc1` publish too
-(mark them pre-release in the GitHub UI if desired).
+Both paths publish. The release *tag* names the artifacts; the version **embedded**
+in the binary is SemVer plus a build-metadata id — `<core>+<yyyyMMdd-HHmmss>-<sha>`
+(e.g. `1.2.3+20260922-154210-d60fa93`) — so a binary always reports exactly when
+and from which commit it was built. `<core>` is the tag (`v`-stripped), or the
+nearest tag / `0.1.0` for untagged local builds. `scripts/version.sh` is the single
+source of truth for the shell paths (`make build`, the release job); `flake.nix`
+composes the same from flake metadata, and an un-stamped `go build` reports
+`0.1.0-dev`. Use SemVer tags; pre-releases like `v1.2.3-rc1` publish too (mark them
+pre-release in the GitHub UI if desired).
 
 > **Why might "publish GitHub release" show as _skipped_?** The publish + image
 > **push** steps are guarded to a tag ref or a manual run. If you trigger the

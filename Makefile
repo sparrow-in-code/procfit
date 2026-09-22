@@ -8,9 +8,11 @@ BINDIR      := bin
 COVERPROFILE := coverage.out
 COVER_MIN   := 80
 
-VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
-DATE        ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+# Version is SemVer + a yyyyMMdd-HHmmss-<sha> build id (see scripts/version.sh).
+# COMMIT/DATE reuse the same sha/timestamp so all three agree.
+COMMIT      ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+DATE        ?= $(shell date -u +%Y%m%d-%H%M%S)
+VERSION     ?= $(shell GIT_SHA=$(COMMIT) BUILD_TIME=$(DATE) sh scripts/version.sh 2>/dev/null || echo 0.1.0-dev)
 LDFLAGS     := -X $(PKG)/internal/meta.Version=$(VERSION) \
                -X $(PKG)/internal/meta.Commit=$(COMMIT) \
                -X $(PKG)/internal/meta.BuildDate=$(DATE)

@@ -12,7 +12,13 @@
       let
         pkgs = import nixpkgs { inherit system; };
         version = "0.1.0";
-        rev = self.rev or self.dirtyRev or "dirty";
+        # Compose the same SemVer + yyyyMMdd-HHmmss-<sha> build id as
+        # scripts/version.sh, from the flake's own metadata (hermetic: no git/date
+        # calls at build time). lastModifiedDate is "YYYYMMDDHHMMSS".
+        shortRev = self.shortRev or self.dirtyShortRev or "unknown";
+        lastMod = self.lastModifiedDate or "00000000000000";
+        buildDate = "${builtins.substring 0 8 lastMod}-${builtins.substring 8 6 lastMod}";
+        fullVersion = "${version}+${buildDate}-${shortRev}";
         pkg = "github.com/netikras/procfit";
         procfit = pkgs.buildGoModule {
           pname = "procfit";
@@ -31,8 +37,9 @@
           ldflags = [
             "-s"
             "-w"
-            "-X ${pkg}/internal/meta.Version=${version}"
-            "-X ${pkg}/internal/meta.Commit=${builtins.substring 0 12 rev}"
+            "-X ${pkg}/internal/meta.Version=${fullVersion}"
+            "-X ${pkg}/internal/meta.Commit=${shortRev}"
+            "-X ${pkg}/internal/meta.BuildDate=${buildDate}"
           ];
 
           # Unit tests need /proc; skip them in the sandbox (CI runs the full gate).

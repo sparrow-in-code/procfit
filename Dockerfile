@@ -13,7 +13,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-ARG TARGETOS TARGETARCH VERSION=dev COMMIT=none DATE=unknown
+ARG TARGETOS TARGETARCH VERSION=0.1.0-dev COMMIT=unknown DATE=unknown
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -trimpath -ldflags "-s -w \
       -X github.com/netikras/procfit/internal/meta.Version=${VERSION} \
