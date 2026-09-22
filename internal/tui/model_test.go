@@ -128,6 +128,42 @@ func TestModel_GroupCycleIncludesDisplayedDimensions(t *testing.T) {
 	t.Fatalf("g-cycle never reached wchan grouping")
 }
 
+func TestModel_AddRemoveColumn(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(120, 24)
+	m.SetColumnChoices([]string{"cpu", "rss", "wchan"})
+	res, _ := sampleResult(2)
+	cols, _ := render.ResolveColumns(metrics.NewDefault(), []string{"target", "cpu"})
+	m.SetResult(res, cols)
+
+	// `+` opens the prompt; a typed prefix + Enter appends the match to the right.
+	m.Update(KeyEvent{Rune: '+'})
+	if !m.colEditing {
+		t.Fatal("+ should open the add-column prompt")
+	}
+	for _, r := range "wch" {
+		m.Update(KeyEvent{Rune: r})
+	}
+	m.Update(KeyEvent{Name: "enter"})
+	if m.colEditing {
+		t.Fatal("Enter should close the prompt")
+	}
+	if m.flags.Columns != "target,cpu,wchan" {
+		t.Fatalf("column not appended: %q", m.flags.Columns)
+	}
+	if !m.dirty {
+		t.Fatal("adding a column should trigger a re-query")
+	}
+
+	// The driver re-queries with the new columns; `-` then drops the rightmost.
+	cols2, _ := render.ResolveColumns(metrics.NewDefault(), []string{"target", "cpu", "wchan"})
+	m.SetResult(res, cols2)
+	m.Update(KeyEvent{Rune: '-'})
+	if m.flags.Columns != "target,cpu" {
+		t.Fatalf("column not removed: %q", m.flags.Columns)
+	}
+}
+
 func TestModel_FoldAll(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	m.SetSize(80, 24)

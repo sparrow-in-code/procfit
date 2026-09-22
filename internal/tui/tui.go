@@ -27,6 +27,7 @@ type Deps struct {
 	Drop        DropFunc // unmanage the target(s) owning the selected pids
 	History     HistoryFunc
 	Interval    time.Duration // starting refresh interval (0 = default 1s)
+	Columns     []string      // addable column ids for the interactive picker (`+`)
 }
 
 func RunTerminal(deps Deps, flags queryspec.Flags) (string, error) {
@@ -51,6 +52,7 @@ func Run(screen tcell.Screen, deps Deps, flags queryspec.Flags) (string, error) 
 	m.SetManaged(deps.ManagedTree != nil, deps.Drop)
 	m.SetHistory(deps.History)
 	m.SetInterval(deps.Interval)
+	m.SetColumnChoices(deps.Columns)
 	w, h := screen.Size()
 	m.SetSize(w, h)
 	requery(m, deps)

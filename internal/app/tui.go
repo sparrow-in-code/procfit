@@ -58,6 +58,7 @@ func cmdTUI(env Env, args []string) int {
 		Drop:        tuiDrop(),
 		History:     tuiHistory(),
 		Interval:    *interval,
+		Columns:     a.addableColumns(),
 	}
 	cli, err := tui.RunTerminal(deps, qf.toSpecFlags())
 	if err != nil {
@@ -68,6 +69,20 @@ func cmdTUI(env Env, args []string) int {
 		fmt.Fprintln(env.Stdout, cli) // reproducible CLI for the final view (§27 Phase 3 exit)
 	}
 	return ExitOK
+}
+
+// addableColumns lists every displayable column id (metrics + structural), sorted
+// — the choices for the TUI's interactive `+` column picker.
+func (a *assembly) addableColumns() []string {
+	ids := make([]string, 0)
+	for _, d := range a.reg.All() {
+		ids = append(ids, string(d.ID))
+	}
+	for _, c := range render.StructuralColumns() {
+		ids = append(ids, c.ID)
+	}
+	sort.Strings(ids)
+	return ids
 }
 
 // tuiRefresh builds a RefreshFunc backed by a persistent sampler so rates warm up

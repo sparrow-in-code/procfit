@@ -50,6 +50,7 @@ func (m *Model) helpEntries() []helpEntry {
 		{"t", "cycle the leaf mode (process/thread/none)"},
 		{"s / S", "cycle sort column / toggle asc↔desc"},
 		{"/  or  f", "filter (having expression; !, !=, !~, not in)"},
+		{"+ / -", "add a column (type id + Enter, prefix-matched) / drop the last column"},
 		{"u", "toggle human units (K/M/G) vs raw"},
 		{"i", "inspect the selected row (identity + history)"},
 		{"[ / ]", "faster / slower refresh interval"},

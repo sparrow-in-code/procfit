@@ -94,6 +94,7 @@ on a short terminal; `?`/`Esc`/`q` closes). The tables below are that keymap.
 | `g` | cycle grouping — the built-in presets **plus any displayed column that is a dimension** (e.g. `wchan`, `pstate`, `user`), so you can group by what's on screen |
 | `s` / `S` | cycle the sort column / toggle ascending↔descending |
 | `/` or `f` | filter (see below) |
+| `+` / `-` | add a column (type an id, prefix-matched, `Enter` appends it to the right) / drop the last column — no restart needed |
 | `u` | toggle human units (K/M/G) vs raw bytes |
 | `[` / `]` | faster / slower refresh interval (start value via `--interval`, e.g. `procfit tui --interval 2s`) |
 | `p` or `Space` | pause/resume auto-refresh (freeze the view to aim at a moving target) |

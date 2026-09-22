@@ -98,6 +98,13 @@ func (m *Model) statusBar() string {
 		}
 		return truncate(line, m.width)
 	}
+	if m.colEditing {
+		hint := "type a column id, Enter=add Esc=cancel"
+		if id := m.matchColumn(m.colBuf); id != "" {
+			hint = "Enter adds → " + id
+		}
+		return truncate("add column> "+m.colBuf+"▏   "+hint, m.width)
+	}
 	return truncate(m.slimBar(), m.width)
 }
 
