@@ -117,6 +117,31 @@ func TestBuild_ProfileViewDefaults(t *testing.T) {
 	}
 }
 
+func TestBuild_ProfilesAlwaysShowGroupSize(t *testing.T) {
+	reg, dims := regDims()
+	ptAfterTarget := func(cols []string) bool {
+		for i, c := range cols {
+			if c == "pt" {
+				return i > 0 && cols[i-1] == "target"
+			}
+		}
+		return false
+	}
+	// Explicit-column profile (sysload) and derived profile (io) both get pt,
+	// right after target, so group size is always visible.
+	for _, p := range []string{"sysload", "io"} {
+		r, _ := Build(reg, dims, Flags{Profile: p})
+		if !containsCol(r.Columns, "pt") || !ptAfterTarget(r.Columns) {
+			t.Fatalf("profile %q should include pt after target: %v", p, r.Columns)
+		}
+	}
+	// Explicit --columns is respected — pt is NOT forced in.
+	rc, _ := Build(reg, dims, Flags{Columns: "target,cpu"})
+	if containsCol(rc.Columns, "pt") {
+		t.Fatalf("explicit --columns must not gain pt: %v", rc.Columns)
+	}
+}
+
 func TestBuild_StateWchanFilters(t *testing.T) {
 	reg, dims := regDims()
 	if _, err := Build(reg, dims, Flags{Select: `state == "D"`}); err != nil {

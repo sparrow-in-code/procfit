@@ -134,9 +134,9 @@ func chooseColumns(reg *metrics.Registry, f Flags) []string {
 	// column list (used verbatim); otherwise identity columns front its metrics.
 	if cols, explicit, ok := profileColumns(reg, f.Profile); ok {
 		if explicit {
-			return cols
+			return withGroupSize(cols)
 		}
-		return leafIdentifiers(f.Leaf, cols)
+		return withGroupSize(leafIdentifiers(f.Leaf, cols))
 	}
 	if f.Leaf == string(query.LeafThread) {
 		return withTID(DefaultColumns) // thread views expose the thread id too
@@ -188,6 +188,30 @@ func applyProfileDefaults(f Flags) Flags {
 		f.Having = p.Having
 	}
 	return f
+}
+
+// withGroupSize guarantees the "pt" (process/thread counts) column is present so
+// every profile view shows how large each group is, inserted right after target.
+// Explicit --columns is untouched (chooseColumns returns before this).
+func withGroupSize(cols []string) []string {
+	for _, c := range cols {
+		if c == "pt" {
+			return cols
+		}
+	}
+	out := make([]string, 0, len(cols)+1)
+	inserted := false
+	for _, c := range cols {
+		out = append(out, c)
+		if c == "target" && !inserted {
+			out = append(out, "pt")
+			inserted = true
+		}
+	}
+	if !inserted {
+		out = append([]string{"pt"}, out...)
+	}
+	return out
 }
 
 // leafIdentifiers prepends the identity columns (target, pid, and tid for thread
