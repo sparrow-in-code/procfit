@@ -198,6 +198,12 @@ carries the signal.
 > The flag is **`--profile`** (the older `--metrics` still works as a deprecated
 > alias; env `PROCFIT_PROFILE`, config `[metrics].profile`).
 
+Run **`procfit metrics`** (`--format json` for machine output) for the full field
+catalog — every id usable in `--columns`/`--group-by`/`--sort`/`--having`, split
+into **METRICS** (collected values), **COLUMNS** (identity/state fields, tagged
+`[g]roup-by [s]ort [f]ilter`), and **DIMENSIONS** (`--group-by` axes). Each section
+is generated from its registry, so it never drifts from what the tool accepts.
+
 **GPU** is another invisible drain. `gpu` (per-process engine utilization %) and
 `gpu-mem` come from the vendor-neutral DRM fdinfo ABI (`/proc/PID/fdinfo`), so one
 path covers Intel (i915/xe), AMD (amdgpu), and ARM DRM drivers — no vendor tools:

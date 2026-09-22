@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/netikras/procfit/internal/metrics"
+	"github.com/netikras/procfit/internal/query"
+	"github.com/netikras/procfit/internal/render"
 )
 
 // cmdMetrics implements `procfit metrics list` (RFC §8, §13).
@@ -34,14 +36,80 @@ func cmdMetrics(env Env, args []string) int {
 	}
 	reg := metrics.NewDefault()
 
+	dims := query.NewDimensions()
 	if *format == "json" {
-		return dumpMetricsJSON(env, reg)
+		return dumpFieldsJSON(env, reg, dims)
 	}
+	printMetricsSection(env, reg)
+	printColumnsSection(env)
+	printDimensionsSection(env, dims)
+	return ExitOK
+}
+
+// printMetricsSection lists the numeric metrics — values usable as columns, sort
+// keys, and filter fields. Sourced from the metric registry (single source of
+// truth: add a descriptor there and it appears here and everywhere else).
+func printMetricsSection(env Env, reg *metrics.Registry) {
+	fmt.Fprintln(env.Stdout, "METRICS  (values — usable as columns, --sort, --having):")
 	for _, d := range reg.All() {
-		fmt.Fprintf(env.Stdout, "%-20s cost=%d unit=%-16s agg=%-20s rate=%v  %s\n",
+		fmt.Fprintf(env.Stdout, "  %-20s cost=%d unit=%-16s agg=%-20s rate=%v  %s\n",
 			d.ID, d.Cost, d.Unit, d.Aggregation, d.IsRate(), d.Description)
 	}
-	return ExitOK
+}
+
+// printColumnsSection lists the structural (identity/state) columns from the
+// render registry, tagging what each can also be used for.
+func printColumnsSection(env Env) {
+	fmt.Fprintln(env.Stdout, "\nCOLUMNS  (identity/state fields — usable as columns; tag: [g]roup-by [s]ort [f]ilter):")
+	for _, c := range render.StructuralColumns() {
+		fmt.Fprintf(env.Stdout, "  %-20s %-6s %s\n", c.ID, columnUses(c), c.Header)
+	}
+}
+
+// printDimensionsSection lists the --group-by axes from the dimension registry,
+// marking those that are also a column with '*'.
+func printDimensionsSection(env Env, dims *query.Dimensions) {
+	cols := columnIDSet()
+	fmt.Fprintln(env.Stdout, "\nDIMENSIONS  (--group-by axes; * = also a column above):")
+	for _, id := range dims.IDs() {
+		mark := ""
+		if cols[id] {
+			mark = "*"
+		}
+		fmt.Fprintf(env.Stdout, "  %-20s %s\n", id+mark, dimensionLabel(dims, id))
+	}
+}
+
+func columnUses(c render.Column) string {
+	s := ""
+	if c.Groupable {
+		s += "g"
+	}
+	if c.Sortable {
+		s += "s"
+	}
+	if c.Filterable {
+		s += "f"
+	}
+	if s == "" {
+		return "-"
+	}
+	return "[" + s + "]"
+}
+
+func columnIDSet() map[string]bool {
+	set := make(map[string]bool)
+	for _, c := range render.StructuralColumns() {
+		set[c.ID] = true
+	}
+	return set
+}
+
+func dimensionLabel(dims *query.Dimensions, id string) string {
+	if d, ok := dims.Get(id); ok {
+		return d.Label
+	}
+	return ""
 }
 
 type metricJSON struct {
@@ -55,13 +123,33 @@ type metricJSON struct {
 	Description string   `json:"description"`
 }
 
-func dumpMetricsJSON(env Env, reg *metrics.Registry) int {
-	out := make([]metricJSON, 0)
-	for _, d := range reg.All() {
-		out = append(out, metricJSON{
-			ID: string(d.ID), Aliases: d.Aliases, Unit: string(d.Unit), Scope: string(d.Scope),
-			Cost: int(d.Cost), Aggregation: string(d.Aggregation), Rate: d.IsRate(), Description: d.Description,
-		})
+type columnJSON struct {
+	ID         string `json:"id"`
+	Header     string `json:"header"`
+	Sortable   bool   `json:"sortable"`
+	Filterable bool   `json:"filterable"`
+	Groupable  bool   `json:"groupable"`
+}
+
+type dimensionJSON struct {
+	ID         string `json:"id"`
+	Label      string `json:"label"`
+	AlsoColumn bool   `json:"also_column"`
+}
+
+// fieldsJSON is the machine-readable field catalog: every id usable in
+// --columns/--group-by/--sort/--having, split by kind.
+type fieldsJSON struct {
+	Metrics    []metricJSON    `json:"metrics"`
+	Columns    []columnJSON    `json:"columns"`
+	Dimensions []dimensionJSON `json:"dimensions"`
+}
+
+func dumpFieldsJSON(env Env, reg *metrics.Registry, dims *query.Dimensions) int {
+	out := fieldsJSON{
+		Metrics:    metricsToJSON(reg),
+		Columns:    columnsToJSON(),
+		Dimensions: dimensionsToJSON(dims),
 	}
 	enc := json.NewEncoder(env.Stdout)
 	enc.SetIndent("", "  ")
@@ -70,6 +158,36 @@ func dumpMetricsJSON(env Env, reg *metrics.Registry) int {
 		return ExitRuntime
 	}
 	return ExitOK
+}
+
+func metricsToJSON(reg *metrics.Registry) []metricJSON {
+	out := make([]metricJSON, 0)
+	for _, d := range reg.All() {
+		out = append(out, metricJSON{
+			ID: string(d.ID), Aliases: d.Aliases, Unit: string(d.Unit), Scope: string(d.Scope),
+			Cost: int(d.Cost), Aggregation: string(d.Aggregation), Rate: d.IsRate(), Description: d.Description,
+		})
+	}
+	return out
+}
+
+func columnsToJSON() []columnJSON {
+	out := make([]columnJSON, 0)
+	for _, c := range render.StructuralColumns() {
+		out = append(out, columnJSON{
+			ID: c.ID, Header: c.Header, Sortable: c.Sortable, Filterable: c.Filterable, Groupable: c.Groupable,
+		})
+	}
+	return out
+}
+
+func dimensionsToJSON(dims *query.Dimensions) []dimensionJSON {
+	cols := columnIDSet()
+	out := make([]dimensionJSON, 0)
+	for _, id := range dims.IDs() {
+		out = append(out, dimensionJSON{ID: id, Label: dimensionLabel(dims, id), AlsoColumn: cols[id]})
+	}
+	return out
 }
 
 // cmdCapabilities implements `procfit capabilities` (RFC §14.3, §20.2).

@@ -13,15 +13,20 @@ func TestMetricsList(t *testing.T) {
 	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"metrics", "list"}); code != ExitOK {
 		t.Fatalf("metrics list exit %d", code)
 	}
-	if !strings.Contains(out.String(), "cpu") {
-		t.Fatal("metrics list should include cpu")
+	// The catalog is complete: metrics + structural columns + group-by dimensions.
+	for _, want := range []string{"cpu", "METRICS", "COLUMNS", "wchan", "DIMENSIONS"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("metrics list missing %q:\n%s", want, out.String())
+		}
 	}
 	out.Reset()
 	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"metrics", "list", "--format", "json"}); code != ExitOK {
 		t.Fatalf("metrics list json exit %d", code)
 	}
-	if !strings.Contains(out.String(), `"id": "cpu"`) {
-		t.Fatalf("metrics json missing cpu:\n%s", out.String())
+	for _, want := range []string{`"id": "cpu"`, `"metrics"`, `"columns"`, `"dimensions"`, `"also_column"`} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("metrics json missing %q:\n%s", want, out.String())
+		}
 	}
 	out.Reset()
 	errb.Reset()

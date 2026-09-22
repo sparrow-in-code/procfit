@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -9,6 +10,22 @@ import (
 	"github.com/netikras/procfit/internal/model"
 	"github.com/netikras/procfit/internal/query"
 )
+
+// StructuralColumns returns the built-in non-metric (identity/state) columns in a
+// stable id order. It is the single source of truth for enumerating and
+// validating structural columns (e.g. `procfit metrics`), so it never drifts.
+func StructuralColumns() []Column {
+	ids := make([]string, 0, len(structuralColumns))
+	for id := range structuralColumns {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	out := make([]Column, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, structuralColumns[id])
+	}
+	return out
+}
 
 // Column is a resolved output column: a header and a cell extractor. Adding a
 // column is adding a descriptor here or a metric to the registry — renderers
@@ -99,7 +116,7 @@ var structuralColumns = map[string]Column{
 	"name":    {ID: "name", Header: "NAME", Sortable: true, Filterable: true, Groupable: true, Cell: cellName},
 	"uid":     {ID: "uid", Header: "UID", RightAlign: true, Groupable: true, Cell: cellUID},
 	"user":    {ID: "user", Header: "USER", Groupable: true, Cell: cellUser},
-	"pstate":  {ID: "pstate", Header: "PSTATE", Groupable: true, Cell: cellPState},
+	"pstate":  {ID: "pstate", Header: "PSTATE", Sortable: true, Filterable: true, Groupable: true, Cell: cellPState},
 	"kind":    {ID: "kind", Header: "KIND", Filterable: true, Cell: func(r *query.Row) string { return string(r.Kind) }},
 	"cmdline": {ID: "cmdline", Header: "CMDLINE", Cell: cellCmdline},
 	"wchan":   {ID: "wchan", Header: "WCHAN", Sortable: true, Filterable: true, Groupable: true, Cell: cellWchan},

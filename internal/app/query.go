@@ -47,8 +47,8 @@ func bindQueryFlags(fs *flag.FlagSet) *queryFlags {
 		" (default: none = flat process list)")
 	fs.StringVar(&qf.leaf, "leaf", "", "terminal rows under groups; values: process,thread,none (default: process)")
 	fs.StringVar(&qf.sortSpec, "sort", "", "sort keys 'field[:asc|desc]', comma-separated, e.g. cpu:desc,comm (default: unsorted)")
-	fs.StringVar(&qf.columns, "columns", "", "explicit columns, comma-separated; ids from 'procfit metrics' plus "+
-		"target,pid,tid,pt,user,pstate,... (default: auto for the leaf mode)")
+	fs.StringVar(&qf.columns, "columns", "", "explicit columns, comma-separated; run 'procfit metrics' for the "+
+		"full catalog (metrics + columns) (default: auto for the leaf mode)")
 	fs.StringVar(&qf.profile, "profile", "", "metric profile (a named metric set + default view); "+
 		"values: "+strings.Join(metrics.ProfileNames(), ",")+" (default: light)")
 	fs.StringVar(&qf.profile, "metrics", "", "deprecated alias for --profile")
