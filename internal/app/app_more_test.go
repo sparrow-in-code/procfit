@@ -13,17 +13,18 @@ func TestMetricsList(t *testing.T) {
 	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"metrics", "list"}); code != ExitOK {
 		t.Fatalf("metrics list exit %d", code)
 	}
-	// The catalog is complete: metrics + structural columns + group-by dimensions.
-	for _, want := range []string{"cpu", "METRICS", "COLUMNS", "wchan", "DIMENSIONS"} {
+	// One unified catalog: a metric (cpu), a structural column (wchan), and a
+	// dimension-only field (cgroup) all appear, with the USE-flags header.
+	for _, want := range []string{"USE flags", "cpu", "wchan", "cgroup", "DESCRIPTION"} {
 		if !strings.Contains(out.String(), want) {
-			t.Fatalf("metrics list missing %q:\n%s", want, out.String())
+			t.Fatalf("metrics catalog missing %q:\n%s", want, out.String())
 		}
 	}
 	out.Reset()
 	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"metrics", "list", "--format", "json"}); code != ExitOK {
 		t.Fatalf("metrics list json exit %d", code)
 	}
-	for _, want := range []string{`"id": "cpu"`, `"metrics"`, `"columns"`, `"dimensions"`, `"also_column"`} {
+	for _, want := range []string{`"id": "cpu"`, `"column"`, `"group_by"`, `"filterable"`, `"metric"`} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("metrics json missing %q:\n%s", want, out.String())
 		}

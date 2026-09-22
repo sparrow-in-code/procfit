@@ -6,10 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/netikras/procfit/internal/metrics"
 	"github.com/netikras/procfit/internal/query"
+	"github.com/netikras/procfit/internal/queryspec"
 	"github.com/netikras/procfit/internal/render"
 )
 
@@ -36,120 +39,152 @@ func cmdMetrics(env Env, args []string) int {
 	}
 	reg := metrics.NewDefault()
 
-	dims := query.NewDimensions()
+	fields := buildFieldCatalog(reg, query.NewDimensions())
 	if *format == "json" {
-		return dumpFieldsJSON(env, reg, dims)
+		return dumpFieldsJSON(env, fields)
 	}
-	printMetricsSection(env, reg)
-	printColumnsSection(env)
-	printDimensionsSection(env, dims)
+	printFieldCatalog(env, fields)
 	return ExitOK
 }
 
-// printMetricsSection lists the numeric metrics — values usable as columns, sort
-// keys, and filter fields. Sourced from the metric registry (single source of
-// truth: add a descriptor there and it appears here and everywhere else).
-func printMetricsSection(env Env, reg *metrics.Registry) {
-	fmt.Fprintln(env.Stdout, "METRICS  (values — usable as columns, --sort, --having):")
-	for _, d := range reg.All() {
-		fmt.Fprintf(env.Stdout, "  %-20s cost=%d unit=%-16s agg=%-20s rate=%v  %s\n",
-			d.ID, d.Cost, d.Unit, d.Aggregation, d.IsRate(), d.Description)
-	}
+// fieldRow is one entry in the unified field catalog: any id usable in
+// --columns/--group-by/--sort/--having, merged across the metric, column, and
+// dimension registries by id, so each field appears once with its capabilities.
+type fieldRow struct {
+	ID         string
+	Column     bool // usable in --columns
+	Group      bool // usable in --group-by
+	Sortable   bool
+	Filterable bool
+	Metric     bool
+	Unit       string
+	Cost       int
+	Desc       string
 }
 
-// printColumnsSection lists the structural (identity/state) columns from the
-// render registry, tagging what each can also be used for.
-func printColumnsSection(env Env) {
-	fmt.Fprintln(env.Stdout, "\nCOLUMNS  (identity/state fields — usable as columns; tag: [g]roup-by [s]ort [f]ilter):")
-	for _, c := range render.StructuralColumns() {
-		fmt.Fprintf(env.Stdout, "  %-20s %-6s %s\n", c.ID, columnUses(c), c.Header)
-	}
-}
-
-// printDimensionsSection lists the --group-by axes from the dimension registry,
-// marking those that are also a column with '*'.
-func printDimensionsSection(env Env, dims *query.Dimensions) {
-	cols := columnIDSet()
-	fmt.Fprintln(env.Stdout, "\nDIMENSIONS  (--group-by axes; * = also a column above):")
-	for _, id := range dims.IDs() {
-		mark := ""
-		if cols[id] {
-			mark = "*"
+// buildFieldCatalog merges the three registries (metrics, structural columns,
+// group-by dimensions) into one id-keyed catalog. Each registry is the single
+// source of truth for its kind; this only unions them, so nothing drifts.
+func buildFieldCatalog(reg *metrics.Registry, dims *query.Dimensions) []fieldRow {
+	rows := map[string]*fieldRow{}
+	get := func(id string) *fieldRow {
+		if r, ok := rows[id]; ok {
+			return r
 		}
-		fmt.Fprintf(env.Stdout, "  %-20s %s\n", id+mark, dimensionLabel(dims, id))
+		r := &fieldRow{ID: id}
+		rows[id] = r
+		return r
+	}
+	for _, d := range reg.All() { // metrics: displayable + sortable values
+		r := get(string(d.ID))
+		r.Column, r.Sortable, r.Metric = true, true, true
+		r.Unit, r.Cost, r.Desc = string(d.Unit), int(d.Cost), d.Description
+	}
+	for _, c := range render.StructuralColumns() { // structural (identity/state)
+		r := get(c.ID)
+		r.Column = true
+		r.Sortable = r.Sortable || c.Sortable
+		if r.Desc == "" {
+			r.Desc = c.Desc
+		}
+	}
+	for _, id := range dims.IDs() { // group-by axes
+		r := get(id)
+		r.Group = true
+		if d, ok := dims.Get(id); ok && r.Desc == "" {
+			r.Desc = d.Desc
+		}
+	}
+	// Filterability is authoritative from the expr allow-lists.
+	filt := filterableFields(reg)
+	for id, r := range rows {
+		r.Filterable = filt[id]
+	}
+	ids := make([]string, 0, len(rows))
+	for id := range rows {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	out := make([]fieldRow, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, *rows[id])
+	}
+	return out
+}
+
+// filterableFields is the union of the select and having allow-lists — the
+// authoritative set of fields usable in --select/--having.
+func filterableFields(reg *metrics.Registry) map[string]bool {
+	out := map[string]bool{}
+	for f := range queryspec.AllowedEntityFields(reg) {
+		out[f] = true
+	}
+	for f := range queryspec.AllowedRowFields(reg) {
+		out[f] = true
+	}
+	return out
+}
+
+func printFieldCatalog(env Env, fields []fieldRow) {
+	fmt.Fprintln(env.Stdout, "USE flags: c=column  g=group-by  s=sort  f=filter")
+	fmt.Fprintf(env.Stdout, "%-22s %-4s %-16s %-4s %s\n", "ID", "USE", "UNIT", "COST", "DESCRIPTION")
+	for _, r := range fields {
+		fmt.Fprintf(env.Stdout, "%-22s %-4s %-16s %-4s %s\n",
+			r.ID, useFlags(r), orDash(r.Unit), costCell(r), r.Desc)
 	}
 }
 
-func columnUses(c render.Column) string {
-	s := ""
-	if c.Groupable {
-		s += "g"
+// useFlags renders the fixed-position c/g/s/f capability markers ('-' when absent).
+func useFlags(r fieldRow) string {
+	b := []byte("----")
+	if r.Column {
+		b[0] = 'c'
 	}
-	if c.Sortable {
-		s += "s"
+	if r.Group {
+		b[1] = 'g'
 	}
-	if c.Filterable {
-		s += "f"
+	if r.Sortable {
+		b[2] = 's'
 	}
+	if r.Filterable {
+		b[3] = 'f'
+	}
+	return string(b)
+}
+
+func orDash(s string) string {
 	if s == "" {
 		return "-"
 	}
-	return "[" + s + "]"
+	return s
 }
 
-func columnIDSet() map[string]bool {
-	set := make(map[string]bool)
-	for _, c := range render.StructuralColumns() {
-		set[c.ID] = true
+func costCell(r fieldRow) string {
+	if !r.Metric {
+		return "-"
 	}
-	return set
+	return strconv.Itoa(r.Cost)
 }
 
-func dimensionLabel(dims *query.Dimensions, id string) string {
-	if d, ok := dims.Get(id); ok {
-		return d.Label
-	}
-	return ""
+type fieldJSON struct {
+	ID          string `json:"id"`
+	Column      bool   `json:"column"`
+	GroupBy     bool   `json:"group_by"`
+	Sortable    bool   `json:"sortable"`
+	Filterable  bool   `json:"filterable"`
+	Metric      bool   `json:"metric"`
+	Unit        string `json:"unit,omitempty"`
+	Cost        int    `json:"cost,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
-type metricJSON struct {
-	ID          string   `json:"id"`
-	Aliases     []string `json:"aliases,omitempty"`
-	Unit        string   `json:"unit"`
-	Scope       string   `json:"scope"`
-	Cost        int      `json:"cost"`
-	Aggregation string   `json:"aggregation"`
-	Rate        bool     `json:"rate"`
-	Description string   `json:"description"`
-}
-
-type columnJSON struct {
-	ID         string `json:"id"`
-	Header     string `json:"header"`
-	Sortable   bool   `json:"sortable"`
-	Filterable bool   `json:"filterable"`
-	Groupable  bool   `json:"groupable"`
-}
-
-type dimensionJSON struct {
-	ID         string `json:"id"`
-	Label      string `json:"label"`
-	AlsoColumn bool   `json:"also_column"`
-}
-
-// fieldsJSON is the machine-readable field catalog: every id usable in
-// --columns/--group-by/--sort/--having, split by kind.
-type fieldsJSON struct {
-	Metrics    []metricJSON    `json:"metrics"`
-	Columns    []columnJSON    `json:"columns"`
-	Dimensions []dimensionJSON `json:"dimensions"`
-}
-
-func dumpFieldsJSON(env Env, reg *metrics.Registry, dims *query.Dimensions) int {
-	out := fieldsJSON{
-		Metrics:    metricsToJSON(reg),
-		Columns:    columnsToJSON(),
-		Dimensions: dimensionsToJSON(dims),
+func dumpFieldsJSON(env Env, fields []fieldRow) int {
+	out := make([]fieldJSON, 0, len(fields))
+	for _, r := range fields {
+		out = append(out, fieldJSON{
+			ID: r.ID, Column: r.Column, GroupBy: r.Group, Sortable: r.Sortable,
+			Filterable: r.Filterable, Metric: r.Metric, Unit: r.Unit, Cost: r.Cost, Description: r.Desc,
+		})
 	}
 	enc := json.NewEncoder(env.Stdout)
 	enc.SetIndent("", "  ")
@@ -158,36 +193,6 @@ func dumpFieldsJSON(env Env, reg *metrics.Registry, dims *query.Dimensions) int 
 		return ExitRuntime
 	}
 	return ExitOK
-}
-
-func metricsToJSON(reg *metrics.Registry) []metricJSON {
-	out := make([]metricJSON, 0)
-	for _, d := range reg.All() {
-		out = append(out, metricJSON{
-			ID: string(d.ID), Aliases: d.Aliases, Unit: string(d.Unit), Scope: string(d.Scope),
-			Cost: int(d.Cost), Aggregation: string(d.Aggregation), Rate: d.IsRate(), Description: d.Description,
-		})
-	}
-	return out
-}
-
-func columnsToJSON() []columnJSON {
-	out := make([]columnJSON, 0)
-	for _, c := range render.StructuralColumns() {
-		out = append(out, columnJSON{
-			ID: c.ID, Header: c.Header, Sortable: c.Sortable, Filterable: c.Filterable, Groupable: c.Groupable,
-		})
-	}
-	return out
-}
-
-func dimensionsToJSON(dims *query.Dimensions) []dimensionJSON {
-	cols := columnIDSet()
-	out := make([]dimensionJSON, 0)
-	for _, id := range dims.IDs() {
-		out = append(out, dimensionJSON{ID: id, Label: dimensionLabel(dims, id), AlsoColumn: cols[id]})
-	}
-	return out
 }
 
 // cmdCapabilities implements `procfit capabilities` (RFC §14.3, §20.2).

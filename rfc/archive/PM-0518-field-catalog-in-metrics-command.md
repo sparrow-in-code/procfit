@@ -37,6 +37,15 @@ sourced from its registry (single source of truth, no drift).
 - unit: metrics list (table + json) includes a metric, a structural column (wchan),
   and the dimensions section/array.
 
+## Update (2026-09-22): unified into one list
+
+Per follow-up, collapsed the three sections into a **single id-keyed catalog**: each
+field appears once with a `USE` marker (`c`olumn/`g`roup-by/`s`ort/`f`ilter), unit,
+cost, and a description. Descriptions were added to `render.Column.Desc` and
+`query.Dimension.Desc` (dimension-only fields; overlapping ids inherit the column's),
+so every row has a description from its registry. Filterability is taken from the
+`queryspec` allow-lists. JSON is a flat `[]` of field objects.
+
 ## Status: DONE (2026-09-22)
 
 Three registry-sourced sections in `procfit metrics` (+ JSON object). Combined with

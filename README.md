@@ -199,10 +199,17 @@ carries the signal.
 > alias; env `PROCFIT_PROFILE`, config `[metrics].profile`).
 
 Run **`procfit metrics`** (`--format json` for machine output) for the full field
-catalog — every id usable in `--columns`/`--group-by`/`--sort`/`--having`, split
-into **METRICS** (collected values), **COLUMNS** (identity/state fields, tagged
-`[g]roup-by [s]ort [f]ilter`), and **DIMENSIONS** (`--group-by` axes). Each section
-is generated from its registry, so it never drifts from what the tool accepts.
+catalog — one list of every id usable in `--columns`/`--group-by`/`--sort`/`--having`,
+each with a **USE** marker (`c`=column `g`=group-by `s`=sort `f`=filter), its unit/cost
+(for metrics), and a description. It merges the metric, column, and dimension
+registries by id, so it never drifts from what the tool actually accepts:
+
+```
+ID       USE   UNIT             COST  DESCRIPTION
+cpu      c-sf  percent_one_cpu  0     CPU usage as percent of one CPU …
+wchan    cgsf  -                -     kernel symbol a blocked task sleeps in …
+cgroup   -g-f  -                -     control-group path (cgroup v2)
+```
 
 **GPU** is another invisible drain. `gpu` (per-process engine utilization %) and
 `gpu-mem` come from the vendor-neutral DRM fdinfo ABI (`/proc/PID/fdinfo`), so one
