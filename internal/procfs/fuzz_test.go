@@ -26,6 +26,5 @@ func FuzzParseIO(f *testing.F) {
 }
 
 func parseStatusData(s string) uint32 {
-	u, _, _, _ := parseStatus([]byte(s))
-	return u
+	return parseStatus([]byte(s)).UID
 }

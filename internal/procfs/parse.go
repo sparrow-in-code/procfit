@@ -27,6 +27,7 @@ type statInfo struct {
 	StartTime  uint64
 	VSize      uint64
 	RSSPages   int64
+	BlkioTicks uint64
 }
 
 // parseStat parses one /proc/<pid>/stat line. The comm field (field 2) is
@@ -72,6 +73,7 @@ func parseStat(data []byte) (statInfo, error) {
 	info.StartTime = auintField(get, 22)
 	info.VSize = auintField(get, 23)
 	info.RSSPages = int64(auintField(get, 24))
+	info.BlkioTicks = auintField(get, 42) // delayacct_blkio_ticks
 	return info, nil
 }
 
@@ -122,22 +124,47 @@ func parseNSInode(target string) (uint64, bool) {
 	return n, true
 }
 
-// parseStatusUIDGID extracts the real UID and GID from /proc/<pid>/status.
-func parseStatus(data []byte) (uid, gid uint32, volCtx, involCtx uint64) {
+// statusInfo holds the /proc/<pid>/status fields we consume. Memory values are
+// normalized to bytes (status reports kB).
+type statusInfo struct {
+	UID, GID          uint32
+	VolCtx, InvolCtx  uint64
+	RSSPeak, RSSAnon  uint64
+	RSSFile, RSSShmem uint64
+	Swap              uint64
+}
+
+// parseStatus extracts identity, context-switch counters, and the memory
+// breakdown from /proc/<pid>/status.
+func parseStatus(data []byte) statusInfo {
+	var si statusInfo
 	for _, line := range strings.Split(string(data), "\n") {
 		switch {
 		case strings.HasPrefix(line, "Uid:"):
-			uid = firstUint32(line[4:])
+			si.UID = firstUint32(line[4:])
 		case strings.HasPrefix(line, "Gid:"):
-			gid = firstUint32(line[4:])
+			si.GID = firstUint32(line[4:])
 		case strings.HasPrefix(line, "voluntary_ctxt_switches:"):
-			volCtx = firstUint64(line[len("voluntary_ctxt_switches:"):])
+			si.VolCtx = firstUint64(line[len("voluntary_ctxt_switches:"):])
 		case strings.HasPrefix(line, "nonvoluntary_ctxt_switches:"):
-			involCtx = firstUint64(line[len("nonvoluntary_ctxt_switches:"):])
+			si.InvolCtx = firstUint64(line[len("nonvoluntary_ctxt_switches:"):])
+		case strings.HasPrefix(line, "VmHWM:"):
+			si.RSSPeak = kbToBytes(line[len("VmHWM:"):])
+		case strings.HasPrefix(line, "RssAnon:"):
+			si.RSSAnon = kbToBytes(line[len("RssAnon:"):])
+		case strings.HasPrefix(line, "RssFile:"):
+			si.RSSFile = kbToBytes(line[len("RssFile:"):])
+		case strings.HasPrefix(line, "RssShmem:"):
+			si.RSSShmem = kbToBytes(line[len("RssShmem:"):])
+		case strings.HasPrefix(line, "VmSwap:"):
+			si.Swap = kbToBytes(line[len("VmSwap:"):])
 		}
 	}
-	return
+	return si
 }
+
+// kbToBytes reads a "   1234 kB" status value into bytes.
+func kbToBytes(s string) uint64 { return firstUint64(s) * 1024 }
 
 func firstUint32(s string) uint32 {
 	f := strings.Fields(s)

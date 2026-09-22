@@ -55,9 +55,22 @@ type ProcStat struct {
 	VoluntaryCtxt   uint64
 	InvoluntaryCtxt uint64
 
+	// BlkioTicks is cumulative block-I/O delay (clock ticks, /proc/stat field 42);
+	// BlkioAvail is Disabled when kernel delay accounting is off (so the derived
+	// blkio-delay is unavailable, not a misleading zero).
+	BlkioTicks uint64
+	BlkioAvail model.Availability
+
 	// Memory (bytes).
 	RSSBytes uint64
 	VSZBytes uint64
+	// Memory breakdown from /proc/PID/status (bytes): peak RSS (VmHWM), the
+	// anon/file/shmem split of resident memory, and swapped-out size (VmSwap).
+	RSSPeakBytes  uint64
+	RSSAnonBytes  uint64
+	RSSFileBytes  uint64
+	RSSShmemBytes uint64
+	SwapBytes     uint64
 
 	// I/O counters and their availability.
 	IO      ProcIO

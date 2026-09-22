@@ -20,7 +20,7 @@ func (c *PerfCollector) ID() string { return "perf" }
 
 // Metrics lists the produced metric ids.
 func (c *PerfCollector) Metrics() []model.MetricID {
-	return []model.MetricID{"cycles", "instructions", "ipc", "cache-misses"}
+	return []model.MetricID{"cycles", "instructions", "ipc", "cache-misses", "cache-references"}
 }
 
 // Collect marks all perf metrics unsupported on this platform.

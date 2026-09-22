@@ -46,6 +46,8 @@ func (s *Source) readProcess(pid int) (ports.ProcStat, bool) {
 		MajFlt:     info.MajFlt,
 		VSZBytes:   info.VSize,
 		RSSBytes:   uint64(info.RSSPages) * uint64(s.pageSize),
+		BlkioTicks: info.BlkioTicks,
+		BlkioAvail: s.blkioAvail,
 		Namespaces: ns,
 	}
 
@@ -94,11 +96,16 @@ func (s *Source) fillStatus(dir string, st *ports.ProcStat) {
 	if err != nil {
 		return
 	}
-	uid, gid, vol, invol := parseStatus(data)
-	st.UID, st.EUID = uid, uid
-	st.GID, st.EGID = gid, gid
-	st.VoluntaryCtxt = vol
-	st.InvoluntaryCtxt = invol
+	si := parseStatus(data)
+	st.UID, st.EUID = si.UID, si.UID
+	st.GID, st.EGID = si.GID, si.GID
+	st.VoluntaryCtxt = si.VolCtx
+	st.InvoluntaryCtxt = si.InvolCtx
+	st.RSSPeakBytes = si.RSSPeak
+	st.RSSAnonBytes = si.RSSAnon
+	st.RSSFileBytes = si.RSSFile
+	st.RSSShmemBytes = si.RSSShmem
+	st.SwapBytes = si.Swap
 }
 
 func (s *Source) fillIO(dir string, st *ports.ProcStat) {

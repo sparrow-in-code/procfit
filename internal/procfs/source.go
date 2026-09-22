@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/netikras/procfit/internal/model"
 	"github.com/netikras/procfit/internal/ports"
 )
 
@@ -23,6 +24,9 @@ type Source struct {
 	bootUnix   int64
 	pageSize   int64
 	enumThread bool
+	// blkioAvail is Available unless kernel delay accounting is off (then the
+	// stat blkio-delay counter is always 0 and must read as Disabled, not zero).
+	blkioAvail model.Availability
 }
 
 // SetEnumerateThreads toggles per-thread (/proc/PID/task) enumeration. It is
@@ -51,7 +55,20 @@ func New(opts ...Option) (*Source, error) {
 	if b, err := os.ReadFile(filepath.Join(s.root, "stat")); err == nil {
 		s.bootUnix = parseBtime(b)
 	}
+	s.blkioAvail = detectDelayacct(s.root)
 	return s, nil
+}
+
+// detectDelayacct reports whether per-task block-I/O delay accounting is on.
+// When kernel.task_delayacct is explicitly 0 the stat counter never advances, so
+// blkio-delay must degrade to Disabled rather than read as a flat zero. A missing
+// sysctl means older-kernel default-on, so we assume available.
+func detectDelayacct(root string) model.Availability {
+	b, err := os.ReadFile(filepath.Join(root, "sys/kernel/task_delayacct"))
+	if err == nil && strings.TrimSpace(string(b)) == "0" {
+		return model.Disabled
+	}
+	return model.Available
 }
 
 // ID identifies the adapter.

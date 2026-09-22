@@ -206,6 +206,42 @@ with no GPU client shows `-` (never a fake `0`); another user's processes show `
 until you have privilege. Proprietary **NVIDIA** does not expose the standard
 fdinfo, so its clients are invisible here (nouveau works).
 
+## Troubleshooting load average
+
+Load average counts tasks that are **Runnable (R)** *or* in **Uninterruptible
+sleep (D)** — so high load can be CPU contention *or* I/O/kernel blocking, and CPU%
+alone won't tell you which. The `sysload` profile decomposes it:
+
+```bash
+procfit ps --metrics sysload --sort runq-delay:desc   # CPU-starved tasks (R side)
+procfit ps --metrics sysload --sort blkio-delay:desc  # I/O-blocked tasks (D side)
+procfit ps --metrics sysload --having 'pstate == "D"' --leaf thread   # the exact D tasks
+```
+
+`runq-delay` is the % of wall time a task was runnable but waiting for a CPU (the
+R/CPU-contention signal, from `/proc/PID/schedstat`; needs `CONFIG_SCHEDSTATS`).
+`blkio-delay` is the % of time blocked on block I/O (the D/I/O signal, from
+`/proc/PID/stat`; needs kernel delay accounting — otherwise it reads unavailable,
+not a false `0`). Alongside them the profile shows `cpu`, `ctxsw-involuntary`
+(preemption churn), and `major-faults` (page-in thrash). Add `--columns +pstate`
+or group by cgroup to see who and where.
+
+## Seeing real memory use
+
+RSS double-counts shared libraries across processes; the `memory` profile shows the
+honest footprint:
+
+```bash
+procfit ps --metrics memory --sort pss:desc
+```
+
+`pss` (proportional set size) splits shared memory fairly between its users, `uss`
+(unique set size) is the private memory that would be freed if the process died —
+both from `/proc/PID/smaps_rollup` (another user's processes show `?` until you have
+privilege). The profile also breaks resident memory into `rss-anon`/`rss-file`
+/`rss-shmem`, and shows `swap` (swapped-out), `mem-peak` (VmHWM), and `oom-score`
+(0–1000 kill-likelihood — what the kernel sacrifices first under pressure).
+
 ## Configuration & precedence
 
 View settings (grouping, columns, sort, format, target width, …) can come from

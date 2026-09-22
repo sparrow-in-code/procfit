@@ -72,6 +72,14 @@ var rateSpecs = map[model.MetricID]rateSpec{
 	"io-wchar":          {get: func(p ports.ProcStat) (uint64, model.Availability) { return ioAvail(p, p.IO.WChar) }, conv: identityRate},
 	"read-syscalls":     {get: func(p ports.ProcStat) (uint64, model.Availability) { return ioAvail(p, p.IO.Syscr) }, conv: identityRate},
 	"write-syscalls":    {get: func(p ports.ProcStat) (uint64, model.Availability) { return ioAvail(p, p.IO.Syscw) }, conv: identityRate},
+	// blkio-delay: fraction of wall time the task spent blocked on block I/O
+	// (delayacct ticks → % via the CPU-tick conversion). A key load-average driver.
+	"blkio-delay": {get: func(p ports.ProcStat) (uint64, model.Availability) {
+		if p.BlkioAvail != "" && p.BlkioAvail != model.Available {
+			return 0, p.BlkioAvail
+		}
+		return p.BlkioTicks, model.Available
+	}, conv: cpuConv},
 }
 
 func identityRate(perSec float64, _ sysctx) float64 { return perSec }
@@ -86,6 +94,21 @@ var gaugeSpecs = map[model.MetricID]gaugeSpec{
 	}},
 	"threads": {get: func(p ports.ProcStat, _ sysctx) (float64, model.Availability, model.Quality) {
 		return float64(p.NumThreads), model.Available, model.Exact
+	}},
+	"swap": {get: func(p ports.ProcStat, _ sysctx) (float64, model.Availability, model.Quality) {
+		return float64(p.SwapBytes), model.Available, model.Exact
+	}},
+	"mem-peak": {get: func(p ports.ProcStat, _ sysctx) (float64, model.Availability, model.Quality) {
+		return float64(p.RSSPeakBytes), model.Available, model.Exact
+	}},
+	"rss-anon": {get: func(p ports.ProcStat, _ sysctx) (float64, model.Availability, model.Quality) {
+		return float64(p.RSSAnonBytes), model.Available, model.Exact
+	}},
+	"rss-file": {get: func(p ports.ProcStat, _ sysctx) (float64, model.Availability, model.Quality) {
+		return float64(p.RSSFileBytes), model.Available, model.Exact
+	}},
+	"rss-shmem": {get: func(p ports.ProcStat, _ sysctx) (float64, model.Availability, model.Quality) {
+		return float64(p.RSSShmemBytes), model.Available, model.Exact
 	}},
 	"pnice": {get: func(p ports.ProcStat, _ sysctx) (float64, model.Availability, model.Quality) {
 		if p.NiceAvail != model.Available {

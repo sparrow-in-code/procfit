@@ -37,7 +37,7 @@ func (c *PerfCollector) ID() string { return "perf" }
 
 // Metrics lists the produced metric ids.
 func (c *PerfCollector) Metrics() []model.MetricID {
-	return []model.MetricID{"cycles", "instructions", "ipc", "cache-misses"}
+	return []model.MetricID{"cycles", "instructions", "ipc", "cache-misses", "cache-references"}
 }
 
 // Collect measures counters for all processes in bounded batches.
@@ -96,6 +96,7 @@ var hwEvents = []uint64{
 	unix.PERF_COUNT_HW_CPU_CYCLES,
 	unix.PERF_COUNT_HW_INSTRUCTIONS,
 	unix.PERF_COUNT_HW_CACHE_MISSES,
+	unix.PERF_COUNT_HW_CACHE_REFERENCES,
 }
 
 func (c *PerfCollector) openGroup(p *model.Process) perfGroup {
@@ -151,6 +152,7 @@ func (c *PerfCollector) readGroup(g perfGroup, secs float64) {
 	cycles := float64(binary.LittleEndian.Uint64(buf[8:16]))
 	instr := float64(binary.LittleEndian.Uint64(buf[16:24]))
 	misses := float64(binary.LittleEndian.Uint64(buf[24:32]))
+	refs := float64(binary.LittleEndian.Uint64(buf[32:40]))
 	set := func(id string, v float64) {
 		g.p.SetMetric(model.MetricID(id), model.NewValue(v, model.Sampled, "perf"))
 	}
@@ -158,6 +160,7 @@ func (c *PerfCollector) readGroup(g perfGroup, secs float64) {
 		set("cycles", cycles/secs)
 		set("instructions", instr/secs)
 		set("cache-misses", misses/secs)
+		set("cache-references", refs/secs)
 	}
 	ipc := 0.0
 	if cycles > 0 {

@@ -1,6 +1,9 @@
 package procfs
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseStat_SimpleComm(t *testing.T) {
 	line := "1234 (bash) S 1000 1234 1234 0 -1 4194560 100 0 0 0 5 3 0 0 20 0 1 0 987654 12345678 200 0 0 0 0 0 0 0 0 0 0 0 0 0"
@@ -26,6 +29,24 @@ func TestParseStat_SimpleComm(t *testing.T) {
 	}
 	if info.RSSPages != 200 {
 		t.Fatalf("rss pages = %d, want 200", info.RSSPages)
+	}
+}
+
+func TestParseStat_BlkioDelay(t *testing.T) {
+	// rest[] index = field-3, so field 42 (delayacct_blkio_ticks) is rest[39].
+	rest := make([]string, 40)
+	for i := range rest {
+		rest[i] = "0"
+	}
+	rest[0] = "S"    // field 3: state
+	rest[39] = "777" // field 42: blkio delay ticks
+	line := "1234 (bash) " + strings.Join(rest, " ")
+	info, err := parseStat([]byte(line))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.BlkioTicks != 777 {
+		t.Fatalf("blkio ticks = %d, want 777", info.BlkioTicks)
 	}
 }
 
@@ -78,10 +99,16 @@ func TestParseIO(t *testing.T) {
 }
 
 func TestParseStatusAndBtime(t *testing.T) {
-	status := "Name:\tbash\nUid:\t1000\t1000\t1000\t1000\nGid:\t1000\t1000\t1000\t1000\nvoluntary_ctxt_switches:\t42\nnonvoluntary_ctxt_switches:\t7\n"
-	uid, gid, vol, invol := parseStatus([]byte(status))
-	if uid != 1000 || gid != 1000 || vol != 42 || invol != 7 {
-		t.Fatalf("status parse wrong: uid=%d gid=%d vol=%d invol=%d", uid, gid, vol, invol)
+	status := "Name:\tbash\nUid:\t1000\t1000\t1000\t1000\nGid:\t1000\t1000\t1000\t1000\n" +
+		"VmHWM:\t   2048 kB\nRssAnon:\t 1024 kB\nRssFile:\t  512 kB\nRssShmem:\t  256 kB\nVmSwap:\t  128 kB\n" +
+		"voluntary_ctxt_switches:\t42\nnonvoluntary_ctxt_switches:\t7\n"
+	si := parseStatus([]byte(status))
+	if si.UID != 1000 || si.GID != 1000 || si.VolCtx != 42 || si.InvolCtx != 7 {
+		t.Fatalf("status identity/ctxsw wrong: %+v", si)
+	}
+	if si.RSSPeak != 2048*1024 || si.RSSAnon != 1024*1024 || si.RSSFile != 512*1024 ||
+		si.RSSShmem != 256*1024 || si.Swap != 128*1024 {
+		t.Fatalf("status memory (bytes) wrong: %+v", si)
 	}
 	if b := parseBtime([]byte("cpu 1 2 3\nbtime 1600000000\nprocesses 5\n")); b != 1600000000 {
 		t.Fatalf("btime = %d", b)
