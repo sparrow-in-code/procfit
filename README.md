@@ -143,10 +143,12 @@ prints recent events, and the detail overlay (`i`) shows them per process.
 
 Press **`Tab`** to switch to the **managed panel** — the targets you've controlled
 (named e.g. `idea#281839`). It renders with the *same* grouped tree as the browser,
-resolving each managed pid to its live process; targets whose process has exited
-move under a built-in **orphans** group, still labelled by the name they had while
-alive. The same control keys work here, acting on the *retained target* (so
-continuing/thawing/renicing what you paused is right here):
+resolving each managed pid to its live process **by identity, not pid** — a pid
+whose process has exited (or been reused by an unrelated process with a different
+start time) moves under a built-in **orphans** group, still labelled by the name
+it had while alive, and is never controlled as the wrong process. The same control
+keys work here, acting on the *retained target* (so continuing/thawing/renicing
+what you paused is right here):
 
 | Key | Action (managed panel) |
 |---|---|

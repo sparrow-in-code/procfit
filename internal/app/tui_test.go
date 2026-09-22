@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/netikras/procfit/internal/model"
 	"github.com/netikras/procfit/internal/ports"
 	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/queryspec"
@@ -13,7 +14,7 @@ import (
 )
 
 func TestOrphanGroup(t *testing.T) {
-	managed := map[int]bool{1: true, 2: true, 3: true}
+	managed := map[int]model.ProcessInstanceID{1: {PID: 1}, 2: {PID: 2}, 3: {PID: 3}}
 	liveSeen := map[int]bool{1: true} // pid 1 still alive; 2 and 3 exited
 	names := map[int]string{2: "idea", 3: ""}
 
@@ -30,7 +31,7 @@ func TestOrphanGroup(t *testing.T) {
 		t.Fatal("orphan row should carry a ghost process with its pid")
 	}
 	// No orphans -> no group.
-	if orphanGroup(map[int]bool{1: true}, map[int]bool{1: true}, nil) != nil {
+	if orphanGroup(map[int]model.ProcessInstanceID{1: {PID: 1}}, map[int]bool{1: true}, nil) != nil {
 		t.Fatal("all-live should yield no orphans group")
 	}
 }
@@ -79,6 +80,47 @@ func TestTUIManagedTree_LiveThenOrphan(t *testing.T) {
 	}
 	if g.Sub[0].Label != "idea" {
 		t.Fatalf("orphan should keep the name captured while alive, got %q", g.Sub[0].Label)
+	}
+}
+
+// TestTUIManagedTree_PidReuseOrphans asserts identity revalidation (PM-0313): a
+// managed pid whose slot is later occupied by a DIFFERENT instance (same pid,
+// new StartTime) must not render as a live managed row — the old binding orphans
+// and the unrelated new process is not shown as managed.
+func TestTUIManagedTree_PidReuseOrphans(t *testing.T) {
+	_, restore := fakeControl(t, pstat(100, "idea", 0))
+	defer restore()
+	if _, err := tuiControl()(tui.ControlRequest{PIDs: []int{100}, Label: "idea", Kind: tui.CtrlStop}); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	clk := testutil.NewFakeClock(time.Unix(2000, 0))
+
+	// pid 100 is present but is a DIFFERENT instance (StartTime 999, not 100).
+	reused := ports.ProcStat{
+		ID:         model.ProcessInstanceID{BootID: "boot-test", PID: 100, StartTime: 999},
+		PID:        100,
+		Comm:       "malware",
+		State:      model.ProcessState{Code: model.StateRunning},
+		NiceAvail:  model.Available,
+		NumThreads: 1,
+		StartTicks: 999,
+		IOAvail:    model.Available,
+	}
+	src := testutil.NewFakeSource([]ports.ProcStat{reused})
+	res, _, err := newAssemblyWith(src, clk).tuiManagedTree(ctx)(queryspec.Flags{})
+	if err != nil {
+		t.Fatalf("managed tree (reuse): %v", err)
+	}
+	// The old binding orphans, labelled by the name captured while it was alive.
+	g := findGroupRow(res.Rows, "orphans")
+	if g == nil || len(g.Sub) != 1 || g.Sub[0].Label != "idea" {
+		t.Fatalf("reused pid should orphan the old binding as 'idea', got %+v", res.Rows)
+	}
+	// The reused (unrelated) process must not appear as a live managed row: with
+	// no genuinely-live binding, the orphans group is the only row.
+	if len(res.Rows) != 1 {
+		t.Fatalf("reused process must not be shown as managed; rows=%+v", res.Rows)
 	}
 }
 

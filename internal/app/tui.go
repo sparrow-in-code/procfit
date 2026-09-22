@@ -234,13 +234,16 @@ func (a *assembly) tuiManagedTree(ctx context.Context) tui.RefreshFunc {
 		a.applyResolvers(snap.Processes)
 		a.enrich(ctx, snap.Processes, r.Needed)
 
-		managed, names := a.managedPIDs(snap.Processes)
-		live := make([]model.Process, 0, len(managed))
+		want, names := a.managedPIDs(snap.Processes)
+		live := make([]model.Process, 0, len(want))
 		liveSeen := map[int]bool{}
 		for i := range snap.Processes {
-			if managed[snap.Processes[i].PID] {
-				live = append(live, snap.Processes[i])
-				liveSeen[snap.Processes[i].PID] = true
+			p := &snap.Processes[i]
+			// Identity revalidation: a managed pid counts as live only if the
+			// sampled process is the SAME instance. Pid reuse ⇒ not live ⇒ orphan.
+			if id, ok := want[p.PID]; ok && id.SameProcess(p.ID) {
+				live = append(live, *p)
+				liveSeen[p.PID] = true
 			}
 		}
 		res, err := a.engine.Build(query.Input{
@@ -249,7 +252,7 @@ func (a *assembly) tuiManagedTree(ctx context.Context) tui.RefreshFunc {
 		if err != nil {
 			return nil, nil, err
 		}
-		if orphans := orphanGroup(managed, liveSeen, names); orphans != nil {
+		if orphans := orphanGroup(want, liveSeen, names); orphans != nil {
 			res.Rows = append(res.Rows, orphans)
 		}
 		cols, err := render.ResolveColumnsMode(a.reg, r.Columns, r.Human)
@@ -260,28 +263,33 @@ func (a *assembly) tuiManagedTree(ctx context.Context) tui.RefreshFunc {
 	}
 }
 
-// managedPIDs returns the set of managed pids and their display names, backfilling
-// (and persisting) each binding's name from the matching live process.
-func (a *assembly) managedPIDs(live []model.Process) (map[int]bool, map[int]string) {
-	managed, names := map[int]bool{}, map[int]string{}
+// managedPIDs returns each managed pid's expected instance identity and display
+// name, backfilling (and persisting) a binding's name only from a live process
+// whose identity actually matches. Returning the persisted identity lets the
+// caller reject pid reuse: a live pid whose BootID/StartTime differs from the
+// binding is NOT the managed process (PM-0313, RFC §6.3/§19).
+func (a *assembly) managedPIDs(live []model.Process) (map[int]model.ProcessInstanceID, map[int]string) {
+	want, names := map[int]model.ProcessInstanceID{}, map[int]string{}
 	dir, _ := resolveStateDir("")
 	c, err := newControlAsmFn(dir)
 	if err != nil {
-		return managed, names
+		return want, names
 	}
-	byPID := map[int]string{}
+	byPID := map[int]model.Process{}
 	for i := range live {
-		byPID[live[i].PID] = live[i].DisplayName()
+		byPID[live[i].PID] = live[i]
 	}
 	changed := false
 	st := c.mgr.State()
 	for ti := range st.Targets {
 		for bi := range st.Targets[ti].Bindings {
 			b := &st.Targets[ti].Bindings[bi]
-			managed[b.PID] = true
-			if n, ok := byPID[b.PID]; ok && n != "" && n != b.Name {
-				b.Name = n // capture the name while alive, for later orphan display
-				changed = true
+			want[b.PID] = b.ID
+			if p, ok := byPID[b.PID]; ok && b.ID.SameProcess(p.ID) {
+				if n := p.DisplayName(); n != "" && n != b.Name {
+					b.Name = n // capture the name while alive, for later orphan display
+					changed = true
+				}
 			}
 			names[b.PID] = b.Name
 		}
@@ -289,12 +297,13 @@ func (a *assembly) managedPIDs(live []model.Process) (map[int]bool, map[int]stri
 	if changed {
 		_ = c.save()
 	}
-	return managed, names
+	return want, names
 }
 
 // orphanGroup builds the synthetic "orphans" group for managed pids that are no
-// longer live, as ghost process rows labelled by their persisted name/pid.
-func orphanGroup(managed, liveSeen map[int]bool, names map[int]string) *query.Row {
+// longer live (exited, or the pid reused by a different instance), as ghost
+// process rows labelled by their persisted name/pid.
+func orphanGroup(managed map[int]model.ProcessInstanceID, liveSeen map[int]bool, names map[int]string) *query.Row {
 	var sub []*query.Row
 	for pid := range managed {
 		if liveSeen[pid] {

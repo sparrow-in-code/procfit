@@ -175,10 +175,14 @@ func TestManagedPIDs_Backfill(t *testing.T) {
 	if _, err := tuiControl()(tui.ControlRequest{PIDs: []int{100}, Label: "old", Kind: tui.CtrlNice, Nice: 5}); err != nil {
 		t.Fatal(err)
 	}
-	// A live process backfills (and persists) the binding's display name.
-	live := []model.Process{{PID: 100, Cmdline: []string{"idea"}}}
+	// A live process of the SAME identity backfills (and persists) the name.
+	live := []model.Process{{
+		ID:      model.ProcessInstanceID{BootID: "boot-test", PID: 100, StartTime: 100},
+		PID:     100,
+		Cmdline: []string{"idea"},
+	}}
 	managed, names := (&assembly{}).managedPIDs(live)
-	if !managed[100] || names[100] != "idea" {
+	if _, ok := managed[100]; !ok || names[100] != "idea" {
 		t.Fatalf("managedPIDs should include pid 100 with backfilled name: managed=%v names=%v", managed, names)
 	}
 	c, err := newControlAsmFn("")

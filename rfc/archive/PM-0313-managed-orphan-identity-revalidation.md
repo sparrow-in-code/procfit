@@ -1,12 +1,29 @@
 ---
 id: PM-0313
 title: Orphan managed bindings on pid reuse (identity revalidation)
-state: TODO
+state: DONE
 phase: 3
 depends: ["PM-0312"]
 owner:
 rfc: ["§19", "§15"]
 ---
+
+## Status: DONE (2026-09-22)
+
+`assembly.managedPIDs` now returns each pid's persisted `ProcessInstanceID`
+(not a bare `map[int]bool`); the live/orphan split in `tuiManagedTree` counts a
+sampled process as a live managed row only when `binding.ID.SameProcess(p.ID)`,
+so a reused pid (same pid, different BootID/StartTime) fails the check → the old
+binding falls under **orphans** and the unrelated new process is not shown as
+managed. Name backfill is likewise gated on an identity match, so an orphan keeps
+its own captured name. Control actions from the managed panel already revalidate
+identity in the manager (`Manager.revalidate` on every nice/stop/restore/signal),
+so a reused pid is refused (`StatusStale`) rather than controlled under the stale
+target — no change needed there, covered by existing `control` tests.
+Tests: `app.TestTUIManagedTree_PidReuseOrphans` (reused pid ⇒ orphan, new process
+not managed); existing `TestTUIManagedTree_LiveThenOrphan`/`TestOrphanGroup`/
+`TestManagedPIDs_Backfill` updated for the identity-aware signature.
+Commit: (local).
 
 ## Summary
 
@@ -37,11 +54,11 @@ the old binding (and never renices/stops the wrong process).
 
 ## Acceptance criteria
 
-- [ ] A managed pid that is reused by a process with a different
+- [x] A managed pid that is reused by a process with a different
       `ProcessInstanceID` appears under "orphans", not as a live managed row.
-- [ ] Control/restore from the managed panel refuses (or re-resolves) when the
+- [x] Control/restore from the managed panel refuses (or re-resolves) when the
       live pid's identity no longer matches the persisted binding.
-- [ ] Existing live/orphan behaviour for genuine exit is unchanged.
+- [x] Existing live/orphan behaviour for genuine exit is unchanged.
 
 ## Tests required
 
