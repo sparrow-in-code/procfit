@@ -101,10 +101,41 @@ func setThreadEnum(src interface{}, on bool) {
 	}
 }
 
+// setWchan toggles the source's optional /proc/PID/wchan read (when supported).
+func setWchan(src interface{}, on bool) {
+	if w, ok := src.(interface{ SetReadWchan(bool) }); ok {
+		w.SetReadWchan(on)
+	}
+}
+
+// configureSource sets the per-query optional source reads (thread enumeration,
+// wchan) from the resolved query, so each pays cost only when actually used.
+func configureSource(src interface{}, r queryspec.Resolved) {
+	setThreadEnum(src, r.Spec.Leaf == query.LeafThread)
+	setWchan(src, usesWchan(r))
+}
+
+// usesWchan reports whether the query references the wchan field (as a column,
+// grouping dimension, or select/having filter field).
+func usesWchan(r queryspec.Resolved) bool {
+	return containsStr(r.Columns, "wchan") ||
+		containsStr(r.Spec.GroupBy, "wchan") ||
+		containsStr(r.ExprFields, "wchan")
+}
+
+func containsStr(xs []string, v string) bool {
+	for _, x := range xs {
+		if x == v {
+			return true
+		}
+	}
+	return false
+}
+
 // sampleForResult produces a query.Input, taking a warm-up second sample when
 // rate metrics are requested unless instant is set (RFC §7.2).
 func (a *assembly) sampleForResult(ctx context.Context, r queryspec.Resolved, instant bool) (query.Input, error) {
-	setThreadEnum(a.src, r.Spec.Leaf == query.LeafThread)
+	configureSource(a.src, r)
 	s := collect.NewSampler(a.src, a.clk)
 	snap, err := s.Sample(ctx, r.Needed)
 	if err != nil {

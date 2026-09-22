@@ -97,6 +97,42 @@ func TestChooseColumns_ProfileDriven(t *testing.T) {
 	}
 }
 
+func TestBuild_ProfileViewDefaults(t *testing.T) {
+	reg, dims := regDims()
+	// sysload predefines explicit columns (incl pstate/wchan) + sort runq-delay:desc.
+	r, err := Build(reg, dims, Flags{Profile: "sysload"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Columns[0] != "target" || !containsCol(r.Columns, "pstate") || !containsCol(r.Columns, "wchan") {
+		t.Fatalf("sysload should use its explicit columns incl pstate/wchan: %v", r.Columns)
+	}
+	if len(r.Spec.Sort) == 0 || r.Spec.Sort[0].Field != "runq-delay" {
+		t.Fatalf("sysload should default-sort by runq-delay: %+v", r.Spec.Sort)
+	}
+	// Explicit --sort wins over the profile default.
+	ro, _ := Build(reg, dims, Flags{Profile: "sysload", Sort: "cpu:desc"})
+	if len(ro.Spec.Sort) == 0 || ro.Spec.Sort[0].Field != "cpu" {
+		t.Fatalf("explicit --sort must override the profile default: %+v", ro.Spec.Sort)
+	}
+}
+
+func TestBuild_StateWchanFilters(t *testing.T) {
+	reg, dims := regDims()
+	if _, err := Build(reg, dims, Flags{Select: `state == "D"`}); err != nil {
+		t.Fatalf("select by state rejected: %v", err)
+	}
+	// wchan is valid in having and surfaces in ExprFields so the app can enable
+	// the optional /proc/PID/wchan read for the query.
+	r, err := Build(reg, dims, Flags{Having: `wchan ~= "jbd2"`})
+	if err != nil {
+		t.Fatalf("having by wchan rejected: %v", err)
+	}
+	if !containsCol(r.ExprFields, "wchan") {
+		t.Fatalf("wchan filter should surface in ExprFields, got %v", r.ExprFields)
+	}
+}
+
 func TestBuild_SelectHavingValidated(t *testing.T) {
 	reg, dims := regDims()
 	if _, err := Build(reg, dims, Flags{Select: "uid == 0"}); err != nil {

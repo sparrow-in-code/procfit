@@ -35,6 +35,9 @@ func applyConfigDefaults(fs *flag.FlagSet, qf *queryFlags) error {
 	if cliSet["h"] {
 		cliSet["human"] = true
 	}
+	if cliSet["metrics"] { // deprecated alias for --profile
+		cliSet["profile"] = true
+	}
 	qf.sources = resolveViewSettings(fs, cfg, cliSet, order)
 	return nil
 }

@@ -85,6 +85,23 @@ func TestApplyConfigDefaults_CollapseGroups(t *testing.T) {
 	}
 }
 
+func TestApplyConfigDefaults_ProfileAlias(t *testing.T) {
+	// --metrics is a deprecated alias for --profile; the CLI still wins over config.
+	cfg := writeCfg(t, "version = 1\n[metrics]\nprofile = \"light\"\n")
+	fs := flag.NewFlagSet("ps", flag.ContinueOnError)
+	qf := bindQueryFlags(fs)
+	if err := fs.Parse([]string{"--config", cfg, "--metrics", "sysload"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyConfigDefaults(fs, qf); err != nil {
+		t.Fatal(err)
+	}
+	if qf.profile != "sysload" || qf.sources["profile"] != SourceArgs {
+		t.Fatalf("--metrics alias should set profile=sysload via args, got %q/%s",
+			qf.profile, qf.sources["profile"])
+	}
+}
+
 func TestApplyConfigDefaults_NoConfig(t *testing.T) {
 	cfg := writeCfg(t, "version = 1\ntarget_width = 99\n")
 	fs := flag.NewFlagSet("ps", flag.ContinueOnError)

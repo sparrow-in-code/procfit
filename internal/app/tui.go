@@ -79,7 +79,7 @@ func (a *assembly) tuiRefresh(ctx context.Context) tui.RefreshFunc {
 		if err != nil {
 			return nil, nil, err
 		}
-		setThreadEnum(a.src, r.Spec.Leaf == query.LeafThread)
+		configureSource(a.src, r)
 		snap, err := sampler.Sample(ctx, r.Needed)
 		if err != nil {
 			return nil, nil, err
@@ -211,7 +211,7 @@ func (a *assembly) tuiManagedTree(ctx context.Context) tui.RefreshFunc {
 		if err != nil {
 			return nil, nil, err
 		}
-		setThreadEnum(a.src, r.Spec.Leaf == query.LeafThread)
+		configureSource(a.src, r)
 		snap, err := sampler.Sample(ctx, r.Needed)
 		if err != nil {
 			return nil, nil, err

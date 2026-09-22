@@ -98,6 +98,15 @@ var structuralColumns = map[string]Column{
 	"pstate":  {ID: "pstate", Header: "PSTATE", Cell: cellPState},
 	"kind":    {ID: "kind", Header: "KIND", Filterable: true, Cell: func(r *query.Row) string { return string(r.Kind) }},
 	"cmdline": {ID: "cmdline", Header: "CMDLINE", Cell: cellCmdline},
+	"wchan":   {ID: "wchan", Header: "WCHAN", Sortable: true, Filterable: true, Cell: cellWchan},
+}
+
+// cellWchan renders the kernel symbol a blocked process is sleeping in.
+func cellWchan(r *query.Row) string {
+	if r.Process != nil {
+		return r.Process.Wchan
+	}
+	return ""
 }
 
 // cellCmdline renders the full command line of a process leaf (the distinguishing

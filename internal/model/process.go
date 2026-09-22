@@ -28,6 +28,9 @@ type Process struct {
 	AppID        string
 	ContainerID  string
 	PodUID       string
+	// Wchan is the kernel symbol a blocked task is sleeping in (names the cause
+	// of a D-state stall); empty unless a query references the wchan field.
+	Wchan string
 
 	Namespaces NamespaceSet
 	State      ProcessState

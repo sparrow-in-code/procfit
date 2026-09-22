@@ -46,6 +46,10 @@ type ProcStat struct {
 	NiceAvail  model.Availability
 	NumThreads int
 	StartTicks uint64
+	// Wchan is the kernel symbol a blocked task is sleeping in (from
+	// /proc/PID/wchan), read only when a query references it. Names the cause of
+	// D-state stalls (e.g. jbd2_log_wait_commit, rpc_wait_bit_killable).
+	Wchan string
 
 	// Cumulative CPU (clock ticks) and fault/ctxsw counters.
 	UTimeTicks      uint64

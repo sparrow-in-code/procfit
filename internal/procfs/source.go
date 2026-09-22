@@ -24,6 +24,7 @@ type Source struct {
 	bootUnix   int64
 	pageSize   int64
 	enumThread bool
+	readWchan  bool
 	// blkioAvail is Available unless kernel delay accounting is off (then the
 	// stat blkio-delay counter is always 0 and must read as Disabled, not zero).
 	blkioAvail model.Availability
@@ -33,6 +34,11 @@ type Source struct {
 // off by default so the common process/none leaf modes pay no per-thread cost;
 // the app turns it on only for `--leaf thread`.
 func (s *Source) SetEnumerateThreads(on bool) { s.enumThread = on }
+
+// SetReadWchan toggles reading /proc/PID/wchan per process. Off by default so the
+// common path pays no extra read; the app turns it on only when a query
+// references the wchan field (column/group-by/filter).
+func (s *Source) SetReadWchan(on bool) { s.readWchan = on }
 
 // Option configures a Source.
 type Option func(*Source)

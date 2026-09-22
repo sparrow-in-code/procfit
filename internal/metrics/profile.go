@@ -31,27 +31,54 @@ var KnownProfiles = []ProfileName{
 	ProfileNetwork, ProfilePower, ProfileBattery, ProfileSysload, ProfilePerf, ProfileAll,
 }
 
-// profileMembers maps explicit profiles to canonical metric ids. Profiles whose
-// membership is derived (none/all/light) are handled in Resolve.
-var profileMembers = map[ProfileName][]model.MetricID{
-	ProfileProcess: {"cpu", "rss", "vsz", "threads", "pnice", "pstate"},
+// Profile is a named convenience bundle: the metrics it selects plus optional
+// view defaults (explicit ordered columns, sort, group-by, having) that apply
+// when the user/config leave those unset. Columns may include non-metric fields
+// (e.g. pstate, wchan). Metrics-only profiles omit the view fields.
+type Profile struct {
+	Metrics []model.MetricID
+	Columns []string // explicit ordered display columns; empty => identity + metrics
+	Sort    string   // default sort, e.g. "runq-delay:desc"
+	GroupBy string   // default grouping
+	Having  string   // default filter
+}
+
+// profileSpecs maps explicit profiles to their metrics + view defaults. Profiles
+// whose membership is derived (none/all/light) are handled in Resolve.
+var profileSpecs = map[ProfileName]Profile{
+	ProfileProcess: {Metrics: []model.MetricID{"cpu", "rss", "vsz", "threads", "pnice", "pstate"}},
 	// memory: what a process actually costs — proportional/unique set size split
 	// out from shared, plus swap, peak, the anon/file breakdown and OOM risk.
-	ProfileMemory:  {"rss", "pss", "uss", "swap", "mem-peak", "rss-anon", "oom-score", "major-faults"},
-	ProfileIO:      {"disk-rbps", "disk-wbps", "io-rchar", "io-wchar", "read-syscalls", "write-syscalls"},
-	ProfileNetwork: {"net-rx-bps", "net-tx-bps", "net-rx-pps", "net-tx-pps"},
-	ProfilePower:   {"cpu", "wakeups", "timer-wakeups", "gpu", "gpu-mem"},
+	ProfileMemory: {
+		Metrics: []model.MetricID{"rss", "pss", "uss", "swap", "mem-peak", "rss-anon", "oom-score", "major-faults"},
+		Columns: []string{"target", "pid", "rss", "pss", "uss", "swap", "mem-peak", "rss-anon", "oom-score", "major-faults"},
+		Sort:    "pss:desc",
+	},
+	ProfileIO:      {Metrics: []model.MetricID{"disk-rbps", "disk-wbps", "io-rchar", "io-wchar", "read-syscalls", "write-syscalls"}},
+	ProfileNetwork: {Metrics: []model.MetricID{"net-rx-bps", "net-tx-bps", "net-rx-pps", "net-tx-pps"}},
+	ProfilePower:   {Metrics: []model.MetricID{"cpu", "wakeups", "timer-wakeups", "gpu", "gpu-mem"}},
 	// battery: what actually drains a laptop. Wakeups (eBPF, needs privilege) are
 	// the real signal — a process can be ~0% cpu yet keep the package out of deep
 	// C-states. ctxsw-voluntary is a light, no-root proxy for that wake/sleep
 	// churn, so the profile still says something useful without eBPF; cpu-normalized
 	// frames cpu against total host capacity.
-	ProfileBattery: {"cpu", "cpu-normalized", "wakeups", "timer-wakeups", "ctxsw-voluntary", "gpu"},
-	// sysload: decompose load average — CPU use, CPU-wait (runq), I/O-wait
-	// (blkio), preemption churn, and page-in thrash. Pair with `--columns +pstate`
-	// or `--leaf thread`/`--having 'pstate == "D"'` to see the exact R/D tasks.
-	ProfileSysload: {"cpu", "runq-delay", "blkio-delay", "ctxsw-involuntary", "major-faults"},
-	ProfilePerf:    {"cycles", "instructions", "ipc", "cache-references", "cache-misses"},
+	ProfileBattery: {Metrics: []model.MetricID{"cpu", "cpu-normalized", "wakeups", "timer-wakeups", "ctxsw-voluntary", "gpu"}},
+	// sysload: decompose load average — state + the blocking cause (wchan), CPU use,
+	// CPU-wait (runq), I/O-wait (blkio), preemption churn, page-in thrash. Sorted by
+	// runq-delay so the CPU-starved tasks surface first.
+	ProfileSysload: {
+		Metrics: []model.MetricID{"cpu", "runq-delay", "blkio-delay", "ctxsw-involuntary", "major-faults"},
+		Columns: []string{"target", "pid", "pstate", "wchan", "cpu", "runq-delay", "blkio-delay", "ctxsw-involuntary", "major-faults"},
+		Sort:    "runq-delay:desc",
+	},
+	ProfilePerf: {Metrics: []model.MetricID{"cycles", "instructions", "ipc", "cache-references", "cache-misses"}},
+}
+
+// ProfileDefaults returns an explicit profile's view defaults (metrics + columns/
+// sort/group-by/having); ok=false for derived (none/all/light) or unknown names.
+func ProfileDefaults(name ProfileName) (Profile, bool) {
+	p, ok := profileSpecs[name]
+	return p, ok
 }
 
 // IsKnownProfile reports whether name is a recognized profile.
@@ -84,10 +111,11 @@ func (r *Registry) Resolve(name ProfileName) ([]model.MetricID, error) {
 		sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
 		return out, nil
 	}
-	members, ok := profileMembers[name]
+	spec, ok := profileSpecs[name]
 	if !ok {
 		return nil, fmt.Errorf("unknown metric profile %q", name)
 	}
+	members := spec.Metrics
 	var out []model.MetricID
 	for _, id := range members {
 		if r.Has(string(id)) {

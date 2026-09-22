@@ -85,7 +85,7 @@ func cmdStat(env Env, args []string) int {
 }
 
 func (a *assembly) streamLoop(ctx context.Context, env Env, r queryspec.Resolved, cols []render.Column, interval time.Duration, count int) int {
-	setThreadEnum(a.src, r.Spec.Leaf == query.LeafThread)
+	configureSource(a.src, r)
 	sampler := collect.NewSampler(a.src, a.clk)
 	emit, err := a.streamEmitter(env, r, cols)
 	if err != nil {

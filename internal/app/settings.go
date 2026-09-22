@@ -42,7 +42,7 @@ var viewSettings = []setting{
 	{"leaf", func(c config.Config) (string, bool) { return c.Leaf, c.Leaf != "" }},
 	{"columns", func(c config.Config) (string, bool) { return strings.Join(c.Columns, ","), len(c.Columns) > 0 }},
 	{"sort", func(c config.Config) (string, bool) { return joinSort(c.Sort), len(c.Sort) > 0 }},
-	{"metrics", func(c config.Config) (string, bool) { return c.Metrics.Profile, c.Metrics.Profile != "" }},
+	{"profile", func(c config.Config) (string, bool) { return c.Metrics.Profile, c.Metrics.Profile != "" }},
 	{"target-width", func(c config.Config) (string, bool) {
 		if c.TargetWidth > 0 {
 			return strconv.Itoa(c.TargetWidth), true

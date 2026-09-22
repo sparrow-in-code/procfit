@@ -142,6 +142,35 @@ func TestSource_EnumerateThreads(t *testing.T) {
 	}
 }
 
+func TestSource_Wchan(t *testing.T) {
+	root := writeProc(t)
+	mustWrite(t, filepath.Join(root, "100", "wchan"), "do_epoll_wait\n")
+	mustWrite(t, filepath.Join(root, "200", "wchan"), "0\n") // running -> normalized to empty
+	src, _ := New(WithRoot(root), WithClockTicks(100))
+
+	// Off by default: the common path pays no wchan read.
+	stats, _ := src.List(context.Background())
+	for _, s := range stats {
+		if s.Wchan != "" {
+			t.Fatalf("wchan must be off by default, got %q", s.Wchan)
+		}
+	}
+
+	// Enabled: the blocked pid's symbol is read; "0" (running) normalizes to empty.
+	src.SetReadWchan(true)
+	stats, _ = src.List(context.Background())
+	got := map[int]string{}
+	for _, s := range stats {
+		got[s.PID] = s.Wchan
+	}
+	if got[100] != "do_epoll_wait" {
+		t.Fatalf("pid100 wchan = %q, want do_epoll_wait", got[100])
+	}
+	if got[200] != "" {
+		t.Fatalf("pid200 wchan '0' should normalize to empty, got %q", got[200])
+	}
+}
+
 func TestSource_VanishedProcessSkipped(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, filepath.Join(root, "stat"), "btime 1\n")

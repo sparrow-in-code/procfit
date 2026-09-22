@@ -182,21 +182,28 @@ idle thousands of times a second. The `battery` profile pairs the eBPF wakeup
 signals with light, no-root proxies:
 
 ```bash
-procfit ps --metrics battery --sort wakeups:desc          # needs root/eBPF for wakeups
-procfit ps --metrics battery --sort ctxsw-voluntary:desc  # no-root proxy for wake/sleep churn
+procfit ps --profile battery --sort wakeups:desc          # needs root/eBPF for wakeups
+procfit ps --profile battery --sort ctxsw-voluntary:desc  # no-root proxy for wake/sleep churn
 ```
 
-Selecting a profile also chooses the columns, so `--metrics battery` shows
-`cpu, cpu-normalized, wakeups, timer-wakeups, ctxsw-voluntary, gpu` without needing
-`--columns`. Without privilege, `wakeups`/`timer-wakeups` render as unavailable
-and `ctxsw-voluntary` carries the signal.
+A **profile** is a named metric set *and* a default view: it can predefine the
+columns (and their order), the sort, grouping, and a filter, all applied unless you
+override them. So `--profile battery` shows `cpu, cpu-normalized, wakeups,
+timer-wakeups, ctxsw-voluntary, gpu` without `--columns`, `--profile memory` sorts by
+`pss`, and `--profile sysload` sorts by `runq-delay` with a `pstate`/`wchan` view —
+any explicit `--columns`/`--sort`/`--group-by`/`--having` still wins. Without
+privilege, `wakeups`/`timer-wakeups` render as unavailable and `ctxsw-voluntary`
+carries the signal.
+
+> The flag is **`--profile`** (the older `--metrics` still works as a deprecated
+> alias; env `PROCFIT_PROFILE`, config `[metrics].profile`).
 
 **GPU** is another invisible drain. `gpu` (per-process engine utilization %) and
 `gpu-mem` come from the vendor-neutral DRM fdinfo ABI (`/proc/PID/fdinfo`), so one
 path covers Intel (i915/xe), AMD (amdgpu), and ARM DRM drivers — no vendor tools:
 
 ```bash
-procfit ps --metrics power --sort gpu:desc   # power profile adds gpu + gpu-mem
+procfit ps --profile power --sort gpu:desc   # power profile adds gpu + gpu-mem
 procfit ps --columns target,pid,gpu,gpu-mem --sort gpu:desc
 ```
 
@@ -210,12 +217,14 @@ fdinfo, so its clients are invisible here (nouveau works).
 
 Load average counts tasks that are **Runnable (R)** *or* in **Uninterruptible
 sleep (D)** — so high load can be CPU contention *or* I/O/kernel blocking, and CPU%
-alone won't tell you which. The `sysload` profile decomposes it:
+alone won't tell you which. The `sysload` profile decomposes it, and ships a default
+view (columns incl. `pstate` + `wchan`, sorted by `runq-delay`):
 
 ```bash
-procfit ps --metrics sysload --sort runq-delay:desc   # CPU-starved tasks (R side)
-procfit ps --metrics sysload --sort blkio-delay:desc  # I/O-blocked tasks (D side)
-procfit ps --metrics sysload --having 'pstate == "D"' --leaf thread   # the exact D tasks
+procfit ps --profile sysload                          # the default load view
+procfit ps --profile sysload --sort blkio-delay:desc  # I/O-blocked tasks (D side)
+procfit ps --profile sysload --select 'state == "D"'  # only the uninterruptible tasks
+procfit ps --group-by wchan --select 'state == "D"' --columns target,procs,wchan
 ```
 
 `runq-delay` is the % of wall time a task was runnable but waiting for a CPU (the
@@ -223,8 +232,18 @@ R/CPU-contention signal, from `/proc/PID/schedstat`; needs `CONFIG_SCHEDSTATS`).
 `blkio-delay` is the % of time blocked on block I/O (the D/I/O signal, from
 `/proc/PID/stat`; needs kernel delay accounting — otherwise it reads unavailable,
 not a false `0`). Alongside them the profile shows `cpu`, `ctxsw-involuntary`
-(preemption churn), and `major-faults` (page-in thrash). Add `--columns +pstate`
-or group by cgroup to see who and where.
+(preemption churn), and `major-faults` (page-in thrash).
+
+The **`wchan`** column is the key to the *sneaky* culprits: it's the kernel function
+a blocked task is sleeping in, which names the cause `blkio-delay` alone can't —
+`jbd2_log_wait_commit` (filesystem journaling), `rpc_wait_bit_killable` (NFS),
+`raid5_get_active_stripe` (RAID), `__alloc_pages_slowpath` (memory reclaim),
+`rwsem_down_*` (lock contention). **Group by `wchan`** to cluster every task stuck in
+the same place — instant root cause. It reads `/proc/PID/wchan` only when a query
+references it, and is filterable (`--select 'wchan ~= "jbd2"'`).
+
+> The deeper signals — PSI (cpu/io/memory pressure), R/D thread counts, and full
+> delay accounting for reclaim/swap-in — are tracked in ticket PM-0514.
 
 ## Seeing real memory use
 
@@ -232,7 +251,7 @@ RSS double-counts shared libraries across processes; the `memory` profile shows 
 honest footprint:
 
 ```bash
-procfit ps --metrics memory --sort pss:desc
+procfit ps --profile memory --sort pss:desc
 ```
 
 `pss` (proportional set size) splits shared memory fairly between its users, `uss`

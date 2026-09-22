@@ -56,6 +56,9 @@ func (s *Source) readProcess(pid int) (ports.ProcStat, bool) {
 	st.Cmdline, st.CmdlineAvail = s.readCmdline(dir)
 	st.Exe, st.ExeAvail = s.readLinkAvail(filepath.Join(dir, "exe"))
 	st.CgroupPath = s.readCgroup(dir)
+	if s.readWchan {
+		st.Wchan = s.readWchanFile(dir)
+	}
 	if s.enumThread {
 		st.Threads = s.readThreads(dir)
 	}
@@ -169,6 +172,20 @@ func (s *Source) readLinkAvail(path string) (string, model.Availability) {
 		return "", model.ReadError
 	}
 	return target, model.Available
+}
+
+// readWchanFile reads /proc/PID/wchan (the kernel symbol a blocked task sleeps
+// in). "0" means the task is running/not sleeping; normalize that to empty.
+func (s *Source) readWchanFile(dir string) string {
+	data, err := os.ReadFile(filepath.Join(dir, "wchan"))
+	if err != nil {
+		return ""
+	}
+	w := strings.TrimSpace(string(data))
+	if w == "0" {
+		return ""
+	}
+	return w
 }
 
 func (s *Source) readCgroup(dir string) string {

@@ -43,6 +43,8 @@ var entityStrFields = map[string]func(*model.Process) string{
 	"container":    func(p *model.Process) string { return p.ContainerID },
 	"pod":          func(p *model.Process) string { return p.PodUID },
 	"state":        func(p *model.Process) string { return string(p.State.Code) },
+	"pstate":       func(p *model.Process) string { return string(p.State.Code) }, // alias matching the column id
+	"wchan":        func(p *model.Process) string { return p.Wchan },
 }
 
 // EntityField resolves a non-metric entity field to a Value.
@@ -88,21 +90,57 @@ func (e RowEnv) Lookup(field string) expr.Value {
 		}
 		return expr.Missing
 	}
+	if v, ok := rowAggField(e.R, field); ok {
+		return v
+	}
+	return rowLeafField(e.R, field)
+}
+
+// rowAggField resolves the aggregate/structural row fields.
+func rowAggField(r *query.Row, field string) (expr.Value, bool) {
 	switch field {
 	case "procs":
-		return expr.Num(float64(e.R.Procs))
+		return expr.Num(float64(r.Procs)), true
 	case "threads":
-		return expr.Num(float64(e.R.Threads))
+		return expr.Num(float64(r.Threads)), true
 	case "children":
-		return expr.Num(float64(e.R.Children))
+		return expr.Num(float64(r.Children)), true
 	case "leaves":
-		return expr.Num(float64(e.R.Leaves))
+		return expr.Num(float64(r.Leaves)), true
 	case "target", "label", "comm", "name":
-		return expr.Str(e.R.Label)
+		return expr.Str(r.Label), true
 	case "kind":
-		return expr.Str(string(e.R.Kind))
+		return expr.Str(string(r.Kind)), true
+	}
+	return expr.Missing, false
+}
+
+// rowLeafField resolves per-leaf fields (state/wchan) available on process/thread
+// rows; Missing on group rows.
+func rowLeafField(r *query.Row, field string) expr.Value {
+	switch field {
+	case "state", "pstate":
+		if s, ok := rowState(r); ok {
+			return expr.Str(s)
+		}
+	case "wchan":
+		if r.Process != nil {
+			return expr.Str(r.Process.Wchan)
+		}
 	}
 	return expr.Missing
+}
+
+// rowState returns a process/thread row's state code (empty for group rows).
+func rowState(r *query.Row) (string, bool) {
+	switch {
+	case r.Process != nil:
+		return string(r.Process.State.Code), true
+	case r.Thread != nil:
+		return string(r.Thread.State.Code), true
+	default:
+		return "", false
+	}
 }
 
 // SelectPred bridges a compiled program to query.EntityPredicate.
@@ -123,18 +161,20 @@ func AllowedEntityFields(reg *metrics.Registry) map[string]bool {
 		"pid": true, "ppid": true, "pgid": true, "sid": true, "session": true,
 		"uid": true, "gid": true, "comm": true, "name": true, "user": true, "exe": true, "app": true,
 		"cgroup": true, "systemd-unit": true, "container": true, "pod": true,
-		"state": true, "nice": true, "pidns": true, "netns": true, "mntns": true,
-		"userns": true, "cgroupns": true,
+		"state": true, "pstate": true, "wchan": true, "nice": true,
+		"pidns": true, "netns": true, "mntns": true, "userns": true, "cgroupns": true,
 	}
 	addMetricFields(reg, allowed)
 	return allowed
 }
 
-// AllowedRowFields is the set of fields valid in a `having` expression.
+// AllowedRowFields is the set of fields valid in a `having` expression. Process/
+// thread leaves also expose their state and (blocked) wchan.
 func AllowedRowFields(reg *metrics.Registry) map[string]bool {
 	allowed := map[string]bool{
 		"procs": true, "threads": true, "children": true, "leaves": true,
 		"target": true, "label": true, "comm": true, "name": true, "kind": true,
+		"state": true, "pstate": true, "wchan": true,
 	}
 	addMetricFields(reg, allowed)
 	return allowed

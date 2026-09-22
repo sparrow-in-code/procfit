@@ -47,6 +47,9 @@ type Resolved struct {
 	Format      string
 	Human       bool
 	TargetWidth int
+	// ExprFields are the non-metric fields referenced by select/having (used to
+	// decide which optional source reads a query needs, e.g. wchan).
+	ExprFields []string
 }
 
 // DefaultColumns is the compact default column set. The leaf identifier (pid)
@@ -63,6 +66,10 @@ var WideColumns = []string{
 
 // Build compiles the flags into a Resolved query against the given registries.
 func Build(reg *metrics.Registry, dims *query.Dimensions, f Flags) (Resolved, error) {
+	// A profile can predefine sort/group-by/having/columns; fill any the user
+	// (and config) left unset, so `--profile sysload` sorts by runq-delay etc.
+	f = applyProfileDefaults(f)
+
 	var r Resolved
 	r.Format = f.Format
 	r.Human = f.Human
@@ -87,6 +94,7 @@ func Build(reg *metrics.Registry, dims *query.Dimensions, f Flags) (Resolved, er
 	if err != nil {
 		return r, err
 	}
+	r.ExprFields = exprFields
 	needed := neededMetrics(reg, selection, append(cols, exprFields...), sortKeys)
 	r.Needed = needed
 	r.Spec = query.QuerySpec{
@@ -121,9 +129,13 @@ func chooseColumns(reg *metrics.Registry, f Flags) []string {
 	if f.Format == "wide" {
 		return WideColumns
 	}
-	// An explicit metric profile drives the default display, so e.g.
-	// `--metrics battery` actually shows the battery metrics (identity + members).
-	if cols, ok := profileColumns(reg, f.Profile); ok {
+	// An explicit profile drives the default display, so e.g. `--profile battery`
+	// shows the battery metrics. A profile may predefine an explicit ordered
+	// column list (used verbatim); otherwise identity columns front its metrics.
+	if cols, explicit, ok := profileColumns(reg, f.Profile); ok {
+		if explicit {
+			return cols
+		}
 		return leafIdentifiers(f.Leaf, cols)
 	}
 	if f.Leaf == string(query.LeafThread) {
@@ -132,22 +144,50 @@ func chooseColumns(reg *metrics.Registry, f Flags) []string {
 	return DefaultColumns
 }
 
-// profileColumns returns an explicit non-default profile's metric ids as columns
-// (ok=false for the default/derived profiles, which keep the compact defaults).
-func profileColumns(reg *metrics.Registry, profile string) ([]string, bool) {
+// profileColumns returns a non-default profile's columns. explicit=true means the
+// profile predefined a full ordered list (including identity + any non-metric
+// fields); explicit=false means the list is its metric ids, needing identity
+// columns prepended. ok=false for the default/derived profiles.
+func profileColumns(reg *metrics.Registry, profile string) (cols []string, explicit, ok bool) {
 	switch profile {
 	case "", "none", "light", "all":
-		return nil, false
+		return nil, false, false
+	}
+	if p, has := metrics.ProfileDefaults(metrics.ProfileName(profile)); has && len(p.Columns) > 0 {
+		return p.Columns, true, true
 	}
 	ids, err := reg.Resolve(metrics.ProfileName(profile))
 	if err != nil || len(ids) == 0 {
-		return nil, false
+		return nil, false, false
 	}
-	cols := make([]string, 0, len(ids))
+	cols = make([]string, 0, len(ids))
 	for _, id := range ids {
 		cols = append(cols, string(id))
 	}
-	return cols, true
+	return cols, false, true
+}
+
+// applyProfileDefaults fills sort/group-by/having from the chosen profile when
+// the caller left them unset, so a profile can ship a sensible default view.
+// Explicit user/config values always win (they arrive non-empty).
+func applyProfileDefaults(f Flags) Flags {
+	if f.Profile == "" {
+		return f
+	}
+	p, ok := metrics.ProfileDefaults(metrics.ProfileName(f.Profile))
+	if !ok {
+		return f
+	}
+	if f.Sort == "" {
+		f.Sort = p.Sort
+	}
+	if f.GroupBy == "" {
+		f.GroupBy = p.GroupBy
+	}
+	if f.Having == "" {
+		f.Having = p.Having
+	}
+	return f
 }
 
 // leafIdentifiers prepends the identity columns (target, pid, and tid for thread

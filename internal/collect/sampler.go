@@ -86,7 +86,7 @@ func (s *Sampler) buildProcess(st, prev ports.ProcStat, hadPrev bool, elapsedSec
 		ID: st.ID, PID: st.PID, PPID: st.PPID, PGID: st.PGID, SID: st.SID, TGID: st.TGID,
 		UID: st.UID, EUID: st.EUID, GID: st.GID, EGID: st.EGID,
 		Comm: st.Comm, Cmdline: st.Cmdline, CmdlineAvail: st.CmdlineAvail,
-		Exe: st.Exe, Cwd: st.Cwd, CgroupPath: st.CgroupPath,
+		Exe: st.Exe, Cwd: st.Cwd, CgroupPath: st.CgroupPath, Wchan: st.Wchan,
 		Namespaces: st.Namespaces, State: st.State,
 		Nice: st.Nice, NiceAvail: st.NiceAvail, StartTicks: st.StartTicks,
 		NumThreads: st.NumThreads,
