@@ -128,39 +128,99 @@ func TestModel_GroupCycleIncludesDisplayedDimensions(t *testing.T) {
 	t.Fatalf("g-cycle never reached wchan grouping")
 }
 
-func TestModel_AddRemoveColumn(t *testing.T) {
+func TestModel_ColumnPicker(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	m.SetSize(120, 24)
-	m.SetColumnChoices([]string{"cpu", "rss", "wchan"})
+	m.SetColumnChoices([]ColumnChoice{
+		{ID: "cpu", Desc: "cpu %"}, {ID: "rss", Desc: "resident memory"}, {ID: "wchan", Desc: "blocking symbol"},
+	})
 	res, _ := sampleResult(2)
 	cols, _ := render.ResolveColumns(metrics.NewDefault(), []string{"target", "cpu"})
 	m.SetResult(res, cols)
 
-	// `+` opens the prompt; a typed prefix + Enter appends the match to the right.
+	// `+` opens the picker; typing filters; Enter toggles the highlighted column on.
 	m.Update(KeyEvent{Rune: '+'})
-	if !m.colEditing {
-		t.Fatal("+ should open the add-column prompt")
+	if !m.colPicker {
+		t.Fatal("+ should open the column picker")
 	}
 	for _, r := range "wch" {
 		m.Update(KeyEvent{Rune: r})
 	}
-	m.Update(KeyEvent{Name: "enter"})
-	if m.colEditing {
-		t.Fatal("Enter should close the prompt")
+	if f := m.filteredChoices(); len(f) != 1 || f[0].ID != "wchan" {
+		t.Fatalf("filter should narrow to wchan, got %v", f)
+	}
+	m.Update(KeyEvent{Name: "enter"}) // toggle wchan on (picker stays open)
+	if !m.colPicker {
+		t.Fatal("picker should stay open for multi-select")
 	}
 	if m.flags.Columns != "target,cpu,wchan" {
 		t.Fatalf("column not appended: %q", m.flags.Columns)
 	}
-	if !m.dirty {
-		t.Fatal("adding a column should trigger a re-query")
-	}
-
-	// The driver re-queries with the new columns; `-` then drops the rightmost.
+	// Re-query applies the new set; toggling a shown column removes it.
 	cols2, _ := render.ResolveColumns(metrics.NewDefault(), []string{"target", "cpu", "wchan"})
 	m.SetResult(res, cols2)
-	m.Update(KeyEvent{Rune: '-'})
+	m.Update(KeyEvent{Name: "enter"}) // wchan still filtered + highlighted → toggle off
 	if m.flags.Columns != "target,cpu" {
-		t.Fatalf("column not removed: %q", m.flags.Columns)
+		t.Fatalf("toggling a shown column should remove it: %q", m.flags.Columns)
+	}
+	m.Update(KeyEvent{Name: "esc"})
+	if m.colPicker {
+		t.Fatal("Esc should close the picker")
+	}
+}
+
+func TestModel_ColumnPickerRenderNavRemove(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(100, 8) // short screen exercises scroll
+	choices := make([]ColumnChoice, 0)
+	for _, id := range []string{"a", "b", "c", "cpu", "rss", "swap", "wchan", "gpu"} {
+		choices = append(choices, ColumnChoice{ID: id, Desc: "desc " + id})
+	}
+	m.SetColumnChoices(choices)
+	res, _ := sampleResult(1)
+	cols, _ := render.ResolveColumns(metrics.NewDefault(), []string{"target"})
+	m.SetResult(res, cols)
+
+	m.Update(KeyEvent{Rune: '+'})
+	joined := strings.Join(m.Frame(), "\n")
+	for _, want := range []string{"COLUMNS", "filter>", "[ ]", "cpu"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("picker frame missing %q:\n%s", want, joined)
+		}
+	}
+	// Navigation moves the cursor (and scrolls on a short screen).
+	m.Update(KeyEvent{Name: "down"})
+	m.Update(KeyEvent{Name: "pgdn"})
+	if m.colCursor == 0 {
+		t.Fatal("down/pgdn should move the picker cursor")
+	}
+	// A filter that matches nothing → Enter is a no-op; backspace clears it.
+	m.Update(KeyEvent{Rune: 'z'})
+	if len(m.filteredChoices()) != 0 {
+		t.Fatal("filter 'z' should match nothing")
+	}
+	m.Update(KeyEvent{Name: "enter"}) // no-op on empty list
+	m.Update(KeyEvent{Name: "backspace"})
+	if m.colFilter != "" {
+		t.Fatalf("backspace should clear the filter, got %q", m.colFilter)
+	}
+	m.Update(KeyEvent{Name: "esc"})
+	if m.colPicker {
+		t.Fatal("Esc should close the picker")
+	}
+
+	// `-` drops the rightmost column; target is protected.
+	c2, _ := render.ResolveColumns(metrics.NewDefault(), []string{"target", "cpu"})
+	m.SetResult(res, c2)
+	m.Update(KeyEvent{Rune: '-'})
+	if m.flags.Columns != "target" {
+		t.Fatalf("- should drop cpu, got %q", m.flags.Columns)
+	}
+	c3, _ := render.ResolveColumns(metrics.NewDefault(), []string{"target"})
+	m.SetResult(res, c3)
+	m.Update(KeyEvent{Rune: '-'})
+	if !strings.Contains(m.status, "required") {
+		t.Fatalf("removing target must be refused, status=%q", m.status)
 	}
 }
 

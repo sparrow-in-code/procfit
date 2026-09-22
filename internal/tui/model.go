@@ -61,9 +61,11 @@ type Model struct {
 	paused       bool // auto-refresh (ticker) suspended
 	editing      bool // filter-edit mode active
 	editBuf      string
-	colEditing   bool            // add-column prompt active
-	colBuf       string          // typed column-id prefix in the add-column prompt
-	colChoices   []string        // all addable column ids (sorted), for the picker
+	colPicker    bool            // column picker overlay active
+	colFilter    string          // type-to-filter text in the picker
+	colCursor    int             // highlighted row in the filtered picker list
+	colScroll    int             // top row of the picker list (scroll)
+	colChoices   []ColumnChoice  // all addable columns (id + description), sorted
 	editPos      int             // cursor position (rune index) within editBuf
 	history      []string        // applied filter expressions, oldest first
 	histIdx      int             // browse position into history (== len(history) means "live")
@@ -108,9 +110,9 @@ func (m *Model) SetManaged(hasSource bool, drop DropFunc) {
 // the explorer observation-only.
 func (m *Model) SetControl(fn ControlFunc) { m.control = fn }
 
-// SetColumnChoices supplies the ids that can be added interactively (`+`): every
-// displayable metric and structural column, sorted.
-func (m *Model) SetColumnChoices(ids []string) { m.colChoices = ids }
+// SetColumnChoices supplies the columns offered by the picker (`+`): every
+// displayable metric and structural column with its description, sorted by id.
+func (m *Model) SetColumnChoices(cs []ColumnChoice) { m.colChoices = cs }
 
 type flatRow struct {
 	row       *query.Row

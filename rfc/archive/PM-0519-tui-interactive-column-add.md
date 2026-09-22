@@ -42,7 +42,15 @@ renders the new set.
 ## Status: DONE (2026-09-22)
 
 `internal/tui/columns.go` holds the add/remove logic; `+`/`-` bound in update.go,
-routed like the filter editor; prompt rendered in the status bar; choices sourced
-from `assembly.addableColumns()` (metrics + `render.StructuralColumns()`). Reuses
-the existing "flags change → re-query" path, so no new refresh plumbing.
-`make check` green (80.5%).
+routed like the filter editor; choices sourced from `assembly.addableColumns()`
+(metrics + `render.StructuralColumns()`). Reuses the existing "flags change →
+re-query" path, so no new refresh plumbing.
+
+## Update: type-to-filter picker
+
+First shipped as a type-the-id prompt; upgraded to a **column picker overlay** so
+you browse instead of recall ids: `+` opens a type-to-filter list of every column
+**with its description** (`ColumnChoice{ID, Desc}` from the catalog), `↑↓`/PgUp/PgDn
+navigate, `Enter` **toggles** the highlighted column on/off (stays open for
+multi-select, `[x]` marks shown), `Esc` closes; `-` still quick-drops the
+rightmost, and `target` can't be removed. `make check` green (80.7%).

@@ -49,8 +49,8 @@ var runeKeys = map[rune]func(*Model){
 	'd': (*Model).dropSelected, // managed panel only (drop = stop tracking)
 	'/': (*Model).startFilter,
 	'f': (*Model).startFilter,
-	'+': (*Model).startAddColumn,   // add a column (type id + Enter)
-	'-': (*Model).removeLastColumn, // drop the rightmost column
+	'+': (*Model).openColumnPicker, // browse/toggle columns (type to filter)
+	'-': (*Model).removeLastColumn, // quick drop of the rightmost column
 	'[': func(m *Model) { m.adjustInterval(-1) },
 	']': func(m *Model) { m.adjustInterval(1) },
 }
@@ -75,7 +75,7 @@ func (m *Model) Update(ev KeyEvent) {
 		m.editKey(ev)
 		return
 	}
-	if m.colEditing {
+	if m.colPicker {
 		m.colKey(ev)
 		return
 	}

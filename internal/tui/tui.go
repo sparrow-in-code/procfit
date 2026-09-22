@@ -26,8 +26,8 @@ type Deps struct {
 	Control     ControlFunc
 	Drop        DropFunc // unmanage the target(s) owning the selected pids
 	History     HistoryFunc
-	Interval    time.Duration // starting refresh interval (0 = default 1s)
-	Columns     []string      // addable column ids for the interactive picker (`+`)
+	Interval    time.Duration  // starting refresh interval (0 = default 1s)
+	Columns     []ColumnChoice // columns (id + description) for the interactive picker (`+`)
 }
 
 func RunTerminal(deps Deps, flags queryspec.Flags) (string, error) {
