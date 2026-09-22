@@ -171,14 +171,14 @@ func (m *Model) Quit() bool { return m.quit }
 func (m *Model) Paused() bool { return m.paused }
 
 // RefreshSuspended reports whether ticker-driven auto-refresh must hold off:
-// either the user paused, or a modal gate is open (a control confirmation, its
-// forecast overlay, or the nice-value prompt). Freezing the view during a
-// control decision keeps the row list from reordering under the user mid-gate.
-// The action itself is already pinned to the pids captured when it began, so
-// this is about a steady view, not correctness — a reorder can never retarget a
-// confirmed action.
+// the user paused, or a modal prompt/overlay is open. Besides keeping the view
+// steady during a control decision (the action is already pinned to its captured
+// pids, so this is about a steady view, not correctness), it frees the single
+// event loop while typing — otherwise a slow background re-query (e.g. a
+// self-windowing metric that sleeps ~200ms) queues keystrokes and input lags.
 func (m *Model) RefreshSuspended() bool {
-	return m.paused || m.confirming || m.previewing || m.niceEditing
+	return m.paused || m.confirming || m.previewing || m.niceEditing ||
+		m.editing || m.colPicker || m.help || m.detail
 }
 
 // Dirty reports (and clears) whether a re-query is needed.

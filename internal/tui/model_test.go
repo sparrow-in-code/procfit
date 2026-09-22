@@ -143,6 +143,9 @@ func TestModel_ColumnPicker(t *testing.T) {
 	if !m.colPicker {
 		t.Fatal("+ should open the column picker")
 	}
+	if !m.RefreshSuspended() {
+		t.Fatal("the picker must suspend auto-refresh so typing stays responsive")
+	}
 	for _, r := range "wch" {
 		m.Update(KeyEvent{Rune: r})
 	}
