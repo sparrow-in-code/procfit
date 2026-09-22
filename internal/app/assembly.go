@@ -48,7 +48,7 @@ func newAssemblyWith(src ports.ProcessSource, clk ports.Clock) *assembly {
 	reg := metrics.NewDefault()
 	dims := query.NewDimensions()
 	resolvers := []ports.Resolver{resolve.NewUserResolver(""), resolve.NewSystemdResolver()}
-	collectors := []ports.MetricCollector{procfs.NewFDCollector(""), procfs.NewPerfCollector(), procfs.NewWakeupsCollector()}
+	collectors := []ports.MetricCollector{procfs.NewFDCollector(""), procfs.NewGPUCollector(""), procfs.NewPerfCollector(), procfs.NewWakeupsCollector()}
 	return &assembly{
 		reg: reg, dims: dims, src: src, clk: clk, engine: query.NewEngine(reg, dims),
 		resolvers: resolvers, collectors: collectors, wait: time.After,

@@ -35,13 +35,13 @@ var profileMembers = map[ProfileName][]model.MetricID{
 	ProfileProcess: {"cpu", "rss", "vsz", "threads", "pnice", "pstate"},
 	ProfileIO:      {"disk-rbps", "disk-wbps", "io-rchar", "io-wchar", "read-syscalls", "write-syscalls"},
 	ProfileNetwork: {"net-rx-bps", "net-tx-bps", "net-rx-pps", "net-tx-pps"},
-	ProfilePower:   {"cpu", "wakeups", "timer-wakeups"},
+	ProfilePower:   {"cpu", "wakeups", "timer-wakeups", "gpu", "gpu-mem"},
 	// battery: what actually drains a laptop. Wakeups (eBPF, needs privilege) are
 	// the real signal — a process can be ~0% cpu yet keep the package out of deep
 	// C-states. ctxsw-voluntary is a light, no-root proxy for that wake/sleep
 	// churn, so the profile still says something useful without eBPF; cpu-normalized
 	// frames cpu against total host capacity.
-	ProfileBattery: {"cpu", "cpu-normalized", "wakeups", "timer-wakeups", "ctxsw-voluntary"},
+	ProfileBattery: {"cpu", "cpu-normalized", "wakeups", "timer-wakeups", "ctxsw-voluntary", "gpu"},
 	ProfilePerf:    {"cycles", "instructions", "ipc", "cache-misses"},
 }
 

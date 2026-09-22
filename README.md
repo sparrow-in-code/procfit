@@ -187,9 +187,24 @@ procfit ps --metrics battery --sort ctxsw-voluntary:desc  # no-root proxy for wa
 ```
 
 Selecting a profile also chooses the columns, so `--metrics battery` shows
-`cpu, cpu-normalized, wakeups, timer-wakeups, ctxsw-voluntary` without needing
+`cpu, cpu-normalized, wakeups, timer-wakeups, ctxsw-voluntary, gpu` without needing
 `--columns`. Without privilege, `wakeups`/`timer-wakeups` render as unavailable
 and `ctxsw-voluntary` carries the signal.
+
+**GPU** is another invisible drain. `gpu` (per-process engine utilization %) and
+`gpu-mem` come from the vendor-neutral DRM fdinfo ABI (`/proc/PID/fdinfo`), so one
+path covers Intel (i915/xe), AMD (amdgpu), and ARM DRM drivers — no vendor tools:
+
+```bash
+procfit ps --metrics power --sort gpu:desc   # power profile adds gpu + gpu-mem
+procfit ps --columns target,pid,gpu,gpu-mem --sort gpu:desc
+```
+
+`gpu` sums a process's busy time across GPU engines over a short window (it can
+exceed 100% when several engines run at once, like CPU% across cores). A process
+with no GPU client shows `-` (never a fake `0`); another user's processes show `?`
+until you have privilege. Proprietary **NVIDIA** does not expose the standard
+fdinfo, so its clients are invisible here (nouveau works).
 
 ## Configuration & precedence
 

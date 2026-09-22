@@ -13,6 +13,7 @@ type Unit string
 const (
 	UnitPercentOneCPU Unit = "percent_one_cpu" // may exceed 100 for multithreaded
 	UnitPercentHost   Unit = "percent_host"
+	UnitPercent       Unit = "percent" // 0–100 utilization (may exceed across GPU engines)
 	UnitBytes         Unit = "bytes"
 	UnitBytesPerSec   Unit = "bytes_per_sec"
 	UnitCount         Unit = "count"

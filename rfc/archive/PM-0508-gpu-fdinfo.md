@@ -1,7 +1,7 @@
 ---
 id: PM-0508
 title: Per-process GPU usage via DRM fdinfo
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0501"]
 owner:
@@ -35,12 +35,12 @@ covers Intel, AMD, and ARM GPUs.
 
 ## Acceptance criteria
 
-- [ ] Per-process GPU engine utilization + memory parsed from DRM fdinfo, delta
+- [x] Per-process GPU engine utilization + memory parsed from DRM fdinfo, delta
       over the interval; multiple engines/fds summed per process.
-- [ ] Vendor-neutral: no driver name hardcoded; works for i915/xe (Intel),
+- [x] Vendor-neutral: no driver name hardcoded; works for i915/xe (Intel),
       amdgpu (AMD), and ARM DRM drivers (panfrost/panthor/lima/v3d) that emit
       fdinfo — engine names are read, not assumed.
-- [ ] No DRM fdinfo → unavailable, never zero. Own-process fds need no root;
+- [x] No DRM fdinfo → unavailable, never zero. Own-process fds need no root;
       all-process needs privilege.
 
 ## Tests required
@@ -52,3 +52,25 @@ covers Intel, AMD, and ARM GPUs.
 
 DRM fdinfo is the portable path across Intel/AMD/ARM. NVIDIA proprietary is the
 one gap, isolated behind an optional adapter so the core stays vendor-neutral.
+
+## Status: DONE (2026-09-22)
+
+Shipped `GPUCollector` (`internal/procfs/gpu.go`): finds `/dev/dri/*` fds, parses
+their `/proc/PID/fdinfo` `drm-*` keys, and derives `gpu` (engine utilization %,
+summed across engines) + `gpu-mem` (resident→memory→total fallback). Metrics are
+registered (`builtin_gpu.go`, new `UnitPercent`), added to the `power` and
+`battery` profiles, and the collector is wired into the assembly (zero cost unless
+requested). Utilization uses a self-contained 200 ms window (like WakeupsCollector,
+since `enrich` sees one sample), so a one-shot `ps` still yields a value. Dup'd fds
+are deduped by `drm-pdev`/`drm-client-id`; `drm-engine-capacity-*` is excluded from
+busy time. Verified live: `procfit metrics` lists both; `ps --metrics power` renders
+`GPU`/`GPU-MEM` and correctly shows `?` (permission) / `-` (no client) on this
+GPU-less host. Unit tests cover the parser, window delta, dedup, memory fallback,
+no-DRM skip, and read-error surfacing. `make check` green (coverage 80.7%).
+
+**Deferred (follow-up ticket worthy):**
+- Optional **per-engine columns** (`gpu-render`/`gpu-video`/…) — engine names are
+  dynamic, so they need runtime-derived descriptors; only summed `gpu` ships now.
+- **Cycles-based drivers** (`drm-cycles-*`/`drm-maxfreq-*`, e.g. some ARM/v3d) —
+  only `drm-engine-*` (ns) utilization is parsed today.
+- **NVIDIA proprietary** via an optional NVML adapter (nouveau already works).
