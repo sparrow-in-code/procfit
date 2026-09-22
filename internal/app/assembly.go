@@ -108,19 +108,27 @@ func setWchan(src interface{}, on bool) {
 	}
 }
 
-// configureSource sets the per-query optional source reads (thread enumeration,
-// wchan) from the resolved query, so each pays cost only when actually used.
-func configureSource(src interface{}, r queryspec.Resolved) {
-	setThreadEnum(src, r.Spec.Leaf == query.LeafThread)
-	setWchan(src, usesWchan(r))
+// setHostname toggles the source's optional /proc/PID/environ read for HOSTNAME.
+func setHostname(src interface{}, on bool) {
+	if h, ok := src.(interface{ SetReadHostname(bool) }); ok {
+		h.SetReadHostname(on)
+	}
 }
 
-// usesWchan reports whether the query references the wchan field (as a column,
-// grouping dimension, or select/having filter field).
-func usesWchan(r queryspec.Resolved) bool {
-	return containsStr(r.Columns, "wchan") ||
-		containsStr(r.Spec.GroupBy, "wchan") ||
-		containsStr(r.ExprFields, "wchan")
+// configureSource sets the per-query optional source reads (thread enumeration,
+// wchan, hostname) from the resolved query, so each pays cost only when used.
+func configureSource(src interface{}, r queryspec.Resolved) {
+	setThreadEnum(src, r.Spec.Leaf == query.LeafThread)
+	setWchan(src, usesField(r, "wchan"))
+	setHostname(src, usesField(r, "hostname"))
+}
+
+// usesField reports whether the query references a non-metric field (as a
+// column, grouping dimension, or select/having filter field).
+func usesField(r queryspec.Resolved, field string) bool {
+	return containsStr(r.Columns, field) ||
+		containsStr(r.Spec.GroupBy, field) ||
+		containsStr(r.ExprFields, field)
 }
 
 func containsStr(xs []string, v string) bool {

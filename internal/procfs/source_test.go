@@ -110,6 +110,38 @@ func TestSource_List(t *testing.T) {
 	}
 }
 
+func TestSource_Hostname(t *testing.T) {
+	root := writeProc(t)
+	mustWrite(t, filepath.Join(root, "sys/kernel/hostname"), "real-host\n")
+	// pid 100 is "in a container": environ carries HOSTNAME.
+	mustWrite(t, filepath.Join(root, "100/environ"), "PATH=/usr/bin\x00HOSTNAME=web-1\x00TERM=xterm\x00")
+	// pid 200 has no HOSTNAME env -> must fall back to the host hostname.
+	mustWrite(t, filepath.Join(root, "200/environ"), "PATH=/usr/bin\x00")
+
+	src, _ := New(WithRoot(root), WithClockTicks(100))
+
+	// Off by default: environ is not read, hostname stays empty (cost on demand).
+	stats, _ := src.List(context.Background())
+	for _, s := range stats {
+		if s.Hostname != "" {
+			t.Fatalf("hostname must be off by default, got %q for pid %d", s.Hostname, s.PID)
+		}
+	}
+
+	src.SetReadHostname(true)
+	stats, _ = src.List(context.Background())
+	got := map[int]string{}
+	for _, s := range stats {
+		got[s.PID] = s.Hostname
+	}
+	if got[100] != "web-1" {
+		t.Fatalf("pid 100 HOSTNAME env should win, got %q", got[100])
+	}
+	if got[200] != "real-host" {
+		t.Fatalf("pid 200 should fall back to the host hostname, got %q", got[200])
+	}
+}
+
 func TestSource_EnumerateThreads(t *testing.T) {
 	root := writeProc(t)
 	p := filepath.Join(root, "100")

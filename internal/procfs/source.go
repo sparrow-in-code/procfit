@@ -17,14 +17,18 @@ import (
 // /proc (RFC §14.1). A future OS would be a separate adapter package
 // implementing the same port (DEVELOPMENT.md §2.4).
 type Source struct {
-	root       string
-	hz         int64
-	cpus       int
-	bootID     string
-	bootUnix   int64
-	pageSize   int64
-	enumThread bool
-	readWchan  bool
+	root         string
+	hz           int64
+	cpus         int
+	bootID       string
+	bootUnix     int64
+	pageSize     int64
+	enumThread   bool
+	readWchan    bool
+	readHostname bool
+	// hostname is the host's own hostname, read once; used as the fallback when a
+	// process has no HOSTNAME env (or environ is unreadable).
+	hostname string
 	// blkioAvail is Available unless kernel delay accounting is off (then the
 	// stat blkio-delay counter is always 0 and must read as Disabled, not zero).
 	blkioAvail model.Availability
@@ -39,6 +43,11 @@ func (s *Source) SetEnumerateThreads(on bool) { s.enumThread = on }
 // common path pays no extra read; the app turns it on only when a query
 // references the wchan field (column/group-by/filter).
 func (s *Source) SetReadWchan(on bool) { s.readWchan = on }
+
+// SetReadHostname toggles reading /proc/PID/environ for the HOSTNAME env var. Off
+// by default (environ is permission-gated and adds a read per process); the app
+// turns it on only when a query references the hostname field.
+func (s *Source) SetReadHostname(on bool) { s.readHostname = on }
 
 // Option configures a Source.
 type Option func(*Source)
@@ -61,8 +70,24 @@ func New(opts ...Option) (*Source, error) {
 	if b, err := os.ReadFile(filepath.Join(s.root, "stat")); err == nil {
 		s.bootUnix = parseBtime(b)
 	}
+	s.hostname = readHostHostname(s.root)
 	s.blkioAvail = detectDelayacct(s.root)
 	return s, nil
+}
+
+// readHostHostname reads the host's own hostname from procfs
+// (/proc/sys/kernel/hostname) so it honours a test's WithRoot, falling back to
+// the os hostname when that read fails.
+func readHostHostname(root string) string {
+	if b, err := os.ReadFile(filepath.Join(root, "sys/kernel/hostname")); err == nil {
+		if h := strings.TrimSpace(string(b)); h != "" {
+			return h
+		}
+	}
+	if h, err := os.Hostname(); err == nil {
+		return h
+	}
+	return ""
 }
 
 // detectDelayacct reports whether per-task block-I/O delay accounting is on.

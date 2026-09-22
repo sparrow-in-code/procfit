@@ -59,6 +59,9 @@ func (s *Source) readProcess(pid int) (ports.ProcStat, bool) {
 	if s.readWchan {
 		st.Wchan = s.readWchanFile(dir)
 	}
+	if s.readHostname {
+		st.Hostname = s.readHostnameFor(dir)
+	}
 	if s.enumThread {
 		st.Threads = s.readThreads(dir)
 	}
@@ -186,6 +189,38 @@ func (s *Source) readWchanFile(dir string) string {
 		return ""
 	}
 	return w
+}
+
+// readHostnameFor returns the process's HOSTNAME env var (from the NUL-separated
+// /proc/PID/environ), or the host's own hostname when it is unset or environ is
+// unreadable (other users' environ is permission-gated). A container typically
+// sets HOSTNAME to its id/name, so this doubles as a poor-man's container name.
+func (s *Source) readHostnameFor(dir string) string {
+	if h := envValue(readEnviron(dir), "HOSTNAME"); h != "" {
+		return h
+	}
+	return s.hostname
+}
+
+// readEnviron reads /proc/PID/environ, returning nil on any error.
+func readEnviron(dir string) []byte {
+	data, err := os.ReadFile(filepath.Join(dir, "environ"))
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
+// envValue extracts one variable's value from NUL-separated KEY=VALUE environ
+// bytes. Returns "" when the key is absent.
+func envValue(environ []byte, key string) string {
+	prefix := key + "="
+	for _, kv := range strings.Split(string(environ), "\x00") {
+		if v, ok := strings.CutPrefix(kv, prefix); ok {
+			return v
+		}
+	}
+	return ""
 }
 
 func (s *Source) readCgroup(dir string) string {

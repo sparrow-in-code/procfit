@@ -31,6 +31,10 @@ type Process struct {
 	// Wchan is the kernel symbol a blocked task is sleeping in (names the cause
 	// of a D-state stall); empty unless a query references the wchan field.
 	Wchan string
+	// Hostname is the process's HOSTNAME env var (a poor-man's container name:
+	// containers set it to the container id/name), falling back to the host's
+	// own hostname when unset/unreadable. Empty unless a query references it.
+	Hostname string
 
 	Namespaces NamespaceSet
 	State      ProcessState

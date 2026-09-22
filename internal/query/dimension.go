@@ -103,6 +103,9 @@ func NewDimensions() *Dimensions {
 		// cause for D-state stalls (jbd2/NFS/reclaim/…).
 		strField("pstate", "PSTATE", func(p *model.Process) string { return string(p.State.Code) }),
 		strField("wchan", "WCHAN", func(p *model.Process) string { return p.Wchan }),
+		// Grouping by hostname clusters processes by their HOSTNAME env (the host
+		// hostname for non-containerized ones) — a poor-man's per-container view.
+		strField("hostname", "HOSTNAME", func(p *model.Process) string { return p.Hostname }),
 		strField("systemd-unit", "UNIT", func(p *model.Process) string { return p.SystemdUnit }).desc("systemd unit"),
 		strField("container", "CONTAINER", func(p *model.Process) string { return p.ContainerID }).desc("container id"),
 		strField("pod", "POD", func(p *model.Process) string { return p.PodUID }).desc("pod uid"),

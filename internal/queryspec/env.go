@@ -45,6 +45,7 @@ var entityStrFields = map[string]func(*model.Process) string{
 	"state":        func(p *model.Process) string { return string(p.State.Code) },
 	"pstate":       func(p *model.Process) string { return string(p.State.Code) }, // alias matching the column id
 	"wchan":        func(p *model.Process) string { return p.Wchan },
+	"hostname":     func(p *model.Process) string { return p.Hostname },
 }
 
 // EntityField resolves a non-metric entity field to a Value.
@@ -127,6 +128,10 @@ func rowLeafField(r *query.Row, field string) expr.Value {
 		if r.Process != nil {
 			return expr.Str(r.Process.Wchan)
 		}
+	case "hostname":
+		if r.Process != nil {
+			return expr.Str(r.Process.Hostname)
+		}
 	}
 	return expr.Missing
 }
@@ -161,7 +166,7 @@ func AllowedEntityFields(reg *metrics.Registry) map[string]bool {
 		"pid": true, "ppid": true, "pgid": true, "sid": true, "session": true,
 		"uid": true, "gid": true, "comm": true, "name": true, "user": true, "exe": true, "app": true,
 		"cgroup": true, "systemd-unit": true, "container": true, "pod": true,
-		"state": true, "pstate": true, "wchan": true, "nice": true,
+		"state": true, "pstate": true, "wchan": true, "hostname": true, "nice": true,
 		"pidns": true, "netns": true, "mntns": true, "userns": true, "cgroupns": true,
 	}
 	addMetricFields(reg, allowed)
@@ -174,7 +179,7 @@ func AllowedRowFields(reg *metrics.Registry) map[string]bool {
 	allowed := map[string]bool{
 		"procs": true, "threads": true, "children": true, "leaves": true,
 		"target": true, "label": true, "comm": true, "name": true, "kind": true,
-		"state": true, "pstate": true, "wchan": true,
+		"state": true, "pstate": true, "wchan": true, "hostname": true,
 	}
 	addMetricFields(reg, allowed)
 	return allowed

@@ -107,21 +107,30 @@ func machineMetric(v model.MetricValue) string {
 // (a map) rather than a switch keeps lookups simple and makes adding a column a
 // one-line entry (Open/Closed).
 var structuralColumns = map[string]Column{
-	"target":  {ID: "target", Header: "TARGET", IsTarget: true, Sortable: true, Filterable: true, Desc: "the row's group/process label (the tree target)", Cell: func(r *query.Row) string { return r.Label }},
-	"pt":      {ID: "pt", Header: "P/T", RightAlign: true, Desc: "process/thread counts under the row", Cell: func(r *query.Row) string { return fmt.Sprintf("%d/%d", r.Procs, r.Threads) }},
-	"procs":   {ID: "procs", Header: "PROCS", RightAlign: true, Sortable: true, Filterable: true, Desc: "number of processes in the row", Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Procs) }},
-	"threads": {ID: "threads", Header: "THREADS", RightAlign: true, Sortable: true, Filterable: true, Desc: "number of threads in the row", Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Threads) }},
-	"pid":     {ID: "pid", Header: "PID", RightAlign: true, Sortable: true, Desc: "process id", Cell: cellPID},
-	"tid":     {ID: "tid", Header: "TID", RightAlign: true, Sortable: true, Desc: "thread id (thread leaves)", Cell: cellTID},
-	"ppid":    {ID: "ppid", Header: "PPID", RightAlign: true, Groupable: true, Desc: "parent process id", Cell: cellPPID},
-	"comm":    {ID: "comm", Header: "COMM", Sortable: true, Filterable: true, Groupable: true, Desc: "kernel comm (short command name)", Cell: cellComm},
-	"name":    {ID: "name", Header: "NAME", Sortable: true, Filterable: true, Groupable: true, Desc: "display name (best-effort process name)", Cell: cellName},
-	"uid":     {ID: "uid", Header: "UID", RightAlign: true, Groupable: true, Desc: "real user id", Cell: cellUID},
-	"user":    {ID: "user", Header: "USER", Groupable: true, Desc: "resolved user name", Cell: cellUser},
-	"pstate":  {ID: "pstate", Header: "PSTATE", Sortable: true, Filterable: true, Groupable: true, Desc: "process state (R/S/D/Z/I/T/…)", Cell: cellPState},
-	"kind":    {ID: "kind", Header: "KIND", Filterable: true, Desc: "row kind (group/process/thread)", Cell: func(r *query.Row) string { return string(r.Kind) }},
-	"cmdline": {ID: "cmdline", Header: "CMDLINE", Desc: "full command line", Cell: cellCmdline},
-	"wchan":   {ID: "wchan", Header: "WCHAN", Sortable: true, Filterable: true, Groupable: true, Desc: "kernel symbol a blocked task sleeps in (names a D-state cause)", Cell: cellWchan},
+	"target":   {ID: "target", Header: "TARGET", IsTarget: true, Sortable: true, Filterable: true, Desc: "the row's group/process label (the tree target)", Cell: func(r *query.Row) string { return r.Label }},
+	"pt":       {ID: "pt", Header: "P/T", RightAlign: true, Desc: "process/thread counts under the row", Cell: func(r *query.Row) string { return fmt.Sprintf("%d/%d", r.Procs, r.Threads) }},
+	"procs":    {ID: "procs", Header: "PROCS", RightAlign: true, Sortable: true, Filterable: true, Desc: "number of processes in the row", Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Procs) }},
+	"threads":  {ID: "threads", Header: "THREADS", RightAlign: true, Sortable: true, Filterable: true, Desc: "number of threads in the row", Cell: func(r *query.Row) string { return fmt.Sprintf("%d", r.Threads) }},
+	"pid":      {ID: "pid", Header: "PID", RightAlign: true, Sortable: true, Desc: "process id", Cell: cellPID},
+	"tid":      {ID: "tid", Header: "TID", RightAlign: true, Sortable: true, Desc: "thread id (thread leaves)", Cell: cellTID},
+	"ppid":     {ID: "ppid", Header: "PPID", RightAlign: true, Groupable: true, Desc: "parent process id", Cell: cellPPID},
+	"comm":     {ID: "comm", Header: "COMM", Sortable: true, Filterable: true, Groupable: true, Desc: "kernel comm (short command name)", Cell: cellComm},
+	"name":     {ID: "name", Header: "NAME", Sortable: true, Filterable: true, Groupable: true, Desc: "display name (best-effort process name)", Cell: cellName},
+	"uid":      {ID: "uid", Header: "UID", RightAlign: true, Groupable: true, Desc: "real user id", Cell: cellUID},
+	"user":     {ID: "user", Header: "USER", Groupable: true, Desc: "resolved user name", Cell: cellUser},
+	"pstate":   {ID: "pstate", Header: "PSTATE", Sortable: true, Filterable: true, Groupable: true, Desc: "process state (R/S/D/Z/I/T/…)", Cell: cellPState},
+	"kind":     {ID: "kind", Header: "KIND", Filterable: true, Desc: "row kind (group/process/thread)", Cell: func(r *query.Row) string { return string(r.Kind) }},
+	"cmdline":  {ID: "cmdline", Header: "CMDLINE", Desc: "full command line", Cell: cellCmdline},
+	"wchan":    {ID: "wchan", Header: "WCHAN", Sortable: true, Filterable: true, Groupable: true, Desc: "kernel symbol a blocked task sleeps in (names a D-state cause)", Cell: cellWchan},
+	"hostname": {ID: "hostname", Header: "HOSTNAME", Sortable: true, Filterable: true, Groupable: true, Desc: "process HOSTNAME env var, else the host hostname (poor-man's container name)", Cell: cellHostname},
+}
+
+// cellHostname renders a process's HOSTNAME env (or the host fallback).
+func cellHostname(r *query.Row) string {
+	if r.Process != nil {
+		return r.Process.Hostname
+	}
+	return ""
 }
 
 // cellWchan renders the kernel symbol a blocked process is sleeping in.

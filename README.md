@@ -91,7 +91,7 @@ on a short terminal; `?`/`Esc`/`q` closes). The tables below are that keymap.
 | `Enter` / `←` / `→` | fold/unfold the group under the cursor (`[-]` open, `[+]` collapsed; leaves have no marker) |
 | `c` / `C` | fold **all** groups shut / unfold **all** at once (a per-group `Enter` still overrides afterwards) |
 | `i` | inspect the selected row — identity + recent control history (when `[state].history` is enabled); `Esc`/`i` to close |
-| `g` | cycle grouping — the built-in presets **plus any displayed column that is a dimension** (e.g. `wchan`, `pstate`, `user`), so you can group by what's on screen |
+| `g` | cycle grouping — the built-in presets **plus any displayed column that is a dimension** (e.g. `wchan`, `pstate`, `user`, `hostname`), so you can group by what's on screen |
 | `s` / `S` | cycle the sort column / toggle ascending↔descending |
 | `/` or `f` | filter (see below) |
 | `+` | **column picker** — a type-to-filter list of every column with its description; `↑↓` move, `Enter` toggles a column on/off (stays open to enable several), `Esc` closes. No restart |
@@ -283,6 +283,22 @@ both from `/proc/PID/smaps_rollup` (another user's processes show `?` until you 
 privilege). The profile also breaks resident memory into `rss-anon`/`rss-file`
 /`rss-shmem`, and shows `swap` (swapped-out), `mem-peak` (VmHWM), and `oom-score`
 (0–1000 kill-likelihood — what the kernel sacrifices first under pressure).
+
+## Grouping by container (poor-man's)
+
+The `hostname` field is the process's `HOSTNAME` environment variable — which
+container runtimes set to the container id/name — falling back to the host's own
+hostname for everything not in a container. So a quick per-container view needs no
+runtime integration:
+
+```bash
+procfit ps --group-by hostname --sort cpu:desc
+```
+
+It reads `/proc/PID/environ` only when a query references `hostname` (and another
+user's environ shows the host fallback until you have privilege). It is also a
+column, sortable, and filterable (`--select 'hostname ~= "web-"'`). For true
+cgroup/runtime-derived identity, the `container`/`pod`/`cgroup` dimensions remain.
 
 ## Configuration & precedence
 
