@@ -4,6 +4,8 @@ import (
 	"flag"
 	"strings"
 
+	"github.com/netikras/procfit/internal/metrics"
+	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/queryspec"
 )
 
@@ -41,14 +43,14 @@ func (s *stringList) Set(v string) error {
 func bindQueryFlags(fs *flag.FlagSet) *queryFlags {
 	qf := &queryFlags{}
 	fs.StringVar(&qf.groupBy, "group-by", "", "group by dimensions (comma-separated for sub-groups); "+
-		"values: none,host,comm,name,user,exe,app,cgroup,systemd-unit,container,pod,uid,namespace-set "+
-		"(default: none = flat process list)")
+		"values: none,"+strings.Join(query.NewDimensions().IDs(), ",")+
+		" (default: none = flat process list)")
 	fs.StringVar(&qf.leaf, "leaf", "", "terminal rows under groups; values: process,thread,none (default: process)")
 	fs.StringVar(&qf.sortSpec, "sort", "", "sort keys 'field[:asc|desc]', comma-separated, e.g. cpu:desc,comm (default: unsorted)")
 	fs.StringVar(&qf.columns, "columns", "", "explicit columns, comma-separated; ids from 'procfit metrics' plus "+
 		"target,pid,tid,pt,user,pstate,... (default: auto for the leaf mode)")
 	fs.StringVar(&qf.profile, "profile", "", "metric profile (a named metric set + default view); "+
-		"values: none,light,process,memory,io,network,power,battery,sysload,perf,all (default: light)")
+		"values: "+strings.Join(metrics.ProfileNames(), ",")+" (default: light)")
 	fs.StringVar(&qf.profile, "metrics", "", "deprecated alias for --profile")
 	fs.Var(&qf.metricOver, "metric", "add/remove one metric: NAME, +NAME, or -NAME (repeatable; ids from 'procfit metrics')")
 	fs.StringVar(&qf.format, "format", "table", "output format; values: table,wide,json,ndjson,csv")

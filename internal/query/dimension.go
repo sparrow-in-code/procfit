@@ -28,7 +28,8 @@ func (d Dimension) Key(p *model.Process) (key, label string, ok bool) {
 
 // Dimensions is a registry of grouping dimensions.
 type Dimensions struct {
-	byID map[string]Dimension
+	byID  map[string]Dimension
+	order []string
 }
 
 // Get returns a dimension by id.
@@ -41,6 +42,14 @@ func (d *Dimensions) Get(id string) (Dimension, bool) {
 func (d *Dimensions) Has(id string) bool {
 	_, ok := d.byID[id]
 	return ok
+}
+
+// IDs returns the registered dimension ids in registration order (the single
+// source of truth for help text, so it never drifts from what actually resolves).
+func (d *Dimensions) IDs() []string {
+	out := make([]string, len(d.order))
+	copy(out, d.order)
+	return out
 }
 
 func nsDim(id, label string, t model.NamespaceType) Dimension {
@@ -111,9 +120,10 @@ func NewDimensions() *Dimensions {
 			return k, k, true
 		}},
 	}
-	reg := &Dimensions{byID: make(map[string]Dimension, len(dims))}
+	reg := &Dimensions{byID: make(map[string]Dimension, len(dims)), order: make([]string, 0, len(dims))}
 	for _, d := range dims {
 		reg.byID[d.ID] = d
+		reg.order = append(reg.order, d.ID)
 	}
 	return reg
 }

@@ -81,14 +81,26 @@ func ProfileDefaults(name ProfileName) (Profile, bool) {
 	return p, ok
 }
 
-// IsKnownProfile reports whether name is a recognized profile.
-func IsKnownProfile(name string) bool {
-	for _, p := range KnownProfiles {
-		if ProfileName(name) == p {
-			return true
-		}
+// ProfileNames returns the built-in profile names in display order (for help
+// text), derived from KnownProfiles so it never drifts from the flag docs.
+func ProfileNames() []string {
+	out := make([]string, len(KnownProfiles))
+	for i, p := range KnownProfiles {
+		out[i] = string(p)
 	}
-	return false
+	return out
+}
+
+// IsKnownProfile reports whether name is a recognized profile. It is derived from
+// the actual profile specs (plus the registry-derived none/light/all), so a
+// profile added to profileSpecs is recognized without touching a second list.
+func IsKnownProfile(name string) bool {
+	switch ProfileName(name) {
+	case ProfileNone, ProfileLight, ProfileAll:
+		return true
+	}
+	_, ok := profileSpecs[ProfileName(name)]
+	return ok
 }
 
 // Resolve expands a profile into the set of canonical metric ids that exist in

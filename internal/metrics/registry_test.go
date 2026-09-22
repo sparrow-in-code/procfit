@@ -99,6 +99,32 @@ func TestProfileResolve(t *testing.T) {
 	}
 }
 
+func TestKnownProfilesMatchesSpecs(t *testing.T) {
+	// The display list (KnownProfiles / ProfileNames) must stay in sync with the
+	// actual profileSpecs, so help text can never drift from what resolves.
+	derived := map[ProfileName]bool{ProfileNone: true, ProfileLight: true, ProfileAll: true}
+	inKnown := map[ProfileName]bool{}
+	for _, p := range KnownProfiles {
+		inKnown[p] = true
+		if !derived[p] {
+			if _, ok := profileSpecs[p]; !ok {
+				t.Fatalf("KnownProfiles lists %q but there is no profileSpecs entry", p)
+			}
+		}
+	}
+	for p := range profileSpecs {
+		if !inKnown[p] {
+			t.Fatalf("profileSpecs has %q missing from KnownProfiles (help list would omit it)", p)
+		}
+		if !IsKnownProfile(string(p)) {
+			t.Fatalf("IsKnownProfile should recognize spec profile %q", p)
+		}
+	}
+	if len(ProfileNames()) != len(KnownProfiles) {
+		t.Fatal("ProfileNames must mirror KnownProfiles")
+	}
+}
+
 func TestResolveSelection(t *testing.T) {
 	r := NewDefault()
 	// none + explicit adds
