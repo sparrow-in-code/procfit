@@ -188,13 +188,23 @@ In the TUI filter line:
 ## Finding battery drain
 
 CPU% alone misses the usual culprit — a low-CPU process that wakes the CPU out of
-idle thousands of times a second. The `battery` profile pairs the eBPF wakeup
-signals with light, no-root proxies:
+idle thousands of times a second. Two profiles answer two questions:
 
 ```bash
-procfit ps --profile battery --sort wakeups:desc          # needs root/eBPF for wakeups
+procfit ps --profile power                                # how much is drawn: real watts + deep-idle
+procfit ps --profile battery --sort wakeups:desc          # what causes it: wakeups (needs root/eBPF)
 procfit ps --profile battery --sort ctxsw-voluntary:desc  # no-root proxy for wake/sleep churn
 ```
+
+`--profile power` shows **actual watts** — `power-pkg`/`power-core`/`power-dram`
+from Intel/AMD RAPL (via the powercap tree) or hwmon sensors, and `power-system`
+(whole-machine draw) from the laptop battery, which is vendor- and arch-neutral
+(works on any x86/ARM laptop on discharge). procfit picks the first available
+backend — see `procfit capabilities` for which — and a domain the host does not
+expose renders unavailable, never a fake zero. These are host-wide readings, so
+they show the same figure on every row (there is no separate host row yet).
+`wakeups` also now has a **no-root fallback** from `/proc/PID/sched` (needs
+`CONFIG_SCHEDSTATS`); eBPF is used when available (richer waker attribution).
 
 A **profile** is a named metric set *and* a default view: it can predefine the
 columns (and their order), the sort, grouping, and a filter, all applied unless you

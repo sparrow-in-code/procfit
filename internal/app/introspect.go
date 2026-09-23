@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/netikras/procfit/internal/metrics"
+	"github.com/netikras/procfit/internal/procfs"
 	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/queryspec"
 	"github.com/netikras/procfit/internal/render"
@@ -254,8 +255,18 @@ func probeCapabilities() []capability {
 		}
 	}
 	caps = append(caps, capability{"proc-io", ioStatus, ioDetail})
-	caps = append(caps, probeCgroup(), probePerf(), probeEBPF(), probeSchedWakeups())
+	caps = append(caps, probeCgroup(), probePerf(), probeEBPF(), probeSchedWakeups(), probePower())
 	return caps
+}
+
+// probePower reports the active power/energy backend (PM-0506): the first of
+// RAPL powercap, hwmon, or battery that yields a reading, else unsupported.
+func probePower() capability {
+	backend := procfs.NewPowerCollector("").Backend()
+	if backend == "" {
+		return capability{"power", "unsupported", "no RAPL/hwmon/battery power source on this host"}
+	}
+	return capability{"power", "available", "power draw via " + backend}
 }
 
 // probeSchedWakeups reports the no-root fallback source for `wakeups`: whether

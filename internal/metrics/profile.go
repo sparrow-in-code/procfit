@@ -56,7 +56,11 @@ var profileSpecs = map[ProfileName]Profile{
 	},
 	ProfileIO:      {Metrics: []model.MetricID{"disk-rbps", "disk-wbps", "io-rchar", "io-wchar", "read-syscalls", "write-syscalls"}},
 	ProfileNetwork: {Metrics: []model.MetricID{"net-rx-bps", "net-tx-bps", "net-rx-pps", "net-tx-pps"}},
-	ProfilePower:   {Metrics: []model.MetricID{"cpu", "wakeups", "timer-wakeups", "cstate-deep-residency", "gpu", "gpu-mem"}},
+	// power: actual consumption — real watts (RAPL/hwmon/battery) plus deep-idle
+	// residency and cpu for context. battery (below) stays the per-process drain
+	// DRIVERS (wakeups/ctxsw/cpu/gpu), so the two profiles answer different
+	// questions: how much is drawn vs what is causing the draw.
+	ProfilePower: {Metrics: []model.MetricID{"power-pkg", "power-core", "power-dram", "power-system", "cstate-deep-residency", "cpu"}},
 	// battery: what actually drains a laptop. Wakeups (eBPF, needs privilege) are
 	// the real signal — a process can be ~0% cpu yet keep the package out of deep
 	// C-states. ctxsw-voluntary is a light, no-root proxy for that wake/sleep

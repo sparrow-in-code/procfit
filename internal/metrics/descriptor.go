@@ -22,6 +22,7 @@ const (
 	UnitDuration      Unit = "duration"
 	UnitInteger       Unit = "integer"
 	UnitEnum          Unit = "enum"
+	UnitWatts         Unit = "watts" // power draw in watts
 )
 
 // Scope tags where a metric's value is accounted, so aggregation can deduplicate

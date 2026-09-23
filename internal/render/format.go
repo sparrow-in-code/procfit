@@ -56,7 +56,7 @@ func FormatMetricRaw(desc metrics.Descriptor, v model.MetricValue) string {
 		return strconv.FormatInt(int64(math.Round(v.V)), 10) // raw bytes/counts, like `free` without -h
 	case metrics.UnitPercentOneCPU, metrics.UnitPercentHost, metrics.UnitPercent:
 		return fmt.Sprintf("%.1f", v.V)
-	case metrics.UnitRatio:
+	case metrics.UnitRatio, metrics.UnitWatts:
 		return fmt.Sprintf("%.2f", v.V)
 	case metrics.UnitDuration:
 		return strconv.FormatInt(int64(v.V), 10) // seconds
@@ -80,7 +80,7 @@ func formatUnit(u metrics.Unit, val float64) string {
 		return humanBytes(val)
 	case metrics.UnitPercentOneCPU, metrics.UnitPercentHost, metrics.UnitPercent:
 		return fmt.Sprintf("%.1f", val)
-	case metrics.UnitRatio:
+	case metrics.UnitRatio, metrics.UnitWatts:
 		return fmt.Sprintf("%.2f", val)
 	case metrics.UnitPerSec, metrics.UnitCount:
 		return humanCount(val)

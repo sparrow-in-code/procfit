@@ -1,12 +1,31 @@
 ---
 id: PM-0506
 title: Vendor-neutral energy/power collector (RAPL/hwmon/battery)
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0501"]
 owner:
 rfc: ["§13", "§24"]
 ---
+
+## Status: DONE (2026-09-23)
+
+`ports.PowerSource` (`internal/ports/power.go`) is a cheap per-domain reader
+(microjoules cumulative or microwatts instantaneous). Three sysfs adapters
+(`internal/procfs/power_source.go`): **powercap/RAPL** (`intel-rapl:*`, shared by
+Intel+AMD, domain from the `name` file — no vendor string hardcoded),
+**hwmon** (`power1_input`/`energy1_input`), **battery** (`power_supply/*/power_now`
+or `voltage_now×current_now`, vendor/arch-neutral). `NewPowerSource` selects the
+first backend that yields a readable value (so an unprivileged host with root-only
+RAPL still lands on the battery), else nil. `PowerCollector`
+(`internal/procfs/power_collect.go`) self-windows energy counters into watts
+(handling counter wrap → unavailable), uses instantaneous power directly, sums
+per-domain across sockets, and broadcasts host metrics `power-pkg/core/uncore/dram/system`
+(ScopeHost, AggMax, new `UnitWatts`) onto every process (QUESTIONS.md item I). The
+`power` profile is redefined around real watts + cstate + cpu; `battery` stays the
+drain drivers. `procfit capabilities` reports the active backend. Validated live
+(hwmon → 24.28 W package). **Deferred (out of scope):** perf-RAPL backend and
+per-cgroup power attribution estimate. Commit: (local).
 
 ## Summary
 
@@ -42,13 +61,13 @@ without locking to one vendor.
 
 ## Acceptance criteria
 
-- [ ] `PowerSource` port with ≥2 backends; selection is capability-gated and the
+- [x] `PowerSource` port with ≥2 backends; selection is capability-gated and the
       active backend is reported by `procfit capabilities`.
-- [ ] No vendor string hardcoded in the core; Intel and AMD both work via the
+- [x] No vendor string hardcoded in the core; Intel and AMD both work via the
       powercap/hwmon paths; battery backend works with no RAPL at all.
-- [ ] Energy is read as a delta (handles counter wrap) → per-second watts; missing
+- [x] Energy is read as a delta (handles counter wrap) → per-second watts; missing
       domains render unavailable.
-- [ ] A `power` metric set surfaces in `--metrics power` (redefine `power` around
+- [x] A `power` metric set surfaces in `--metrics power` (redefine `power` around
       real watts; keep `battery` as the per-process drain drivers — see Notes).
 
 ## Tests required
