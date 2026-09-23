@@ -9,13 +9,14 @@ import (
 	"github.com/netikras/procfit/internal/ports"
 )
 
-// NewPowerSource selects the first usable power backend for this host, in order:
-// powercap/RAPL (Intel & AMD), hwmon sensors, then the laptop battery — the
-// vendor- and arch-neutral fallback (PM-0506). A backend that is present but
-// yields no readable value (e.g. root-only RAPL energy_uj) is kept only as a last
-// resort, so an unprivileged host still lands on the battery. Returns nil when no
-// backend exists.
-func NewPowerSource(sysRoot string) ports.PowerSource {
+// NewPowerSources returns every power backend present on this host, in priority
+// order: powercap/RAPL (Intel & AMD), hwmon sensors, then the laptop battery
+// (PM-0506). The collector MERGES their domains — RAPL/hwmon supply
+// pkg/core/dram, the battery supplies whole-system draw — so a laptop with both
+// reports all of them, and a domain one backend can't read is still filled by
+// another that can. A backend that is absent is omitted; one present but
+// currently unreadable is still returned so its reason surfaces.
+func NewPowerSources(sysRoot string) []ports.PowerSource {
 	if sysRoot == "" {
 		sysRoot = "/sys"
 	}
@@ -24,29 +25,13 @@ func NewPowerSource(sysRoot string) ports.PowerSource {
 		&hwmonSource{root: sysRoot},
 		&batterySource{root: sysRoot},
 	}
-	var fallback ports.PowerSource
+	var out []ports.PowerSource
 	for _, s := range candidates {
-		readings, ok := s.Read()
-		if !ok {
-			continue
-		}
-		if fallback == nil {
-			fallback = s
-		}
-		if anyAvailable(readings) {
-			return s
+		if _, ok := s.Read(); ok {
+			out = append(out, s)
 		}
 	}
-	return fallback
-}
-
-func anyAvailable(rs []ports.PowerReading) bool {
-	for _, r := range rs {
-		if r.Avail == model.Available {
-			return true
-		}
-	}
-	return false
+	return out
 }
 
 // powercapSource reads /sys/class/powercap/intel-rapl:*/{name,energy_uj}. The

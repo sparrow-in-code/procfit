@@ -271,11 +271,11 @@ func probePSI() capability {
 // probePower reports the active power/energy backend (PM-0506): the first of
 // RAPL powercap, hwmon, or battery that yields a reading, else unsupported.
 func probePower() capability {
-	backend := procfs.NewPowerCollector("").Backend()
-	if backend == "" {
+	backends := procfs.NewPowerCollector("").Backends()
+	if len(backends) == 0 {
 		return capability{"power", "unsupported", "no RAPL/hwmon/battery power source on this host"}
 	}
-	return capability{"power", "available", "power draw via " + backend}
+	return capability{"power", "available", "power draw via " + strings.Join(backends, ", ")}
 }
 
 // probeSchedWakeups reports the no-root fallback source for `wakeups`: whether

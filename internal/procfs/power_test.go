@@ -35,8 +35,8 @@ func TestPowerCollector_PowercapWatts(t *testing.T) {
 	procs := []model.Process{{PID: 1}, {PID: 2}}
 	c.Collect(context.Background(), procs)
 
-	if b := c.Backend(); b != "powercap" {
-		t.Fatalf("backend = %q, want powercap", b)
+	if b := c.Backends(); len(b) != 1 || b[0] != "powercap" {
+		t.Fatalf("backends = %v, want [powercap]", b)
 	}
 	for _, p := range procs {
 		if v := p.Metric("power-pkg"); !v.Present() || v.V < 19.9 || v.V > 20.1 {
@@ -78,32 +78,61 @@ func TestBatterySource_PowerNow(t *testing.T) {
 	procs := []model.Process{{PID: 1}}
 	c.Collect(context.Background(), procs)
 
-	if c.Backend() != "battery" {
-		t.Fatalf("backend = %q, want battery", c.Backend())
+	if b := c.Backends(); len(b) != 1 || b[0] != "battery" {
+		t.Fatalf("backends = %v, want [battery]", b)
 	}
 	if v := procs[0].Metric("power-system"); !v.Present() || v.V < 14.9 || v.V > 15.1 {
 		t.Fatalf("power-system = %+v, want ~15W", v)
 	}
 }
 
-func TestNewPowerSource_SelectionOrder(t *testing.T) {
+// TestPowerCollector_MergesBackends is the key fix: a laptop with BOTH RAPL and a
+// battery must report RAPL's pkg/core AND the battery's whole-system draw — the
+// single-backend selection used to hide power-system whenever RAPL existed.
+func TestPowerCollector_MergesBackends(t *testing.T) {
+	root := t.TempDir()
+	powercapTree(t, root)
+	writeSys(t, root, "class/power_supply/BAT0/type", "Battery\n")
+	writeSys(t, root, "class/power_supply/BAT0/power_now", "12000000\n") // 12 W system
+
+	c := NewPowerCollector(root)
+	c.window = 100 * time.Millisecond
+	c.sleep = func(time.Duration) {
+		writeSys(t, root, "class/powercap/intel-rapl:0/energy_uj", "3000000\n")   // +2J → 20W
+		writeSys(t, root, "class/powercap/intel-rapl:0:0/energy_uj", "1500000\n") // +1J → 10W
+	}
+	procs := []model.Process{{PID: 1}}
+	c.Collect(context.Background(), procs)
+
+	if b := c.Backends(); len(b) != 2 || b[0] != "powercap" || b[1] != "battery" {
+		t.Fatalf("backends = %v, want [powercap battery]", b)
+	}
+	if v := procs[0].Metric("power-pkg"); !v.Present() || v.V < 19.9 || v.V > 20.1 {
+		t.Fatalf("power-pkg = %+v, want ~20W (RAPL)", v)
+	}
+	if v := procs[0].Metric("power-system"); !v.Present() || v.V < 11.9 || v.V > 12.1 {
+		t.Fatalf("power-system = %+v, want ~12W (battery, not hidden by RAPL)", v)
+	}
+}
+
+func TestNewPowerSources_Discovery(t *testing.T) {
 	// Battery only.
 	batRoot := t.TempDir()
 	writeSys(t, batRoot, "class/power_supply/BAT0/type", "Battery\n")
 	writeSys(t, batRoot, "class/power_supply/BAT0/power_now", "9000000\n")
-	if s := NewPowerSource(batRoot); s == nil || s.ID() != "battery" {
-		t.Fatalf("battery-only host should select battery, got %v", s)
+	if s := NewPowerSources(batRoot); len(s) != 1 || s[0].ID() != "battery" {
+		t.Fatalf("battery-only host → %v, want [battery]", s)
 	}
-	// powercap (readable) wins over a present battery.
+	// Both present → both returned, powercap first.
 	bothRoot := t.TempDir()
 	powercapTree(t, bothRoot)
 	writeSys(t, bothRoot, "class/power_supply/BAT0/type", "Battery\n")
 	writeSys(t, bothRoot, "class/power_supply/BAT0/power_now", "9000000\n")
-	if s := NewPowerSource(bothRoot); s == nil || s.ID() != "powercap" {
-		t.Fatalf("powercap must win over battery, got %v", s)
+	if s := NewPowerSources(bothRoot); len(s) != 2 || s[0].ID() != "powercap" || s[1].ID() != "battery" {
+		t.Fatalf("both present → %v, want [powercap battery]", s)
 	}
-	// Nothing available.
-	if s := NewPowerSource(t.TempDir()); s != nil {
-		t.Fatalf("no power source should select nil, got %v", s)
+	// Nothing present.
+	if s := NewPowerSources(t.TempDir()); len(s) != 0 {
+		t.Fatalf("no power source → %v, want empty", s)
 	}
 }
