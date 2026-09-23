@@ -208,8 +208,10 @@ they show the same figure on every row (there is no separate host row yet).
 
 A **profile** is a named metric set *and* a default view: it can predefine the
 columns (and their order), the sort, grouping, and a filter, all applied unless you
-override them. So `--profile battery` shows `cpu, cpu-normalized, wakeups,
-timer-wakeups, ctxsw-voluntary, gpu` without `--columns`, `--profile memory` sorts by
+override them. So `--profile battery` pairs the whole-system draw (`power-system`
+watts) and deep-idle context (`cstate-deep-residency`) with the per-process drain
+drivers (`cpu`, `wakeups`/`timer-wakeups`/`ctxsw-voluntary`, `gpu`/`gpu-mem`) without
+`--columns`, `--profile memory` sorts by
 `pss`, and `--profile sysload` sorts by `runq-delay` with a `pstate`/`wchan` view —
 any explicit `--columns`/`--sort`/`--group-by`/`--having` still wins. Without
 privilege, `wakeups`/`timer-wakeups` render as unavailable and `ctxsw-voluntary`

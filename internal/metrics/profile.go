@@ -62,12 +62,16 @@ var profileSpecs = map[ProfileName]Profile{
 	// DRIVERS (wakeups/ctxsw/cpu/gpu), so the two profiles answer different
 	// questions: how much is drawn vs what is causing the draw.
 	ProfilePower: {Metrics: []model.MetricID{"power-pkg", "power-core", "power-dram", "power-system", "cstate-deep-residency", "cpu"}},
-	// battery: what actually drains a laptop. Wakeups (eBPF, needs privilege) are
-	// the real signal — a process can be ~0% cpu yet keep the package out of deep
-	// C-states. ctxsw-voluntary is a light, no-root proxy for that wake/sleep
-	// churn, so the profile still says something useful without eBPF; cpu-normalized
-	// frames cpu against total host capacity.
-	ProfileBattery: {Metrics: []model.MetricID{"cpu", "cpu-normalized", "wakeups", "timer-wakeups", "ctxsw-voluntary", "gpu"}},
+	// battery: what actually drains a laptop. It pairs the whole-system draw
+	// (power-system watts, from the battery sensor) and the deep-idle context
+	// (cstate-deep-residency — low residency is the drain signature) with the
+	// per-process DRIVERS: cpu, GPU (util + memory), and wake/sleep churn. Wakeups
+	// (eBPF/procfs) are the real churn signal — a process can be ~0% cpu yet keep
+	// the package out of deep C-states; ctxsw-voluntary is the light no-root proxy.
+	ProfileBattery: {Metrics: []model.MetricID{
+		"power-system", "cstate-deep-residency", "cpu", "cpu-normalized",
+		"wakeups", "timer-wakeups", "ctxsw-voluntary", "gpu", "gpu-mem",
+	}},
 	// sysload: decompose load average — state + the blocking cause (wchan), CPU use,
 	// CPU-wait (runq), I/O-wait (blkio), preemption churn, page-in thrash. Sorted by
 	// runq-delay so the CPU-starved tasks surface first.

@@ -142,6 +142,37 @@ func TestSource_Hostname(t *testing.T) {
 	}
 }
 
+func TestSource_HostnameCached(t *testing.T) {
+	root := writeProc(t)
+	mustWrite(t, filepath.Join(root, "sys/kernel/hostname"), "real-host\n")
+	mustWrite(t, filepath.Join(root, "100/environ"), "HOSTNAME=web-1\x00")
+	mustWrite(t, filepath.Join(root, "200/environ"), "PATH=/x\x00")
+
+	src, _ := New(WithRoot(root), WithClockTicks(100))
+	src.SetReadHostname(true)
+
+	if _, err := src.List(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	// environ is read once per instance and cached: a later environ change is NOT
+	// re-read within the cache's lifetime (mirrors the kernel — environ is fixed
+	// at exec). Rewrite pid 100's environ, then List twice (rotate keeps it).
+	mustWrite(t, filepath.Join(root, "100/environ"), "HOSTNAME=CHANGED\x00")
+	for i := 0; i < 2; i++ {
+		stats, _ := src.List(context.Background())
+		got := map[int]string{}
+		for _, s := range stats {
+			got[s.PID] = s.Hostname
+		}
+		if got[100] != "web-1" {
+			t.Fatalf("pass %d: cached HOSTNAME should stay web-1, got %q", i, got[100])
+		}
+		if got[200] != "real-host" {
+			t.Fatalf("pass %d: pid200 host fallback wrong: %q", i, got[200])
+		}
+	}
+}
+
 func TestSource_EnumerateThreads(t *testing.T) {
 	root := writeProc(t)
 	p := filepath.Join(root, "100")

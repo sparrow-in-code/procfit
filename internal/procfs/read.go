@@ -60,7 +60,7 @@ func (s *Source) readProcess(pid int) (ports.ProcStat, bool) {
 		st.Wchan = s.readWchanFile(dir)
 	}
 	if s.readHostname {
-		st.Hostname = s.readHostnameFor(dir)
+		st.Hostname = s.readHostnameFor(dir, st.ID)
 	}
 	if s.enumThread {
 		st.Threads = s.readThreads(dir)
@@ -195,7 +195,34 @@ func (s *Source) readWchanFile(dir string) string {
 // /proc/PID/environ), or the host's own hostname when it is unset or environ is
 // unreadable (other users' environ is permission-gated). A container typically
 // sets HOSTNAME to its id/name, so this doubles as a poor-man's container name.
-func (s *Source) readHostnameFor(dir string) string {
+//
+// /proc/PID/environ is fixed at exec (it does not reflect later setenv), so the
+// value is cached per process instance (keyed by identity, so pid reuse is not
+// confused) and read only once — never on every sample.
+func (s *Source) readHostnameFor(dir string, id model.ProcessInstanceID) string {
+	key := id.Key()
+	s.hostMu.Lock()
+	if v, ok := s.hostCache[key]; ok {
+		s.hostMu.Unlock()
+		return v
+	}
+	if v, ok := s.hostCachePrev[key]; ok {
+		s.hostCache[key] = v // promote so it survives the next generation rotation
+		s.hostMu.Unlock()
+		return v
+	}
+	s.hostMu.Unlock()
+
+	v := s.resolveHostname(dir)
+
+	s.hostMu.Lock()
+	s.hostCache[key] = v
+	s.hostMu.Unlock()
+	return v
+}
+
+// resolveHostname does the actual environ read + host fallback (uncached).
+func (s *Source) resolveHostname(dir string) string {
 	if h := envValue(readEnviron(dir), "HOSTNAME"); h != "" {
 		return h
 	}

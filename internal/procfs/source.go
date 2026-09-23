@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/netikras/procfit/internal/model"
 	"github.com/netikras/procfit/internal/ports"
@@ -29,6 +30,11 @@ type Source struct {
 	// hostname is the host's own hostname, read once; used as the fallback when a
 	// process has no HOSTNAME env (or environ is unreadable).
 	hostname string
+	// hostCache/hostCachePrev memoize per-instance HOSTNAME (environ is fixed at
+	// exec). Two generations, rotated per List, bound memory to live processes.
+	hostMu        sync.Mutex
+	hostCache     map[string]string
+	hostCachePrev map[string]string
 	// blkioAvail is Available unless kernel delay accounting is off (then the
 	// stat blkio-delay counter is always 0 and must read as Disabled, not zero).
 	blkioAvail model.Availability
@@ -102,6 +108,15 @@ func detectDelayacct(root string) model.Availability {
 	return model.Available
 }
 
+// rotateHostCache advances the hostname cache one generation: entries not touched
+// (looked up) during the last List fall out, so the cache tracks live processes.
+func (s *Source) rotateHostCache() {
+	s.hostMu.Lock()
+	s.hostCachePrev = s.hostCache
+	s.hostCache = make(map[string]string, len(s.hostCachePrev))
+	s.hostMu.Unlock()
+}
+
 // ID identifies the adapter.
 func (s *Source) ID() string { return "procfs" }
 
@@ -120,6 +135,9 @@ func (s *Source) BootTimeUnix() int64 { return s.bootUnix }
 // List enumerates processes. A process that vanishes mid-scan is skipped rather
 // than failing the whole call (RFC §21.1).
 func (s *Source) List(ctx context.Context) ([]ports.ProcStat, error) {
+	if s.readHostname {
+		s.rotateHostCache()
+	}
 	entries, err := os.ReadDir(s.root)
 	if err != nil {
 		return nil, err
