@@ -18,16 +18,39 @@ import (
 // assembly wires the observation stack. It is constructed per command so tests
 // can inject fakes for the source and clock.
 type assembly struct {
-	reg        *metrics.Registry
-	dims       *query.Dimensions
-	src        ports.ProcessSource
-	clk        ports.Clock
-	engine     *query.Engine
-	resolvers  []ports.Resolver
-	collectors []ports.MetricCollector
+	reg            *metrics.Registry
+	dims           *query.Dimensions
+	src            ports.ProcessSource
+	clk            ports.Clock
+	engine         *query.Engine
+	resolvers      []ports.Resolver
+	collectors     []ports.MetricCollector
+	hostCollectors []ports.HostCollector
 	// wait returns a channel that fires after d; injectable so tests can avoid
 	// real sleeps and advance a fake clock instead.
 	wait func(d time.Duration) <-chan time.Time
+}
+
+// collectHost gathers the host-scoped metrics a query needs, once (never per
+// process). Only collectors producing a requested metric run, so a query with no
+// host metric does no host work and shows no host section.
+func (a *assembly) collectHost(ctx context.Context, needed []model.MetricID) map[model.MetricID]model.MetricValue {
+	want := make(map[model.MetricID]bool, len(needed))
+	for _, id := range needed {
+		want[id] = true
+	}
+	out := map[model.MetricID]model.MetricValue{}
+	for _, hc := range a.hostCollectors {
+		if !intersectsMetrics(hc.Metrics(), want) {
+			continue
+		}
+		for id, v := range hc.CollectHost(ctx) {
+			if want[id] {
+				out[id] = v
+			}
+		}
+	}
+	return out
 }
 
 // newAssemblyFn is the assembly constructor commands use. It is a package var so
@@ -54,13 +77,16 @@ func newAssemblyWith(src ports.ProcessSource, clk ports.Clock) *assembly {
 		// Fallback for wakeups; runs after the eBPF collector and only fills what
 		// eBPF did not (PM-0509), so eBPF (waker attribution) stays preferred.
 		procfs.NewSchedWakeupsCollector(""),
-		procfs.NewCstateCollector(""),
-		procfs.NewPowerCollector(""),
-		procfs.NewPSICollector(""), procfs.NewThreadStateCollector(""),
+		procfs.NewThreadStateCollector(""),
+	}
+	// Host-scoped collectors produce whole-machine metrics read once per sample
+	// (never per process) and rendered in their own section.
+	hostCollectors := []ports.HostCollector{
+		procfs.NewCstateCollector(""), procfs.NewPowerCollector(""), procfs.NewPSICollector(""),
 	}
 	return &assembly{
 		reg: reg, dims: dims, src: src, clk: clk, engine: query.NewEngine(reg, dims),
-		resolvers: resolvers, collectors: collectors, wait: time.After,
+		resolvers: resolvers, collectors: collectors, hostCollectors: hostCollectors, wait: time.After,
 	}
 }
 
@@ -169,10 +195,11 @@ func (a *assembly) sampleForResult(ctx context.Context, r queryspec.Resolved, in
 	a.applyResolvers(snap.Processes)
 	a.enrich(ctx, snap.Processes, r.Needed)
 	return query.Input{
-		Generation: snap.Generation,
-		WallTime:   snap.WallTime,
-		Elapsed:    snap.Elapsed,
-		Processes:  snap.Processes,
+		Generation:  snap.Generation,
+		WallTime:    snap.WallTime,
+		Elapsed:     snap.Elapsed,
+		Processes:   snap.Processes,
+		HostMetrics: a.collectHost(ctx, r.Needed),
 	}, nil
 }
 

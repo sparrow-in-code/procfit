@@ -62,21 +62,25 @@ func (c *PowerCollector) Backends() []string {
 	return ids
 }
 
-// Collect measures power and broadcasts each domain onto all processes.
-func (c *PowerCollector) Collect(_ context.Context, procs []model.Process) {
+// CollectHost measures power and returns each domain as a host metric.
+func (c *PowerCollector) CollectHost(_ context.Context) map[model.MetricID]model.MetricValue {
 	c.init()
+	out := make(map[model.MetricID]model.MetricValue, len(powerDomains))
 	if len(c.sources) == 0 {
-		c.broadcastAll(procs, model.Unavailable[float64](model.Unsupported, "power"))
-		return
+		for _, id := range c.Metrics() {
+			out[id] = model.Unavailable[float64](model.Unsupported, "power")
+		}
+		return out
 	}
 	merged := c.readMerged()
 	for domain, id := range powerDomains {
-		v, ok := merged[domain]
-		if !ok {
-			v = model.Unavailable[float64](model.Unsupported, "power")
+		if v, ok := merged[domain]; ok {
+			out[id] = v
+		} else {
+			out[id] = model.Unavailable[float64](model.Unsupported, "power")
 		}
-		c.broadcast(procs, id, v)
 	}
+	return out
 }
 
 // readMerged reads all backends (one shared window for the energy counters) and
@@ -183,17 +187,5 @@ func markUnavailableDomains(out map[string]model.MetricValue, rs []ports.PowerRe
 		if _, done := out[r.Domain]; !done {
 			out[r.Domain] = model.Unavailable[float64](r.Avail, src)
 		}
-	}
-}
-
-func (c *PowerCollector) broadcast(procs []model.Process, id model.MetricID, v model.MetricValue) {
-	for i := range procs {
-		procs[i].SetMetric(id, v)
-	}
-}
-
-func (c *PowerCollector) broadcastAll(procs []model.Process, v model.MetricValue) {
-	for _, id := range c.Metrics() {
-		c.broadcast(procs, id, v)
 	}
 }

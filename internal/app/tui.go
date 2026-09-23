@@ -14,6 +14,7 @@ import (
 	"github.com/netikras/procfit/internal/control"
 	"github.com/netikras/procfit/internal/history"
 	"github.com/netikras/procfit/internal/meta"
+	"github.com/netikras/procfit/internal/metrics"
 	"github.com/netikras/procfit/internal/model"
 	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/queryspec"
@@ -76,6 +77,9 @@ func cmdTUI(env Env, args []string) int {
 func (a *assembly) addableColumns() []tui.ColumnChoice {
 	out := make([]tui.ColumnChoice, 0)
 	for _, d := range a.reg.All() {
+		if d.Scope == metrics.ScopeHost {
+			continue // host metrics are whole-machine, not per-process columns
+		}
 		out = append(out, tui.ColumnChoice{ID: string(d.ID), Desc: d.Description})
 	}
 	for _, c := range render.StructuralColumns() {

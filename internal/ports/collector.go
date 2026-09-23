@@ -19,3 +19,17 @@ type MetricCollector interface {
 	// Collect enriches the given processes' metric maps in place.
 	Collect(ctx context.Context, procs []model.Process)
 }
+
+// HostCollector produces host-scoped metrics (ScopeHost) that describe the whole
+// machine, not a process — power draw, C-state residency, pressure. They are read
+// once per sample into a single map, never broadcast onto every process, and
+// rendered in their own section (RFC §13, §24). Adding one is additive.
+type HostCollector interface {
+	// ID names the collector.
+	ID() string
+	// Metrics lists the host metric ids this collector produces.
+	Metrics() []model.MetricID
+	// CollectHost reads the current host values (a metric absent from the map is
+	// simply not produced; unavailability is carried in the value).
+	CollectHost(ctx context.Context) map[model.MetricID]model.MetricValue
+}

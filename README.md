@@ -201,8 +201,11 @@ from Intel/AMD RAPL (via the powercap tree) or hwmon sensors, and `power-system`
 (whole-machine draw) from the laptop battery, which is vendor- and arch-neutral
 (works on any x86/ARM laptop on discharge). procfit picks the first available
 backend — see `procfit capabilities` for which — and a domain the host does not
-expose renders unavailable, never a fake zero. These are host-wide readings, so
-they show the same figure on every row (there is no separate host row yet).
+expose renders unavailable, never a fake zero. Whole-machine readings (power,
+C-state, PSI) are **host-scoped**: they are read once (not per process) and shown
+in a **system section** above the process table — a banner line, a blank line, an
+aligned `label=value` matrix, a blank line, then the process table — so they never
+crowd the per-process columns. In JSON they appear under a top-level `host` object.
 `wakeups` also now has a **no-root fallback** from `/proc/PID/sched` (needs
 `CONFIG_SCHEDSTATS`); eBPF is used when available (richer waker attribution).
 

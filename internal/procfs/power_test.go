@@ -4,8 +4,6 @@ import (
 	"context"
 	"testing"
 	"time"
-
-	"github.com/netikras/procfit/internal/model"
 )
 
 func writeSys(t *testing.T, root, rel, content string) {
@@ -32,23 +30,20 @@ func TestPowerCollector_PowercapWatts(t *testing.T) {
 		writeSys(t, root, "class/powercap/intel-rapl:0/energy_uj", "3000000\n")
 		writeSys(t, root, "class/powercap/intel-rapl:0:0/energy_uj", "1500000\n")
 	}
-	procs := []model.Process{{PID: 1}, {PID: 2}}
-	c.Collect(context.Background(), procs)
+	hm := c.CollectHost(context.Background())
 
 	if b := c.Backends(); len(b) != 1 || b[0] != "powercap" {
 		t.Fatalf("backends = %v, want [powercap]", b)
 	}
-	for _, p := range procs {
-		if v := p.Metric("power-pkg"); !v.Present() || v.V < 19.9 || v.V > 20.1 {
-			t.Fatalf("power-pkg = %+v, want ~20W", v)
-		}
-		if v := p.Metric("power-core"); !v.Present() || v.V < 9.9 || v.V > 10.1 {
-			t.Fatalf("power-core = %+v, want ~10W", v)
-		}
-		// A domain the host does not expose renders unavailable, never zero.
-		if v := p.Metric("power-dram"); v.Present() {
-			t.Fatalf("power-dram must be unavailable, got %+v", v)
-		}
+	if v := hm["power-pkg"]; !v.Present() || v.V < 19.9 || v.V > 20.1 {
+		t.Fatalf("power-pkg = %+v, want ~20W", v)
+	}
+	if v := hm["power-core"]; !v.Present() || v.V < 9.9 || v.V > 10.1 {
+		t.Fatalf("power-core = %+v, want ~10W", v)
+	}
+	// A domain the host does not expose renders unavailable, never zero.
+	if v := hm["power-dram"]; v.Present() {
+		t.Fatalf("power-dram must be unavailable, got %+v", v)
 	}
 }
 
@@ -61,9 +56,7 @@ func TestPowerCollector_CounterWrap(t *testing.T) {
 		// Counter wraps (2nd < 1st) -> unavailable, not a negative/huge value.
 		writeSys(t, root, "class/powercap/intel-rapl:0/energy_uj", "10\n")
 	}
-	procs := []model.Process{{PID: 1}}
-	c.Collect(context.Background(), procs)
-	if v := procs[0].Metric("power-pkg"); v.Present() {
+	if v := c.CollectHost(context.Background())["power-pkg"]; v.Present() {
 		t.Fatalf("counter wrap must render unavailable, got %+v", v)
 	}
 }
@@ -75,13 +68,12 @@ func TestBatterySource_PowerNow(t *testing.T) {
 
 	c := NewPowerCollector(root)
 	c.sleep = func(time.Duration) { t.Fatal("instantaneous battery power needs no window") }
-	procs := []model.Process{{PID: 1}}
-	c.Collect(context.Background(), procs)
+	hm := c.CollectHost(context.Background())
 
 	if b := c.Backends(); len(b) != 1 || b[0] != "battery" {
 		t.Fatalf("backends = %v, want [battery]", b)
 	}
-	if v := procs[0].Metric("power-system"); !v.Present() || v.V < 14.9 || v.V > 15.1 {
+	if v := hm["power-system"]; !v.Present() || v.V < 14.9 || v.V > 15.1 {
 		t.Fatalf("power-system = %+v, want ~15W", v)
 	}
 }
@@ -101,16 +93,15 @@ func TestPowerCollector_MergesBackends(t *testing.T) {
 		writeSys(t, root, "class/powercap/intel-rapl:0/energy_uj", "3000000\n")   // +2J → 20W
 		writeSys(t, root, "class/powercap/intel-rapl:0:0/energy_uj", "1500000\n") // +1J → 10W
 	}
-	procs := []model.Process{{PID: 1}}
-	c.Collect(context.Background(), procs)
+	hm := c.CollectHost(context.Background())
 
 	if b := c.Backends(); len(b) != 2 || b[0] != "powercap" || b[1] != "battery" {
 		t.Fatalf("backends = %v, want [powercap battery]", b)
 	}
-	if v := procs[0].Metric("power-pkg"); !v.Present() || v.V < 19.9 || v.V > 20.1 {
+	if v := hm["power-pkg"]; !v.Present() || v.V < 19.9 || v.V > 20.1 {
 		t.Fatalf("power-pkg = %+v, want ~20W (RAPL)", v)
 	}
-	if v := procs[0].Metric("power-system"); !v.Present() || v.V < 11.9 || v.V > 12.1 {
+	if v := hm["power-system"]; !v.Present() || v.V < 11.9 || v.V > 12.1 {
 		t.Fatalf("power-system = %+v, want ~12W (battery, not hidden by RAPL)", v)
 	}
 }

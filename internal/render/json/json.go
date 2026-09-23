@@ -20,7 +20,10 @@ type envelope struct {
 	GeneratedAt        time.Time `json:"generated_at"`
 	MonotonicElapsedNS int64     `json:"monotonic_elapsed_ns"`
 	Generation         int       `json:"generation"`
-	Rows               []jsonRow `json:"rows"`
+	// Host carries whole-machine (ScopeHost) metrics — power, C-state, pressure —
+	// which are not per-process. Additive, optional (omitted when none).
+	Host map[string]jsonValue `json:"host,omitempty"`
+	Rows []jsonRow            `json:"rows"`
 }
 
 type jsonRow struct {
@@ -50,6 +53,7 @@ func Render(w io.Writer, res *query.Result, reg *metrics.Registry) error {
 		GeneratedAt:        res.WallTime,
 		MonotonicElapsedNS: res.Elapsed.Nanoseconds(),
 		Generation:         res.Generation,
+		Host:               convertMetrics(res.HostMetrics, reg),
 		Rows:               convertRows(res.Rows, reg),
 	}
 	enc := json.NewEncoder(w)

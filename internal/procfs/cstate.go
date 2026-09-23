@@ -43,29 +43,25 @@ func (c *CstateCollector) Metrics() []model.MetricID {
 	return []model.MetricID{"cstate-deep-residency"}
 }
 
-// Collect measures deep-idle residency over the window and broadcasts it to all
-// processes (a host value; AggMax collapses the identical copies on rollup).
-func (c *CstateCollector) Collect(_ context.Context, procs []model.Process) {
+// CollectHost measures deep-idle residency over the window as a single host value.
+func (c *CstateCollector) CollectHost(_ context.Context) map[model.MetricID]model.MetricValue {
 	first, cpus, ok := c.readDeep()
 	if !ok {
-		c.broadcast(procs, model.Unavailable[float64](model.Unsupported, "cstate"))
-		return
+		return one("cstate-deep-residency", model.Unavailable[float64](model.Unsupported, "cstate"))
 	}
 	c.sleep(c.window)
 	second, _, ok := c.readDeep()
 	windowUs := float64(c.window.Microseconds()) * float64(cpus)
 	if !ok || windowUs <= 0 || second < first {
-		c.broadcast(procs, model.Unavailable[float64](model.WarmingUp, "cstate"))
-		return
+		return one("cstate-deep-residency", model.Unavailable[float64](model.WarmingUp, "cstate"))
 	}
 	pct := float64(second-first) / windowUs * 100
-	c.broadcast(procs, model.NewValue(pct, model.Sampled, "cstate"))
+	return one("cstate-deep-residency", model.NewValue(pct, model.Sampled, "cstate"))
 }
 
-func (c *CstateCollector) broadcast(procs []model.Process, v model.MetricValue) {
-	for i := range procs {
-		procs[i].SetMetric("cstate-deep-residency", v)
-	}
+// one is a small helper to build a single-entry host metric map.
+func one(id model.MetricID, v model.MetricValue) map[model.MetricID]model.MetricValue {
+	return map[model.MetricID]model.MetricValue{id: v}
 }
 
 // readDeep returns the summed deep-idle residency (microseconds) across all CPUs

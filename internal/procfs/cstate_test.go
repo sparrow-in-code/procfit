@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/netikras/procfit/internal/model"
 )
 
 func writeCstateTime(t *testing.T, root string, cpu, state int, us uint64) {
@@ -56,26 +54,20 @@ func TestCstateCollector_Residency(t *testing.T) {
 		writeCstateTime(t, root, 0, 3, 800_000+75_000)
 		writeCstateTime(t, root, 1, 3, 800_000+75_000)
 	}
-	procs := []model.Process{{PID: 100}, {PID: 200}}
-	c.Collect(context.Background(), procs)
-
-	for _, p := range procs {
-		v := p.Metric("cstate-deep-residency")
-		if !v.Present() || v.V < 74.9 || v.V > 75.1 {
-			t.Fatalf("pid %d deep residency = %+v, want ~75%%", p.PID, v)
-		}
-		if v.Source != "cstate" {
-			t.Fatalf("source = %q, want cstate", v.Source)
-		}
+	hm := c.CollectHost(context.Background())
+	v := hm["cstate-deep-residency"]
+	if !v.Present() || v.V < 74.9 || v.V > 75.1 {
+		t.Fatalf("deep residency = %+v, want ~75%%", v)
+	}
+	if v.Source != "cstate" {
+		t.Fatalf("source = %q, want cstate", v.Source)
 	}
 }
 
 func TestCstateCollector_NoCpuidle(t *testing.T) {
 	c := NewCstateCollector(t.TempDir()) // empty sysfs: no cpuidle framework
 	c.sleep = func(time.Duration) { t.Fatal("must not window when cpuidle is absent") }
-	procs := []model.Process{{PID: 1}}
-	c.Collect(context.Background(), procs)
-	if v := procs[0].Metric("cstate-deep-residency"); v.Present() {
+	if v := c.CollectHost(context.Background())["cstate-deep-residency"]; v.Present() {
 		t.Fatalf("absent cpuidle must be unavailable, got %+v", v)
 	}
 }

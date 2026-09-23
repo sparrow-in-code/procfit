@@ -4,8 +4,6 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
-
-	"github.com/netikras/procfit/internal/model"
 )
 
 func TestParsePSISomeAvg10(t *testing.T) {
@@ -26,19 +24,14 @@ func TestPSICollector(t *testing.T) {
 		"some avg10=0.00 avg60=0.0 avg300=0.0 total=0\nfull avg10=0.00 avg60=0.0 avg300=0.0 total=0\n")
 	// memory file absent -> psi-mem unavailable (CONFIG_PSI partial / not exposed).
 
-	c := NewPSICollector(root)
-	procs := []model.Process{{PID: 1}, {PID: 2}}
-	c.Collect(context.Background(), procs)
-
-	for _, p := range procs {
-		if v := p.Metric("psi-cpu"); !v.Present() || v.V != 2.0 {
-			t.Fatalf("psi-cpu = %+v, want 2.0", v)
-		}
-		if v := p.Metric("psi-io"); !v.Present() || v.V != 0.0 {
-			t.Fatalf("psi-io = %+v, want 0.0 (present)", v)
-		}
-		if v := p.Metric("psi-mem"); v.Present() {
-			t.Fatalf("psi-mem must be unavailable (no file), got %+v", v)
-		}
+	hm := NewPSICollector(root).CollectHost(context.Background())
+	if v := hm["psi-cpu"]; !v.Present() || v.V != 2.0 {
+		t.Fatalf("psi-cpu = %+v, want 2.0", v)
+	}
+	if v := hm["psi-io"]; !v.Present() || v.V != 0.0 {
+		t.Fatalf("psi-io = %+v, want 0.0 (present)", v)
+	}
+	if v := hm["psi-mem"]; v.Present() {
+		t.Fatalf("psi-mem must be unavailable (no file), got %+v", v)
 	}
 }

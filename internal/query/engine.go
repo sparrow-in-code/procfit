@@ -15,6 +15,9 @@ type Input struct {
 	WallTime   time.Time
 	Elapsed    time.Duration
 	Processes  []model.Process
+	// HostMetrics are whole-machine (ScopeHost) values, collected once and carried
+	// through to the Result's host section rather than onto each process.
+	HostMetrics map[model.MetricID]model.MetricValue
 }
 
 // Engine transforms a snapshot into a grouped/aggregated/sorted result per a
@@ -57,11 +60,12 @@ func (e *Engine) Build(in Input, spec QuerySpec) (*Result, error) {
 	}
 
 	return &Result{
-		Generation: in.Generation,
-		WallTime:   in.WallTime,
-		Elapsed:    in.Elapsed,
-		Columns:    spec.Columns,
-		Rows:       rows,
+		Generation:  in.Generation,
+		WallTime:    in.WallTime,
+		Elapsed:     in.Elapsed,
+		Columns:     spec.Columns,
+		Rows:        rows,
+		HostMetrics: in.HostMetrics,
 	}, nil
 }
 

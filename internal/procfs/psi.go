@@ -42,14 +42,13 @@ func (c *PSICollector) Metrics() []model.MetricID {
 	return []model.MetricID{"psi-cpu", "psi-io", "psi-mem"}
 }
 
-// Collect reads each PSI file and broadcasts the host value to all processes.
-func (c *PSICollector) Collect(_ context.Context, procs []model.Process) {
+// CollectHost reads each PSI file into a host metric map.
+func (c *PSICollector) CollectHost(_ context.Context) map[model.MetricID]model.MetricValue {
+	out := make(map[model.MetricID]model.MetricValue, len(psiFiles))
 	for _, m := range psiFiles {
-		v := c.read(m.file)
-		for i := range procs {
-			procs[i].SetMetric(m.id, v)
-		}
+		out[m.id] = c.read(m.file)
 	}
+	return out
 }
 
 func (c *PSICollector) read(file string) model.MetricValue {

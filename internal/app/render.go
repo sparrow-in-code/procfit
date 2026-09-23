@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/render"
@@ -37,10 +38,16 @@ func (a *assembly) renderResult(env Env, res *query.Result, format string, cols 
 }
 
 func (a *assembly) renderTable(env Env, res *query.Result, cols []string, human bool, targetWidth int) int {
-	resolved, err := render.ResolveColumnsMode(a.reg, cols, human)
+	// Host-scoped metrics render in their own section (banner + matrix), never as
+	// per-process columns; sections are separated by a blank line.
+	resolved, err := render.ResolveColumnsMode(a.reg, a.processColumns(cols), human)
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage
+	}
+	if section := a.hostSection(res, human); section != nil {
+		fmt.Fprintln(env.Stdout, strings.Join(section, "\n"))
+		fmt.Fprintln(env.Stdout)
 	}
 	if err := table.Render(env.Stdout, res, resolved, targetWidth); err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
@@ -50,7 +57,7 @@ func (a *assembly) renderTable(env Env, res *query.Result, cols []string, human 
 }
 
 func (a *assembly) renderCSV(env Env, res *query.Result, cols []string) int {
-	resolved, err := render.ResolveColumns(a.reg, cols)
+	resolved, err := render.ResolveColumns(a.reg, a.processColumns(cols))
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage

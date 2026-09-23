@@ -87,4 +87,7 @@ type Result struct {
 	Elapsed    time.Duration
 	Columns    []string
 	Rows       []*Row
+	// HostMetrics are whole-machine (ScopeHost) values shown in their own section,
+	// not per process (RFC §13/§24). Empty for queries with no host metric.
+	HostMetrics map[model.MetricID]model.MetricValue
 }
