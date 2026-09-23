@@ -275,8 +275,19 @@ a blocked task is sleeping in, which names the cause `blkio-delay` alone can't �
 the same place — instant root cause. It reads `/proc/PID/wchan` only when a query
 references it, and is filterable (`--select 'wchan ~= "jbd2"'`).
 
-> The deeper signals — PSI (cpu/io/memory pressure), R/D thread counts, and full
-> delay accounting for reclaim/swap-in — are tracked in ticket PM-0514.
+The **`pressure` profile** adds the direct "why is load high" readout: host PSI
+(`psi-cpu`/`psi-io`/`psi-mem` — % of time some task stalled on CPU/I/O/memory, from
+`/proc/pressure/*`, needs `CONFIG_PSI`) alongside each process's own R/D thread
+counts (`threads-running`, `threads-uninterruptible` — its runnable and I/O-wait
+contribution to load):
+
+```bash
+procfit ps --profile pressure   # PSI + per-process R/D thread counts
+```
+
+> Full per-task **delay accounting** (taskstats/netlink: reclaim/swap-in/thrash
+> delays, needs `CAP_NET_ADMIN`) remains a follow-up (PM-0521); the schedstat/stat
+> proxies (`runq-delay`/`blkio-delay`) and PSI cover the common cases without it.
 
 ## Seeing real memory use
 

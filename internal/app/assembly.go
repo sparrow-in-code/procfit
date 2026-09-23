@@ -56,6 +56,7 @@ func newAssemblyWith(src ports.ProcessSource, clk ports.Clock) *assembly {
 		procfs.NewSchedWakeupsCollector(""),
 		procfs.NewCstateCollector(""),
 		procfs.NewPowerCollector(""),
+		procfs.NewPSICollector(""), procfs.NewThreadStateCollector(""),
 	}
 	return &assembly{
 		reg: reg, dims: dims, src: src, clk: clk, engine: query.NewEngine(reg, dims),

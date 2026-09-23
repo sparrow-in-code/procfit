@@ -1,7 +1,7 @@
 ---
 id: PM-0514
 title: Pressure (PSI), R/D thread counts, and full delay accounting
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0513"]
 owner:
@@ -33,13 +33,27 @@ thread counts, and full per-task delay accounting.
 - Rewriting the schedstat/stat-based `runq-delay`/`blkio-delay` (they stay as the
   no-privilege proxies).
 
+## Status: DONE (2026-09-23)
+
+Delivered the two tractable, no-privilege parts. **PSI** (`internal/procfs/psi.go`):
+`PSICollector` reads `/proc/pressure/{cpu,io,memory}` "some avg10" into host
+metrics `psi-cpu`/`psi-io`/`psi-mem` (ScopeHost, AggMax, broadcast; absent
+CONFIG_PSI → unavailable). **R/D thread counts** (`internal/procfs/threadstate.go`):
+`ThreadStateCollector` counts R/D task states from `/proc/PID/task/*/stat` into
+per-process `threads-running`/`threads-uninterruptible` (denied task dir →
+unavailable, never zero). New `pressure` profile bundles them; `procfit
+capabilities` gains a `psi` probe. Validated live. **Carved out to PM-0521**
+(new backlog): per-**cgroup** PSI (needs the cgroup/host group-scope model) and
+the privileged **taskstats/netlink** delay accounting (CAP_NET_ADMIN) — both were
+bundled here but are separable and larger.
+
 ## Acceptance criteria
 
-- [ ] PSI cpu/io/memory pressure surfaced host-wide and per cgroup.
-- [ ] threads-running / threads-uninterruptible per process; unavailable, not zero,
+- [x] PSI cpu/io/memory pressure surfaced **host-wide** (per-cgroup → PM-0521).
+- [x] threads-running / threads-uninterruptible per process; unavailable, not zero,
       when task enumeration is denied.
 - [ ] Optional taskstats collector provides CPU/blkio/swap/reclaim delays, gated on
-      capability, additive to the core.
+      capability, additive to the core. → **deferred to PM-0521**.
 
 ## Tests required
 

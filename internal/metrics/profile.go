@@ -12,23 +12,24 @@ import (
 type ProfileName string
 
 const (
-	ProfileNone    ProfileName = "none"
-	ProfileLight   ProfileName = "light"
-	ProfileProcess ProfileName = "process"
-	ProfileMemory  ProfileName = "memory"
-	ProfileIO      ProfileName = "io"
-	ProfileNetwork ProfileName = "network"
-	ProfilePower   ProfileName = "power"
-	ProfileBattery ProfileName = "battery"
-	ProfileSysload ProfileName = "sysload"
-	ProfilePerf    ProfileName = "perf"
-	ProfileAll     ProfileName = "all"
+	ProfileNone     ProfileName = "none"
+	ProfileLight    ProfileName = "light"
+	ProfileProcess  ProfileName = "process"
+	ProfileMemory   ProfileName = "memory"
+	ProfileIO       ProfileName = "io"
+	ProfileNetwork  ProfileName = "network"
+	ProfilePower    ProfileName = "power"
+	ProfileBattery  ProfileName = "battery"
+	ProfileSysload  ProfileName = "sysload"
+	ProfilePressure ProfileName = "pressure"
+	ProfilePerf     ProfileName = "perf"
+	ProfileAll      ProfileName = "all"
 )
 
 // KnownProfiles lists the built-in profile names.
 var KnownProfiles = []ProfileName{
 	ProfileNone, ProfileLight, ProfileProcess, ProfileMemory, ProfileIO,
-	ProfileNetwork, ProfilePower, ProfileBattery, ProfileSysload, ProfilePerf, ProfileAll,
+	ProfileNetwork, ProfilePower, ProfileBattery, ProfileSysload, ProfilePressure, ProfilePerf, ProfileAll,
 }
 
 // Profile is a named convenience bundle: the metrics it selects plus optional
@@ -76,6 +77,14 @@ var profileSpecs = map[ProfileName]Profile{
 		Sort:    "runq-delay:desc",
 	},
 	ProfilePerf: {Metrics: []model.MetricID{"cycles", "instructions", "ipc", "cache-references", "cache-misses"}},
+	// pressure: the direct "why is load high" readout — host PSI (cpu/io/memory
+	// stall %) alongside each process's own R/D thread counts (its runnable and
+	// I/O-wait contribution to load), sorted by the uninterruptible count.
+	ProfilePressure: {
+		Metrics: []model.MetricID{"psi-cpu", "psi-io", "psi-mem", "threads-running", "threads-uninterruptible"},
+		Columns: []string{"target", "pid", "pstate", "threads-running", "threads-uninterruptible", "psi-cpu", "psi-io", "psi-mem"},
+		Sort:    "threads-uninterruptible:desc",
+	},
 }
 
 // ProfileDefaults returns an explicit profile's view defaults (metrics + columns/

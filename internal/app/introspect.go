@@ -255,8 +255,17 @@ func probeCapabilities() []capability {
 		}
 	}
 	caps = append(caps, capability{"proc-io", ioStatus, ioDetail})
-	caps = append(caps, probeCgroup(), probePerf(), probeEBPF(), probeSchedWakeups(), probePower())
+	caps = append(caps, probeCgroup(), probePerf(), probeEBPF(), probeSchedWakeups(), probePower(), probePSI())
 	return caps
+}
+
+// probePSI reports whether the kernel exposes pressure-stall information
+// (/proc/pressure/cpu, needs CONFIG_PSI) — the host pressure metrics (PM-0514).
+func probePSI() capability {
+	if _, err := os.Stat("/proc/pressure/cpu"); err == nil {
+		return capability{"psi", "available", "pressure-stall info at /proc/pressure/{cpu,io,memory}"}
+	}
+	return capability{"psi", "unsupported", "/proc/pressure absent (CONFIG_PSI off)"}
 }
 
 // probePower reports the active power/energy backend (PM-0506): the first of
