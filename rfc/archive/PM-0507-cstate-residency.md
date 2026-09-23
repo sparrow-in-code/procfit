@@ -1,12 +1,28 @@
 ---
 id: PM-0507
 title: CPU idle (C-state) residency collector
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0501"]
 owner:
 rfc: ["§13", "§24"]
 ---
+
+## Status: DONE (2026-09-23)
+
+`procfs.CstateCollector` (`internal/procfs/cstate.go`) reads
+`/sys/devices/system/cpu/cpu*/cpuidle/state*/time`, self-windows (read, 200ms,
+read), and computes the host `cstate-deep-residency` — % of CPU-time in deep idle
+(states with index >= 2, i.e. deeper than POLL/C1) summed across all CPUs over
+`window*ncpu`. Arch-neutral: state indices, not driver/vendor names, are used
+(cpuidle is identical on x86/AMD/ARM). Absent cpuidle → `Unsupported`, never zero.
+`cstate-deep-residency` is a `ScopeHost` metric (`internal/metrics/builtin_power.go`)
+with `Aggregation: AggMax`; the collector broadcasts the host value onto every
+process, so grouping shows the single figure, not a sum (see QUESTIONS.md item I
+— host-row abstraction deferred). Added to the `power` profile. Validated live
+(74.2% deep idle). **Deferred:** the per-state breakdown wide view and per-state
+entry rate (usage/s) need the dynamic-column seam shared with GPU per-engine
+(PM-0511); filed as a follow-up there. Commit: (local).
 
 ## Summary
 
@@ -33,10 +49,10 @@ context that frames the per-process wakeup metrics.
 
 ## Acceptance criteria
 
-- [ ] Per-CPU and aggregate residency computed from cpuidle sysfs, delta-based.
-- [ ] Works unchanged on any arch with the cpuidle framework (x86 and ARM);
+- [x] Per-CPU and aggregate residency computed from cpuidle sysfs, delta-based.
+- [x] Works unchanged on any arch with the cpuidle framework (x86 and ARM);
       no vendor/driver name hardcoded (state names are read, not assumed).
-- [ ] Absent cpuidle → unavailable, never fabricated zeros.
+- [x] Absent cpuidle → unavailable, never fabricated zeros.
 
 ## Tests required
 

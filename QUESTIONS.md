@@ -80,4 +80,15 @@ going. Override any of them and I'll adjust.
   rather it be TUI-only at the CLI surface (rejected by `ps`), or have `ps` honour
   it as a "group summary" view (print only group rows, hide leaves), say so.
 
+- **I. Host-scoped metrics render by broadcast (no host row yet).** C-state
+  residency (PM-0507), and later whole-system energy (PM-0506) and PSI (PM-0514),
+  are host properties, not per-process. There is no host/summary row in the
+  process-oriented tree today, so a `ScopeHost` metric is **read once and
+  broadcast onto every process**, with `Aggregation: AggMax` so identical copies
+  collapse to the single host value on any group/rollup (never summed). This shows
+  the true host figure on every row — honest context, if a little repetitive. A
+  dedicated **host/summary row** (one place for host-wide readouts) is the cleaner
+  long-term design; deferred as a shared follow-up for 0506/0507/0514. Say if
+  you'd rather I build the host-row abstraction first.
+
 _Last updated by the autonomous build session._

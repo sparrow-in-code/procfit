@@ -54,6 +54,7 @@ func newAssemblyWith(src ports.ProcessSource, clk ports.Clock) *assembly {
 		// Fallback for wakeups; runs after the eBPF collector and only fills what
 		// eBPF did not (PM-0509), so eBPF (waker attribution) stays preferred.
 		procfs.NewSchedWakeupsCollector(""),
+		procfs.NewCstateCollector(""),
 	}
 	return &assembly{
 		reg: reg, dims: dims, src: src, clk: clk, engine: query.NewEngine(reg, dims),

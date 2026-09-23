@@ -56,7 +56,7 @@ var profileSpecs = map[ProfileName]Profile{
 	},
 	ProfileIO:      {Metrics: []model.MetricID{"disk-rbps", "disk-wbps", "io-rchar", "io-wchar", "read-syscalls", "write-syscalls"}},
 	ProfileNetwork: {Metrics: []model.MetricID{"net-rx-bps", "net-tx-bps", "net-rx-pps", "net-tx-pps"}},
-	ProfilePower:   {Metrics: []model.MetricID{"cpu", "wakeups", "timer-wakeups", "gpu", "gpu-mem"}},
+	ProfilePower:   {Metrics: []model.MetricID{"cpu", "wakeups", "timer-wakeups", "cstate-deep-residency", "gpu", "gpu-mem"}},
 	// battery: what actually drains a laptop. Wakeups (eBPF, needs privilege) are
 	// the real signal — a process can be ~0% cpu yet keep the package out of deep
 	// C-states. ctxsw-voluntary is a light, no-root proxy for that wake/sleep
