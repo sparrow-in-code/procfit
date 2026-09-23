@@ -8,6 +8,7 @@ Planned documents (created by the tickets that introduce the feature):
 
 | File | Introduced by | Contents |
 |---|---|---|
+| `config.yaml` | PM-0002 / PM-0005 | Reference config with every key set to its built-in default (copy to `~/.config/procfit/config.yaml`). Validate with `procfit config check`. |
 | `json-schema.md` | PM-0004 / PM-0107 | Versioned JSON/NDJSON output schema (public interface). |
 | `configuration.md` | PM-0002 / PM-0005 | Config formats, discovery, merge, presets; examples generated from the canonical model. |
 | `cli.md` | PM-0108 / PM-0205 | Command and flag reference with examples. |

@@ -1,0 +1,118 @@
+# procfit configuration — reference with built-in defaults
+# =========================================================
+#
+# Copy to  ~/.config/procfit/config.yaml  (or $XDG_CONFIG_HOME/procfit/config.yaml),
+# or point at it with  --config <path>  /  $PROCFIT_CONFIG.
+# TOML and JSON are equally supported (same keys, identical semantics); the loader
+# is STRICT — unknown or duplicate keys are rejected.
+#
+# Precedence, resolved per-setting (lowest → highest):
+#     built-in default  <  this file  <  environment (PROCFIT_*)  <  CLI flags
+# Reorder per invocation with --config-precedence. Inspect the merged result with
+#     procfit config dump --effective --format yaml
+# and validate a file with
+#     procfit config check ./config.yaml
+#
+# Every value below is set to its BUILT-IN DEFAULT. Keys whose default is
+# "empty / derived at query time" are shown commented out — uncomment to pin one.
+# Metric/column/dimension ids come from `procfit metrics`; capabilities from
+# `procfit capabilities`.
+
+# Config schema version. Required.
+version: 1
+
+# --- Default view (used by `ps`, `stat`, and the TUI unless overridden) --------
+
+# Grouping dimension(s). Default: none (a flat, ps-like list). Examples: [comm],
+# [user], [hostname]. Group only by categorical/identity fields (see `procfit
+# metrics`, the "g" USE flag).
+# group_by: []
+
+# Leaf mode: none | process | thread. Default: process (show process leaves).
+leaf: process
+
+# Explicit ordered display columns. Default: empty → the identity columns plus the
+# active profile's metrics. Any id from `procfit metrics` (host-scoped metrics
+# render in the system section, not as columns).
+# columns: [target, pt, pid, cpu, rss]
+
+# Default sort. Default: none (engine/insertion order). direction: asc | desc.
+# sort:
+#   - {field: cpu, direction: desc}
+
+# Post-aggregation filter (the `having` stage). Default: none.
+# having: "rss > 100M"
+
+# --- Metrics profile -----------------------------------------------------------
+# A profile is a named metric set PLUS a default view (its own columns/sort/
+# group-by/having may apply unless you override them).
+# Built-in: none light process memory io network power battery sysload pressure
+#           perf all
+metrics:
+  # Default profile. Default: light.
+  profile: light
+  # Granular add/remove on top of the profile. Default: empty.
+  # enable: [gpu, gpu-mem]
+  # disable: [vsz]
+
+# --- Refresh intervals ---------------------------------------------------------
+# Default refresh interval (TUI / `stat`). Default: 1s.
+# interval: 1s
+# Named interval presets addressable elsewhere. Default: empty.
+# intervals:
+#   fast: 250ms
+#   slow: 5s
+
+# --- Rendering -----------------------------------------------------------------
+# Target (tree label) column width. Default: 0 = auto-fit to the terminal.
+target_width: 0
+# Start the TUI with every group folded (also `c`/`C` live; env
+# PROCFIT_COLLAPSE_GROUPS). Default: false.
+collapse_groups: false
+
+# --- Runtime state (managed targets, restore metadata, audit history) ----------
+state:
+  # Where runtime state is stored. Default: empty → $XDG_RUNTIME_DIR/procfit
+  # (boot-scoped, per-user). Override to a durable dir to survive reboots.
+  # runtime_dir: ""
+  # Opt-in audit log of control actions (readable via `procfit history`).
+  # Default: false.
+  history: false
+
+# --- Per-user daemon -----------------------------------------------------------
+daemon:
+  # Engine mode: auto | embedded | required. Default: auto (use the daemon if
+  # running, else run embedded in-process).
+  use: auto
+  # Unix socket path. Default: empty → $XDG_RUNTIME_DIR/procfit/daemon.sock.
+  # socket: ""
+
+# --- Named custom views (presets) ----------------------------------------------
+# NOTE: presets are parsed and validated by `config check`, but runtime selection
+# (a `--preset` flag) is NOT wired yet — they do not affect `ps`/`stat` today.
+# Documented here for completeness. `extends` inherits a built-in profile, then
+# your keys override it.
+# allow_builtin_preset_override: false
+# presets:
+#   containers:
+#     extends: sysload
+#     group_by: [hostname]
+#     leaf: process
+#     columns: [target, pt, cpu, pss, hostname]
+#     having: "cpu > 0"
+#     sort:
+#       - {field: cpu, direction: desc}
+#     metrics:
+#       enable: [runq-delay]
+
+# --- Config-managed targets (continuous reconciliation by the daemon) ----------
+# Declarative managed targets: a selector plus the control to keep applied.
+# Default: none. on_drift: report | reapply.
+# managed:
+#   - name: chrome
+#     selector: 'comm == "chrome"'
+#     on_drift: report
+#     control:
+#       nice: 10
+#       # stop: false
+#       # freeze: false

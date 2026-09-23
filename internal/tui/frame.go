@@ -55,13 +55,15 @@ func (m *Model) bodyHeight() int {
 	return h
 }
 
-// hostPanelLines returns the system-metrics panel (host matrix) plus a blank
-// separator line, or nil when the view has no host metrics.
+// hostPanelLines returns the system-metrics panel — a blank separator below the
+// status bar, the host matrix, then a blank line before the table header — or nil
+// when the view has no host metrics.
 func (m *Model) hostPanelLines() []string {
 	if len(m.hostLines) == 0 {
 		return nil
 	}
-	out := make([]string, 0, len(m.hostLines)+1)
+	out := make([]string, 0, len(m.hostLines)+2)
+	out = append(out, "") // separator below the status bar
 	for _, ln := range m.hostLines {
 		out = append(out, truncate(ln, m.width))
 	}

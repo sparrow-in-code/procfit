@@ -50,15 +50,18 @@ func TestModel_HostPanel(t *testing.T) {
 	m.SetResult(res, cols)
 
 	fr := m.Frame()
-	// statusBar[0], host matrix[1], blank[2], header[3], first row[4].
-	if !strings.Contains(fr[1], "power-pkg=12.00") {
-		t.Fatalf("host panel should render below the status bar, got %q", fr[1])
+	// statusBar[0], blank[1], host matrix[2], blank[3], header[4], first row[5].
+	if fr[1] != "" {
+		t.Fatalf("a blank line must separate the status bar from the panel, got %q", fr[1])
 	}
-	if fr[2] != "" {
-		t.Fatalf("panel and table must be blank-line separated, got %q", fr[2])
+	if !strings.Contains(fr[2], "power-pkg=12.00") {
+		t.Fatalf("host panel should render after the separator, got %q", fr[2])
 	}
-	if !strings.HasPrefix(fr[4], "> proc") {
-		t.Fatalf("table body should follow the panel, got %q", fr[4])
+	if fr[3] != "" {
+		t.Fatalf("panel and table must be blank-line separated, got %q", fr[3])
+	}
+	if !strings.HasPrefix(fr[5], "> proc") {
+		t.Fatalf("table body should follow the panel, got %q", fr[5])
 	}
 	if len(fr) != 12 {
 		t.Fatalf("frame height = %d, want 12 (panel steals from body)", len(fr))
