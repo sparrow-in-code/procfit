@@ -122,7 +122,7 @@ func TestModel_FilterOnlyDisplayedColumns(t *testing.T) {
 
 	// A filter referencing a NON-displayed column must be rejected.
 	m.Update(KeyEvent{Rune: '/'})
-	m.editBuf = "rss > 1" // rss is not a displayed column
+	m.editBuf, m.editPos = "rss > 1", len("rss > 1") // rss is not a displayed column
 	m.Update(KeyEvent{Name: "enter"})
 	if !m.editing {
 		t.Fatal("filter on a hidden column should be rejected and stay in edit mode")
@@ -158,14 +158,14 @@ func TestModel_FilterBareWordAndHistory(t *testing.T) {
 	res, cols := sampleResult(3) // target, pt, cpu
 	m.SetResult(res, cols)
 
-	// A bare word becomes a target substring match (optional quotes).
+	// A bare word becomes a case-insensitive target substring match.
 	m.Update(KeyEvent{Rune: '/'})
 	for _, r := range "idea" {
 		m.Update(KeyEvent{Rune: r})
 	}
 	m.Update(KeyEvent{Name: "enter"})
-	if got := m.Flags().Having; got != `target contains "idea"` {
-		t.Fatalf("bare word should become a target substring, got %q", got)
+	if got := m.Flags().Having; got != `target ~= "(?i)idea"` {
+		t.Fatalf("bare word should become a case-insensitive target substring, got %q", got)
 	}
 
 	// An expression (with operators) passes through unchanged.

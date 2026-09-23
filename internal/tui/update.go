@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/netikras/procfit/internal/expr"
@@ -108,8 +109,8 @@ func (m *Model) startFilter() {
 	m.editBuf = m.flags.Having
 	m.editPos = len([]rune(m.editBuf))
 	m.histIdx = len(m.history)
-	m.status = "filter (fields: " + strings.Join(m.filterableList(), " ") +
-		") — bare word = target substring; && || to chain; Enter=apply Esc=cancel"
+	m.status = "one word = target substring (case-insensitive); " +
+		"add a space to filter by a column; && || to chain; Tab/Enter autofill · Esc cancel"
 }
 
 func (m *Model) editKey(ev KeyEvent) {
@@ -118,7 +119,14 @@ func (m *Model) editKey(ev KeyEvent) {
 	}
 	switch {
 	case ev.Name == "enter":
+		// In an autofilling context (column after &&/||, or an operator) Enter
+		// completes the suggestion; otherwise it applies the filter.
+		if m.filterAutofill() {
+			return
+		}
 		m.applyFilter()
+	case ev.Name == "tab":
+		m.filterTab()
 	case ev.Name == "esc", ev.Name == "ctrl-c":
 		m.editing = false
 		m.status = "filter cancelled"
@@ -240,17 +248,15 @@ func (m *Model) pushHistory(s string) {
 // bareSearch turns a plain search term (no operators/keywords) into a target
 // substring match, so `idea` means `target contains "idea"` — less boilerplate.
 // Anything that already looks like an expression is passed through unchanged.
+// bareSearch turns a lone word (no spaces, no operators) into a case-insensitive
+// target substring match; anything with a space or operator is treated as a
+// query expression as typed (you've started writing a filter). Case-insensitivity
+// uses a regex match with the term escaped, so metacharacters stay literal.
 func bareSearch(s string) string {
-	if strings.ContainsAny(s, "=<>~!()[]\"'") || strings.Contains(s, "&&") || strings.Contains(s, "||") {
+	if strings.ContainsAny(s, " \t=<>~!()[]\"'") || strings.Contains(s, "&&") || strings.Contains(s, "||") {
 		return s
 	}
-	for _, w := range strings.Fields(s) {
-		switch w {
-		case "contains", "in", "not", "and", "or":
-			return s
-		}
-	}
-	return `target contains "` + s + `"`
+	return `target ~= "(?i)` + regexp.QuoteMeta(s) + `"`
 }
 
 func wordLeft(r []rune, pos int) int {

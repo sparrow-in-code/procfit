@@ -110,11 +110,13 @@ func (m *Model) statusBar() string {
 			len(m.pending.PIDs), m.pending.Label, m.niceBuf, m.status), m.width)
 	}
 	if m.editing {
-		// Show the edit buffer AND m.status, so the field-list hint (set on entry)
-		// and any validation error (set on a rejected apply) are visible — without
-		// them the filter feels inert on bad input.
+		// Show the edit buffer plus, in priority order: the live autocomplete
+		// suggestions (columns/operators), else m.status (the entry hint or a
+		// validation error on a rejected apply) — so the filter never feels inert.
 		line := "filter> " + withCursor(m.editBuf, m.editPos)
-		if m.status != "" {
+		if hint := m.suggestHint(); hint != "" {
+			line += "   " + hint
+		} else if m.status != "" {
 			line += "   " + m.status
 		}
 		return truncate(line, m.width)

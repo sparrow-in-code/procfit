@@ -98,6 +98,10 @@ type Model struct {
 	// the latest formatted panel (empty when the view has no host metrics).
 	hostPanelFn func(*query.Result) []string
 	hostLines   []string
+
+	// filterOpsFn classifies a field into its offered filter operators (numeric
+	// vs string), for the filter-editor autocomplete.
+	filterOpsFn func(field string) []string
 }
 
 // Panel reports which view is active (browser vs managed), so the driver can pick
@@ -122,6 +126,10 @@ func (m *Model) SetColumnChoices(cs []ColumnChoice) { m.colChoices = cs }
 // SetHostPanel installs the formatter that turns host-scoped metrics into the
 // system panel shown above the table. Nil keeps the panel off.
 func (m *Model) SetHostPanel(fn func(*query.Result) []string) { m.hostPanelFn = fn }
+
+// SetFilterOps installs the field→operators classifier used by the filter
+// editor's operator autocomplete. Nil falls back to a generic operator set.
+func (m *Model) SetFilterOps(fn func(field string) []string) { m.filterOpsFn = fn }
 
 type flatRow struct {
 	row       *query.Row

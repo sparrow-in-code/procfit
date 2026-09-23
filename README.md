@@ -178,12 +178,19 @@ names are the lowercase column ids (e.g. `cpu`, `rss`, `name`, `target`).
 
 In the TUI filter line:
 
-- A **bare word** with no operators is shorthand for a target substring match —
-  typing `idea` means `target contains "idea"`.
+- **One word (no spaces) = a case-insensitive target substring.** Typing `idea`
+  matches any target containing "idea"; `Enter` applies it. As you type, matching
+  **column names are suggested** as hints (that word may still just be a substring).
+- **Add a space and you're writing a column filter** — the first word is taken as
+  a column, and an **operator autosuggest** appears (type-aware: comparisons for
+  numbers, `==`/`~=`/`contains` for strings). Here `Enter` (or `Tab`) **autofills**
+  the first suggestion; the value you type after it has no autocomplete.
+- **`Tab`** completes the highlighted suggestion in any position (even the first
+  word, to pick a column). After **`&&`** / **`||`** it's clearly a query, so the
+  next column also autofills on `Enter`.
 - Line editing: `←`/`→`/`Home`/`End` move, `Ctrl+←`/`Ctrl+→` jump by word,
-  `Backspace`/`Delete` edit, `↑`/`↓` recall previous filters, `Enter` applies,
-  `Esc` cancels; an empty filter clears. Only the **displayed** columns may be
-  referenced (the prompt lists them).
+  `Backspace`/`Delete` edit, `↑`/`↓` recall previous filters, `Esc` cancels; an
+  empty filter clears. Only the **displayed** columns may be referenced.
 
 ## Finding battery drain
 

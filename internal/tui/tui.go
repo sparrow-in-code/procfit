@@ -31,6 +31,9 @@ type Deps struct {
 	// HostPanel formats a result's host-scoped metrics (power/C-state/PSI) into the
 	// system panel lines shown above the table; nil (or empty return) = no panel.
 	HostPanel func(*query.Result) []string
+	// FilterOperators returns the filter operators offered for a field (numeric vs
+	// string), for the filter editor's autocomplete; nil uses a generic set.
+	FilterOperators func(field string) []string
 }
 
 func RunTerminal(deps Deps, flags queryspec.Flags) (string, error) {
@@ -57,6 +60,7 @@ func Run(screen tcell.Screen, deps Deps, flags queryspec.Flags) (string, error) 
 	m.SetInterval(deps.Interval)
 	m.SetColumnChoices(deps.Columns)
 	m.SetHostPanel(deps.HostPanel)
+	m.SetFilterOps(deps.FilterOperators)
 	w, h := screen.Size()
 	m.SetSize(w, h)
 	requery(m, deps)

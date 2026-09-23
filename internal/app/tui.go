@@ -53,14 +53,15 @@ func cmdTUI(env Env, args []string) int {
 		return ExitRuntime
 	}
 	deps := tui.Deps{
-		Refresh:     a.tuiRefresh(context.Background()),
-		ManagedTree: a.tuiManagedTree(context.Background()),
-		Control:     tuiControl(),
-		Drop:        tuiDrop(),
-		History:     tuiHistory(),
-		Interval:    *interval,
-		Columns:     a.addableColumns(),
-		HostPanel:   a.tuiHostPanel,
+		Refresh:         a.tuiRefresh(context.Background()),
+		ManagedTree:     a.tuiManagedTree(context.Background()),
+		Control:         tuiControl(),
+		Drop:            tuiDrop(),
+		History:         tuiHistory(),
+		Interval:        *interval,
+		Columns:         a.addableColumns(),
+		HostPanel:       a.tuiHostPanel,
+		FilterOperators: a.filterOperators,
 	}
 	cli, err := tui.RunTerminal(deps, qf.toSpecFlags())
 	if err != nil {
@@ -71,6 +72,37 @@ func cmdTUI(env Env, args []string) int {
 		fmt.Fprintln(env.Stdout, cli) // reproducible CLI for the final view (§27 Phase 3 exit)
 	}
 	return ExitOK
+}
+
+// filter operator sets by field type (matching the expr language).
+var (
+	numFilterOps = []string{"==", "!=", ">", "<", ">=", "<=", "in"}
+	strFilterOps = []string{"==", "!=", "~=", "contains", "in"}
+)
+
+// filterOperators returns the operators offered for a field in the TUI filter
+// autocomplete: numeric fields (metrics, ids, ns inodes) get comparisons; string
+// fields get equality/regex/contains.
+func (a *assembly) filterOperators(field string) []string {
+	if a.isNumericField(field) {
+		return numFilterOps
+	}
+	return strFilterOps
+}
+
+// isNumericField reports whether a filter field carries a numeric value: every
+// metric is numeric, as are the id/count/namespace structural fields.
+func (a *assembly) isNumericField(field string) bool {
+	if _, ok := a.reg.Get(field); ok {
+		return true
+	}
+	switch field {
+	case "pid", "tid", "ppid", "pgid", "sid", "session", "process-group",
+		"uid", "gid", "nice", "procs", "threads", "children", "leaves",
+		"pidns", "netns", "mntns", "userns", "cgroupns":
+		return true
+	}
+	return false
 }
 
 // tuiHostPanel formats a result's host-scoped metrics as the TUI system panel:
