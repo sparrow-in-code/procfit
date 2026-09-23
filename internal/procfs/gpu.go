@@ -46,12 +46,42 @@ func NewGPUCollector(root string) *GPUCollector {
 // ID matches Descriptor.Collector for the gpu metrics.
 func (c *GPUCollector) ID() string { return "gpu" }
 
+// gpuEngineIDs are the canonical per-engine utilization metrics (PM-0511). DRM
+// engine names are driver-defined, so each driver's names are mapped onto these
+// standard classes (canonicalEngine); engines a driver does not expose stay 0
+// only when the process holds a DRM client (else absent).
+var gpuEngineIDs = []model.MetricID{"gpu-render", "gpu-compute", "gpu-copy", "gpu-video", "gpu-video-enhance"}
+
 // Metrics lists the produced ids.
-func (c *GPUCollector) Metrics() []model.MetricID { return []model.MetricID{"gpu", "gpu-mem"} }
+func (c *GPUCollector) Metrics() []model.MetricID {
+	return append([]model.MetricID{"gpu", "gpu-mem"}, gpuEngineIDs...)
+}
+
+// canonicalEngine maps a driver-specific DRM engine name to a standard class, or
+// "" to leave it only in the summed `gpu` total. Covers i915/xe (render/copy/
+// video/video-enhance), amdgpu (gfx/compute/dma/dec/enc/jpeg) and common ARM
+// names — read from fdinfo, never assumed present.
+func canonicalEngine(name string) string {
+	switch name {
+	case "render", "gfx", "3d":
+		return "gpu-render"
+	case "compute":
+		return "gpu-compute"
+	case "copy", "dma", "blitter":
+		return "gpu-copy"
+	case "video", "dec", "enc", "bsd", "vcn", "jpeg":
+		return "gpu-video"
+	case "video-enhance", "vebox":
+		return "gpu-video-enhance"
+	default:
+		return ""
+	}
+}
 
 // gpuAgg is a process's GPU usage aggregated across its unique DRM clients.
 type gpuAgg struct {
 	busyNs   uint64             // summed engine busy nanoseconds across engines/clients
+	engineNs map[string]uint64  // per canonical engine metric id -> busy nanoseconds
 	memBytes uint64             // best-effort resident/used GPU memory
 	hasDRM   bool               // the process holds at least one DRM client
 	readErr  model.Availability // set when /proc/PID/fd could not be read
@@ -106,10 +136,24 @@ func (c *GPUCollector) applyWindow(p *model.Process, a1 gpuAgg, windowNs float64
 	if windowNs <= 0 || a2.busyNs < a1.busyNs {
 		// counter reset / reused pid within the window: no trustworthy rate yet
 		p.SetMetric("gpu", model.Unavailable[float64](model.WarmingUp, "gpu"))
+		for _, id := range gpuEngineIDs {
+			p.SetMetric(id, model.Unavailable[float64](model.WarmingUp, "gpu"))
+		}
 		return
 	}
-	util := float64(a2.busyNs-a1.busyNs) / windowNs * 100
-	p.SetMetric("gpu", model.NewValue(util, model.Sampled, "gpu"))
+	p.SetMetric("gpu", model.NewValue(busyPct(a1.busyNs, a2.busyNs, windowNs), model.Sampled, "gpu"))
+	for _, id := range gpuEngineIDs {
+		p.SetMetric(id, model.NewValue(busyPct(a1.engineNs[string(id)], a2.engineNs[string(id)], windowNs), model.Sampled, "gpu"))
+	}
+}
+
+// busyPct is the % of the window a counter of busy nanoseconds advanced (clamped
+// at 0 on a counter reset).
+func busyPct(ns1, ns2 uint64, windowNs float64) float64 {
+	if ns2 < ns1 {
+		return 0
+	}
+	return float64(ns2-ns1) / windowNs * 100
 }
 
 // reportReadErrors surfaces permission/read failures even when nothing turned out
@@ -194,6 +238,12 @@ func (c *GPUCollector) scanOne(pid int) (gpuAgg, error) {
 		}
 		agg.busyNs += cl.busyNs
 		agg.memBytes += cl.memBytes()
+		for id, ns := range cl.engineNs {
+			if agg.engineNs == nil {
+				agg.engineNs = map[string]uint64{}
+			}
+			agg.engineNs[id] += ns
+		}
 	}
 	return agg, nil
 }
@@ -207,10 +257,19 @@ type drmClient struct {
 	isDRM    bool
 	pdev     string
 	clientID string
-	busyNs   uint64
+	busyNs   uint64            // total across engines
+	engineNs map[string]uint64 // canonical engine metric id -> busy ns
 	resident uint64
 	memory   uint64
 	total    uint64
+}
+
+// drmParse holds the transient per-engine data needed to apply the cycles-based
+// fallback after a record is fully read.
+type drmParse struct {
+	nsEngines map[string]bool   // engines that reported drm-engine-<n> (ns) directly
+	cycles    map[string]uint64 // engine -> drm-cycles-<n>
+	maxfreq   map[string]uint64 // engine -> drm-maxfreq-<n> (Hz)
 }
 
 // memBytes picks the best available memory figure: resident, else the legacy
@@ -239,34 +298,77 @@ func (d drmClient) dedupKey() string {
 // is vendor-neutral: engine names are summed as they appear, memory regions are
 // bucketed by resident/memory/total. Pure and unit-tested.
 func parseDRMFdinfo(s string) drmClient {
-	var c drmClient
+	c := drmClient{engineNs: map[string]uint64{}}
+	p := drmParse{nsEngines: map[string]bool{}, cycles: map[string]uint64{}, maxfreq: map[string]uint64{}}
 	for _, line := range strings.Split(s, "\n") {
 		key, val, ok := strings.Cut(line, ":")
 		if !ok {
 			continue
 		}
-		key = strings.TrimSpace(key)
-		val = strings.TrimSpace(val)
-		switch {
-		case key == "drm-driver":
-			c.isDRM = true
-		case key == "drm-pdev":
-			c.pdev = val
-		case key == "drm-client-id":
-			c.isDRM = true
-			c.clientID = val
-		case strings.HasPrefix(key, "drm-engine-") && !strings.HasPrefix(key, "drm-engine-capacity-"):
-			c.isDRM = true
-			c.busyNs += parseFirstUint(val) // "<ns> ns"
-		case strings.HasPrefix(key, "drm-resident-"):
-			c.resident += parseMemBytes(val)
-		case strings.HasPrefix(key, "drm-memory-"):
-			c.memory += parseMemBytes(val)
-		case strings.HasPrefix(key, "drm-total-"):
-			c.total += parseMemBytes(val)
-		}
+		c.consume(strings.TrimSpace(key), strings.TrimSpace(val), &p)
 	}
+	c.applyCyclesFallback(&p)
 	return c
+}
+
+// consume folds one `drm-*` fdinfo line into the client record.
+func (c *drmClient) consume(key, val string, p *drmParse) {
+	switch {
+	case key == "drm-driver":
+		c.isDRM = true
+	case key == "drm-pdev":
+		c.pdev = val
+	case key == "drm-client-id":
+		c.isDRM = true
+		c.clientID = val
+	case strings.HasPrefix(key, "drm-engine-capacity-"):
+		// capacity is not busy time; ignore.
+	case strings.HasPrefix(key, "drm-engine-"):
+		c.isDRM = true
+		name := strings.TrimPrefix(key, "drm-engine-")
+		c.addEngine(name, parseFirstUint(val)) // "<ns> ns"
+		p.nsEngines[name] = true
+	case strings.HasPrefix(key, "drm-cycles-"):
+		p.cycles[strings.TrimPrefix(key, "drm-cycles-")] += parseFirstUint(val)
+	case strings.HasPrefix(key, "drm-maxfreq-"):
+		p.maxfreq[strings.TrimPrefix(key, "drm-maxfreq-")] = parseFirstUint(val)
+	default:
+		c.consumeMem(key, val)
+	}
+}
+
+func (c *drmClient) consumeMem(key, val string) {
+	switch {
+	case strings.HasPrefix(key, "drm-resident-"):
+		c.resident += parseMemBytes(val)
+	case strings.HasPrefix(key, "drm-memory-"):
+		c.memory += parseMemBytes(val)
+	case strings.HasPrefix(key, "drm-total-"):
+		c.total += parseMemBytes(val)
+	}
+}
+
+// addEngine accumulates busy nanoseconds into the total and the canonical engine.
+func (c *drmClient) addEngine(name string, ns uint64) {
+	c.busyNs += ns
+	if b := canonicalEngine(name); b != "" {
+		c.engineNs[b] += ns
+	}
+}
+
+// applyCyclesFallback derives busy ns from drm-cycles/drm-maxfreq for engines
+// that did not report drm-engine-<n> in nanoseconds (some ARM/v3d drivers).
+func (c *drmClient) applyCyclesFallback(p *drmParse) {
+	for name, cyc := range p.cycles {
+		if p.nsEngines[name] {
+			continue // ns already counted; don't double
+		}
+		hz := p.maxfreq[name]
+		if hz == 0 {
+			continue
+		}
+		c.addEngine(name, uint64(float64(cyc)/float64(hz)*1e9))
+	}
 }
 
 // parseFirstUint reads the leading unsigned integer of a value like "12345 ns".

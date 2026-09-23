@@ -143,6 +143,10 @@ func TestParseDRMFdinfo(t *testing.T) {
 	if c.busyNs != 350 { // 100 + 250, capacity excluded
 		t.Fatalf("engine ns = %d, want 350", c.busyNs)
 	}
+	// gfx→gpu-render (100ns), compute→gpu-compute (250ns).
+	if c.engineNs["gpu-render"] != 100 || c.engineNs["gpu-compute"] != 250 {
+		t.Fatalf("per-engine ns wrong: %+v", c.engineNs)
+	}
 	// resident wins over total for the memory figure.
 	if got := c.memBytes(); got != 512*1024 {
 		t.Fatalf("memBytes = %d, want %d (resident preferred)", got, 512*1024)
@@ -150,6 +154,47 @@ func TestParseDRMFdinfo(t *testing.T) {
 	// A non-DRM record parses as not-a-client.
 	if parseDRMFdinfo("pos:\t0\nino:\t1\n").isDRM {
 		t.Fatal("a plain fdinfo must not be classified as DRM")
+	}
+}
+
+func TestParseDRMFdinfo_CyclesFallback(t *testing.T) {
+	// A v3d-style driver reports cycles + maxfreq instead of engine ns: busy ns is
+	// derived (cycles / Hz × 1e9). 500e6 cycles at 1 GHz = 0.5s = 500,000,000 ns.
+	body := "drm-driver:\tv3d\ndrm-client-id:\t1\n" +
+		"drm-cycles-render:\t500000000\ndrm-maxfreq-render:\t1000000000\n"
+	c := parseDRMFdinfo(body)
+	if c.busyNs != 500_000_000 || c.engineNs["gpu-render"] != 500_000_000 {
+		t.Fatalf("cycles fallback wrong: busy=%d engines=%+v", c.busyNs, c.engineNs)
+	}
+	// When both ns and cycles are present, ns wins (no double counting).
+	both := "drm-driver:\tx\ndrm-client-id:\t1\n" +
+		"drm-engine-render:\t100 ns\ndrm-cycles-render:\t500000000\ndrm-maxfreq-render:\t1000000000\n"
+	if c := parseDRMFdinfo(both); c.busyNs != 100 {
+		t.Fatalf("ns must win over cycles, got busy=%d", c.busyNs)
+	}
+}
+
+func TestGPUCollector_PerEngine(t *testing.T) {
+	root := t.TempDir()
+	before := "drm-driver:\ti915\ndrm-pdev:\t0000:00:02.0\ndrm-client-id:\t1\n" +
+		"drm-engine-render:\t1000000 ns\ndrm-engine-video:\t0 ns\n"
+	after := "drm-driver:\ti915\ndrm-pdev:\t0000:00:02.0\ndrm-client-id:\t1\n" +
+		"drm-engine-render:\t31000000 ns\ndrm-engine-video:\t0 ns\n"
+	writeDRM(t, root, 100, 7, before)
+
+	c := NewGPUCollector(root)
+	c.window = 100 * time.Millisecond
+	c.sleep = func(time.Duration) { writeFDInfo(t, root, 100, 7, after) }
+	procs := []model.Process{{PID: 100}}
+	c.Collect(context.Background(), procs)
+
+	// render advanced 30ms/100ms = 30%.
+	if v := procs[0].Metric("gpu-render"); !v.Present() || v.V < 29.9 || v.V > 30.1 {
+		t.Fatalf("gpu-render = %+v, want ~30%%", v)
+	}
+	// video engine present (this is a DRM client) but unused → 0%, not absent.
+	if v := procs[0].Metric("gpu-video"); !v.Present() || v.V != 0 {
+		t.Fatalf("gpu-video = %+v, want 0%% present", v)
 	}
 }
 

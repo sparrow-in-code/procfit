@@ -241,10 +241,14 @@ procfit ps --columns target,pid,gpu,gpu-mem --sort gpu:desc
 ```
 
 `gpu` sums a process's busy time across GPU engines over a short window (it can
-exceed 100% when several engines run at once, like CPU% across cores). A process
-with no GPU client shows `-` (never a fake `0`); another user's processes show `?`
-until you have privilege. Proprietary **NVIDIA** does not expose the standard
-fdinfo, so its clients are invisible here (nouveau works).
+exceed 100% when several engines run at once, like CPU% across cores). For the
+per-engine split, add `gpu-render`, `gpu-compute`, `gpu-copy`, `gpu-video`, and
+`gpu-video-enhance` — each driver's engine names are mapped onto these standard
+classes, and cycles-based drivers (`drm-cycles`/`drm-maxfreq`, e.g. v3d) are
+handled too. A process with no GPU client shows `-` (never a fake `0`); another
+user's processes show `?` until you have privilege. Proprietary **NVIDIA** does
+not expose the standard fdinfo, so its clients are invisible here unless built
+with the optional NVML adapter (PM-0522); nouveau works via DRM.
 
 ## Troubleshooting load average
 

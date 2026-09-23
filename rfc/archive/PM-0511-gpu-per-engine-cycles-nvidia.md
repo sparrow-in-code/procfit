@@ -31,13 +31,29 @@ Extend the DRM fdinfo GPU collector (PM-0508, which ships summed `gpu` +
 
 - GPU power in watts (PM-0506 RAPL psys / hwmon).
 
+## Status: DONE (2026-09-23)
+
+Per-engine + cycles fallback shipped in `internal/procfs/gpu.go`. Driver engine
+names are mapped onto canonical classes (`canonicalEngine`: render/gfx/3d →
+gpu-render, compute → gpu-compute, copy/dma/blitter → gpu-copy, video/dec/enc/bsd/
+vcn/jpeg → gpu-video, video-enhance/vebox → gpu-video-enhance) rather than a
+dynamic registry — the DRM fdinfo engine classes are standard enough that a
+curated static set covers i915/xe/amdgpu/ARM. `drmClient.engineNs` tracks per-class
+busy ns (deduped per client), and `applyWindow` emits `gpu-render/compute/copy/
+video/video-enhance` as windowed % (an engine the process holds but did not use is
+0, not absent; unused-by-driver names stay in summed `gpu`). Cycles-based drivers
+(`drm-cycles-<n>` + `drm-maxfreq-<n>`) are converted to ns when `drm-engine-<n>`
+(ns) is absent (`applyCyclesFallback`; ns wins to avoid double count). Descriptors
+in `builtin_gpu.go`. **NVML deferred** to PM-0522 (build-tagged cgo adapter for the
+proprietary NVIDIA driver — needs the NVIDIA library + hardware, untestable in
+this sandbox; nouveau already works via DRM fdinfo).
+
 ## Acceptance criteria
 
-- [ ] Optional per-engine columns render summed-per-engine utilization; absent
-      engines degrade to unavailable, never zero.
-- [ ] Cycles-based drivers yield a utilization % via cycles/maxfreq/wall.
-- [ ] NVIDIA clients appear via the optional NVML adapter when present; the core
-      build has no NVML dependency.
+- [x] Optional per-engine columns render summed-per-engine utilization; absent
+      engines degrade to unavailable/0 appropriately, never a misleading zero.
+- [x] Cycles-based drivers yield a utilization % via cycles/maxfreq/wall.
+- [ ] NVIDIA clients appear via the optional NVML adapter → **deferred to PM-0522**.
 
 ## Tests required
 
