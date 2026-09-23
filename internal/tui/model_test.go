@@ -42,6 +42,35 @@ func groupedResult() (*query.Result, []render.Column) {
 	return &query.Result{Generation: 7, WallTime: time.Unix(0, 0), Rows: []*query.Row{g}}, cols
 }
 
+func TestModel_HostPanel(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(80, 12)
+	m.SetHostPanel(func(*query.Result) []string { return []string{"power-pkg=12.00  psi-cpu=0.5"} })
+	res, cols := sampleResult(3)
+	m.SetResult(res, cols)
+
+	fr := m.Frame()
+	// statusBar[0], host matrix[1], blank[2], header[3], first row[4].
+	if !strings.Contains(fr[1], "power-pkg=12.00") {
+		t.Fatalf("host panel should render below the status bar, got %q", fr[1])
+	}
+	if fr[2] != "" {
+		t.Fatalf("panel and table must be blank-line separated, got %q", fr[2])
+	}
+	if !strings.HasPrefix(fr[4], "> proc") {
+		t.Fatalf("table body should follow the panel, got %q", fr[4])
+	}
+	if len(fr) != 12 {
+		t.Fatalf("frame height = %d, want 12 (panel steals from body)", len(fr))
+	}
+	// No panel → unchanged layout (header on line 1).
+	m.SetHostPanel(nil)
+	m.SetResult(res, cols)
+	if !strings.Contains(m.Frame()[1], "TARGET") {
+		t.Fatalf("without a host panel the header should be line 1, got %q", m.Frame()[1])
+	}
+}
+
 func TestModel_FlatViewNoIndent(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	m.SetSize(80, 10)

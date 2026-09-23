@@ -60,6 +60,7 @@ func cmdTUI(env Env, args []string) int {
 		History:     tuiHistory(),
 		Interval:    *interval,
 		Columns:     a.addableColumns(),
+		HostPanel:   a.tuiHostPanel,
 	}
 	cli, err := tui.RunTerminal(deps, qf.toSpecFlags())
 	if err != nil {
@@ -70,6 +71,16 @@ func cmdTUI(env Env, args []string) int {
 		fmt.Fprintln(env.Stdout, cli) // reproducible CLI for the final view (§27 Phase 3 exit)
 	}
 	return ExitOK
+}
+
+// tuiHostPanel formats a result's host-scoped metrics as the TUI system panel:
+// the aligned label=value matrix (no banner — the status bar already carries the
+// context). Empty when the query has no host metric, so the panel takes no space.
+func (a *assembly) tuiHostPanel(res *query.Result) []string {
+	if res == nil || len(res.HostMetrics) == 0 {
+		return nil
+	}
+	return a.hostMatrix(res.HostMetrics, true)
 }
 
 // addableColumns lists every displayable column (metrics + structural) with its
@@ -107,11 +118,13 @@ func (a *assembly) tuiRefresh(ctx context.Context) tui.RefreshFunc {
 		a.enrich(ctx, snap.Processes, r.Needed)
 		res, err := a.engine.Build(query.Input{
 			Generation: snap.Generation, WallTime: snap.WallTime, Elapsed: snap.Elapsed, Processes: snap.Processes,
+			HostMetrics: a.collectHost(ctx, r.Needed),
 		}, r.Spec)
 		if err != nil {
 			return nil, nil, err
 		}
-		cols, err := render.ResolveColumnsMode(a.reg, r.Columns, r.Human)
+		// Host-scoped metrics render in the system panel, not as process columns.
+		cols, err := render.ResolveColumnsMode(a.reg, a.processColumns(r.Columns), r.Human)
 		if err != nil {
 			return nil, nil, err
 		}

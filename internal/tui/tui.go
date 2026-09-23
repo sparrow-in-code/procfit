@@ -28,6 +28,9 @@ type Deps struct {
 	History     HistoryFunc
 	Interval    time.Duration  // starting refresh interval (0 = default 1s)
 	Columns     []ColumnChoice // columns (id + description) for the interactive picker (`+`)
+	// HostPanel formats a result's host-scoped metrics (power/C-state/PSI) into the
+	// system panel lines shown above the table; nil (or empty return) = no panel.
+	HostPanel func(*query.Result) []string
 }
 
 func RunTerminal(deps Deps, flags queryspec.Flags) (string, error) {
@@ -53,6 +56,7 @@ func Run(screen tcell.Screen, deps Deps, flags queryspec.Flags) (string, error) 
 	m.SetHistory(deps.History)
 	m.SetInterval(deps.Interval)
 	m.SetColumnChoices(deps.Columns)
+	m.SetHostPanel(deps.HostPanel)
 	w, h := screen.Size()
 	m.SetSize(w, h)
 	requery(m, deps)

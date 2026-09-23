@@ -1,12 +1,27 @@
 ---
 id: PM-0523
 title: TUI system-metrics panel for host-scoped metrics
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0507"]
 owner:
 rfc: ["§13", "§19", "§24"]
 ---
+
+## Status: DONE (2026-09-23)
+
+`tuiRefresh` now collects host metrics (`collectHost`) into `Result.HostMetrics`
+and filters host-scoped ids out of the process columns (`processColumns`). A new
+`Deps.HostPanel func(*query.Result) []string` (wired to `assembly.tuiHostPanel`,
+reusing `hostMatrix`) formats the aligned `label=value` matrix; `Model` stores it
+(`SetHostPanel`/`hostLines`, recomputed in `SetResult`) and `Frame` renders it
+between the status bar and the header — a blank line separates it from the table —
+with `bodyHeight` reserving the rows so the frame stays exactly the viewport
+height. No banner in the TUI (the status bar already carries gen/rows/interval);
+no per-process broadcast reintroduced; host metrics remain out of the `+` column
+picker. Test: `TestModel_HostPanel` (headless: panel below status bar, blank
+separator, body follows, exact frame height; nil panel → unchanged layout).
+Commit: (local).
 
 ## Summary
 
@@ -33,10 +48,10 @@ picker so they don't show as empty columns. Add a compact system panel to the TU
 
 ## Acceptance criteria
 
-- [ ] `--profile power`/`pressure`/`battery` in the TUI shows the host values in a
+- [x] `--profile power`/`pressure`/`battery` in the TUI shows the host values in a
       panel, not as empty columns.
-- [ ] Panel updates each refresh; no per-process broadcast reintroduced.
-- [ ] No host metric appears as a per-process TUI column.
+- [x] Panel updates each refresh; no per-process broadcast reintroduced.
+- [x] No host metric appears as a per-process TUI column.
 
 ## Tests required
 

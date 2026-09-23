@@ -93,6 +93,11 @@ type Model struct {
 	panel  Panel
 	hasMgr bool     // a managed data source is available (enables Tab)
 	dropFn DropFunc // unmanage the selected row's target(s)
+
+	// hostPanelFn formats host-scoped metrics into the system panel; hostLines is
+	// the latest formatted panel (empty when the view has no host metrics).
+	hostPanelFn func(*query.Result) []string
+	hostLines   []string
 }
 
 // Panel reports which view is active (browser vs managed), so the driver can pick
@@ -113,6 +118,10 @@ func (m *Model) SetControl(fn ControlFunc) { m.control = fn }
 // SetColumnChoices supplies the columns offered by the picker (`+`): every
 // displayable metric and structural column with its description, sorted by id.
 func (m *Model) SetColumnChoices(cs []ColumnChoice) { m.colChoices = cs }
+
+// SetHostPanel installs the formatter that turns host-scoped metrics into the
+// system panel shown above the table. Nil keeps the panel off.
+func (m *Model) SetHostPanel(fn func(*query.Result) []string) { m.hostPanelFn = fn }
 
 type flatRow struct {
 	row       *query.Row
@@ -196,6 +205,10 @@ func (m *Model) SetSize(w, h int) { m.width, m.height = w, h }
 func (m *Model) SetResult(res *query.Result, cols []render.Column) {
 	m.result = res
 	m.cols = cols
+	m.hostLines = nil
+	if m.hostPanelFn != nil {
+		m.hostLines = m.hostPanelFn(res)
+	}
 	if len(m.cols) > 0 && !m.cols[safeIdx(m.sortIx, len(m.cols))].Sortable {
 		m.sortIx = m.firstSortable() // keep the sort key on a sortable displayed column
 	}

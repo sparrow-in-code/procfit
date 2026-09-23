@@ -45,13 +45,27 @@ func nearestPresetIdx(d time.Duration) int {
 	return best
 }
 
-// bodyHeight is the number of table body rows visible (excluding status + header).
+// bodyHeight is the number of table body rows visible (excluding the status bar,
+// header, and the system panel when present).
 func (m *Model) bodyHeight() int {
-	h := m.height - 2
+	h := m.height - 2 - len(m.hostPanelLines())
 	if h < 1 {
 		return 1
 	}
 	return h
+}
+
+// hostPanelLines returns the system-metrics panel (host matrix) plus a blank
+// separator line, or nil when the view has no host metrics.
+func (m *Model) hostPanelLines() []string {
+	if len(m.hostLines) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(m.hostLines)+1)
+	for _, ln := range m.hostLines {
+		out = append(out, truncate(ln, m.width))
+	}
+	return append(out, "") // blank line before the table header
 }
 
 // Frame renders the current view as text lines: a status bar, a header, then the
@@ -69,7 +83,9 @@ func (m *Model) Frame() []string {
 	if m.detail {
 		return m.detailFrame()
 	}
-	lines := []string{m.statusBar(), m.header()}
+	lines := []string{m.statusBar()}
+	lines = append(lines, m.hostPanelLines()...) // system metrics panel (host-scoped), when present
+	lines = append(lines, m.header())
 	body := m.bodyHeight()
 	for i := 0; i < body; i++ {
 		idx := m.scroll + i
