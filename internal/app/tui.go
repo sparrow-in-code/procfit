@@ -265,6 +265,7 @@ func (a *assembly) tuiManagedTree(ctx context.Context) tui.RefreshFunc {
 		}
 		res, err := a.engine.Build(query.Input{
 			Generation: snap.Generation, WallTime: snap.WallTime, Elapsed: snap.Elapsed, Processes: live,
+			HostMetrics: a.collectHost(ctx, r.Needed),
 		}, r.Spec)
 		if err != nil {
 			return nil, nil, err
@@ -272,7 +273,7 @@ func (a *assembly) tuiManagedTree(ctx context.Context) tui.RefreshFunc {
 		if orphans := orphanGroup(want, liveSeen, names); orphans != nil {
 			res.Rows = append(res.Rows, orphans)
 		}
-		cols, err := render.ResolveColumnsMode(a.reg, r.Columns, r.Human)
+		cols, err := render.ResolveColumnsMode(a.reg, a.processColumns(r.Columns), r.Human)
 		if err != nil {
 			return nil, nil, err
 		}

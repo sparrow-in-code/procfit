@@ -72,7 +72,8 @@ func cmdStat(env Env, args []string) int {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage
 	}
-	cols, err := render.ResolveColumnsMode(a.reg, r.Columns, r.Human)
+	// Host-scoped metrics render in the per-batch system matrix, not as columns.
+	cols, err := render.ResolveColumnsMode(a.reg, a.processColumns(r.Columns), r.Human)
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "%v\n", err)
 		return ExitUsage
@@ -106,6 +107,7 @@ func (a *assembly) streamLoop(ctx context.Context, env Env, r queryspec.Resolved
 		a.enrich(ctx, snap.Processes, r.Needed)
 		res, err := a.engine.Build(query.Input{
 			Generation: snap.Generation, WallTime: snap.WallTime, Elapsed: snap.Elapsed, Processes: snap.Processes,
+			HostMetrics: a.collectHost(ctx, r.Needed),
 		}, r.Spec)
 		if err != nil {
 			fmt.Fprintf(env.Stderr, "%v\n", err)
@@ -146,6 +148,14 @@ func (a *assembly) streamEmitter(env Env, r queryspec.Resolved, cols []render.Co
 	default: // table / wide
 		return func(res *query.Result) error {
 			fmt.Fprintf(env.Stdout, "== %s ==\n", res.WallTime.Format(time.RFC3339))
+			// Host-scoped metrics as an aligned matrix above the table (the batch
+			// timestamp already heads the section, so no separate banner).
+			for _, line := range a.hostMatrix(res.HostMetrics, r.Human) {
+				fmt.Fprintln(env.Stdout, line)
+			}
+			if len(res.HostMetrics) > 0 {
+				fmt.Fprintln(env.Stdout)
+			}
 			return table.Render(env.Stdout, res, cols, r.TargetWidth)
 		}, nil
 	}
