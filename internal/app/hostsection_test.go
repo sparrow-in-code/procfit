@@ -17,25 +17,35 @@ func hostAsm(t *testing.T) *assembly {
 	return newAssemblyWith(testutil.NewFakeSource(nil), testutil.NewFakeClock(time.Unix(1000, 0)))
 }
 
-func TestLayoutMatrix_ColumnMajorAligned(t *testing.T) {
-	// 4 cells over 3 rows → 2 columns, filled top-bottom then left-right:
-	// col0 = a,bb,ccc ; col1 = d (row0 only).
-	got := layoutMatrix([]string{"a=1", "bb=22", "ccc=333", "d=4"}, 3)
+func TestLayoutKV_ColumnMajorAligned(t *testing.T) {
+	// 4 pairs over 3 rows → 2 columns, filled top-bottom then left-right:
+	// col0 = aaa/bb/c ; col1 = d (row0 only).
+	keys := []string{"aaa", "bb", "c", "d"}
+	vals := []string{"1", "22", "333", "4"}
+	got := layoutKV(keys, vals, 3)
 	if len(got) != 3 {
 		t.Fatalf("want 3 rows, got %d: %q", len(got), got)
 	}
-	if !strings.HasPrefix(got[0], "a=1") || !strings.HasSuffix(got[0], "d=4") {
-		t.Fatalf("row0 layout wrong: %q", got[0])
+	// col0 keyW=3 → value starts at index 4 (key padded to 3 + 1 space) on every
+	// row; col0 valW=3, gap=4 → col1 key 'd' starts at 3+1+3+4 = index 11.
+	want0 := "aaa 1" + strings.Repeat(" ", 6) + "d 4"
+	if got[0] != want0 {
+		t.Fatalf("row0 = %q, want %q", got[0], want0)
 	}
-	if got[1] != "bb=22" || got[2] != "ccc=333" {
-		t.Fatalf("rows 1/2 wrong: %q", got)
+	if strings.Index(got[0], "d 4") != 11 {
+		t.Fatalf("col1 not aligned at index 11: %q", got[0])
 	}
-	// col0 padded to the widest cell (ccc=333, 7) + 2 → d=4 starts at index 9.
-	if idx := strings.Index(got[0], "d=4"); idx != 9 {
-		t.Fatalf("column not aligned: d=4 at %d, want 9 (%q)", idx, got[0])
+	if got[1] != "bb  22" || got[2] != "c   333" {
+		t.Fatalf("rows 1/2 = %q", got[1:])
 	}
-	if layoutMatrix(nil, 3) != nil {
-		t.Fatal("no cells → no rows")
+	// Values align within col0 at index 4.
+	for _, r := range got {
+		if len(r) > 4 && r[3] != ' ' {
+			t.Fatalf("value not single-spaced past the longest key: %q", r)
+		}
+	}
+	if layoutKV(nil, nil, 3) != nil {
+		t.Fatal("no pairs → no rows")
 	}
 }
 
@@ -78,7 +88,9 @@ func TestHostSection(t *testing.T) {
 		t.Fatalf("banner and matrix must be blank-line separated, got %q", sec[1])
 	}
 	body := strings.Join(sec[2:], "\n")
-	if !strings.Contains(body, "psi-cpu=1.5") || !strings.Contains(body, "cstate-deep-residency=80.0") {
+	// cstate-deep-residency is the longest key in the (single) column, so its value
+	// sits one space past it; psi-cpu's value is padded to align under it.
+	if !strings.Contains(body, "cstate-deep-residency 80.0") || !strings.Contains(body, "1.5") {
 		t.Fatalf("matrix missing formatted host values:\n%s", body)
 	}
 	// No host metrics → no section at all (output unchanged for plain ps).

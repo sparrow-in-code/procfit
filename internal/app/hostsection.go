@@ -68,9 +68,11 @@ func totalProcs(res *query.Result) int {
 	return n
 }
 
-// hostMatrix formats the host metrics as a column-aligned matrix (like `column
-// -t`): cells `id=value`, sorted alphabetically, laid out column-major over
-// hostMatrixRows rows; a value containing spaces is quoted.
+// hostMatrix formats the host metrics as an aligned key/value matrix: metrics
+// sorted alphabetically and laid out column-major over hostMatrixRows rows. In
+// each column the value is single-spaced past the column's longest key (so values
+// align), and columns are separated by four spaces after the value; a value with
+// spaces is quoted.
 func (a *assembly) hostMatrix(hm map[model.MetricID]model.MetricValue, human bool) []string {
 	ids := make([]string, 0, len(hm))
 	for id := range hm {
@@ -78,11 +80,11 @@ func (a *assembly) hostMatrix(hm map[model.MetricID]model.MetricValue, human boo
 	}
 	sort.Strings(ids)
 
-	cells := make([]string, len(ids))
+	vals := make([]string, len(ids))
 	for i, id := range ids {
-		cells[i] = id + "=" + quoteIfSpace(a.hostValue(id, hm[model.MetricID(id)], human))
+		vals[i] = quoteIfSpace(a.hostValue(id, hm[model.MetricID(id)], human))
 	}
-	return layoutMatrix(cells, hostMatrixRows)
+	return layoutKV(ids, vals, hostMatrixRows)
 }
 
 // hostValue formats one host metric value (human or raw), or its unavailable
@@ -105,55 +107,60 @@ func quoteIfSpace(s string) string {
 	return s
 }
 
-// layoutMatrix arranges cells into `rows` rows, filled column-major (top-bottom,
-// then left-right), padding each column to its widest cell (two-space gap).
-func layoutMatrix(cells []string, rows int) []string {
-	if len(cells) == 0 || rows < 1 {
+// kvGap is the number of spaces between a value and the next column's key.
+const kvGap = 4
+
+// layoutKV renders key/value pairs into `rows` rows, filled column-major
+// (top-bottom, then left-right). Within each column the key is padded to the
+// column's widest key so every value starts one space past it, and each value is
+// padded to the column's widest value so the next column's keys line up after a
+// four-space gap. Trailing padding is trimmed.
+func layoutKV(keys, vals []string, rows int) []string {
+	if len(keys) == 0 || rows < 1 {
 		return nil
 	}
-	cols := (len(cells) + rows - 1) / rows
-	grid := make([][]string, rows)
-	for r := range grid {
-		grid[r] = make([]string, cols)
+	cols := (len(keys) + rows - 1) / rows
+	keyW, valW := make([]int, cols), make([]int, cols)
+	for i := range keys {
+		c := i / rows
+		if len(keys[i]) > keyW[c] {
+			keyW[c] = len(keys[i])
+		}
+		if len(vals[i]) > valW[c] {
+			valW[c] = len(vals[i])
+		}
 	}
-	for i, cell := range cells {
-		grid[i%rows][i/rows] = cell
-	}
-	widths := colWidths(grid, cols)
 	out := make([]string, 0, rows)
 	for r := 0; r < rows; r++ {
-		if line := matrixRow(grid[r], widths); line != "" {
+		if line := kvRow(keys, vals, keyW, valW, r, rows, cols); line != "" {
 			out = append(out, line)
 		}
 	}
 	return out
 }
 
-// colWidths returns the widest cell in each column of the grid.
-func colWidths(grid [][]string, cols int) []int {
-	widths := make([]int, cols)
-	for _, row := range grid {
-		for c, cell := range row {
-			if len(cell) > widths[c] {
-				widths[c] = len(cell)
-			}
-		}
-	}
-	return widths
-}
-
-// matrixRow renders one grid row, padding each non-final cell to its column width
-// plus a two-space gap; trailing padding is trimmed.
-func matrixRow(cells []string, widths []int) string {
+// kvRow renders one row of the column-major key/value grid.
+func kvRow(keys, vals []string, keyW, valW []int, r, rows, cols int) string {
 	var b strings.Builder
-	for c, cell := range cells {
-		if cell == "" {
+	for c := 0; c < cols; c++ {
+		i := c*rows + r
+		if i >= len(keys) {
 			continue
 		}
-		b.WriteString(cell)
-		if c < len(cells)-1 {
-			b.WriteString(strings.Repeat(" ", widths[c]-len(cell)+2))
+		b.WriteString(padRight(keys[i], keyW[c]))
+		b.WriteByte(' ')
+		b.WriteString(vals[i])
+		if c < cols-1 {
+			b.WriteString(strings.Repeat(" ", valW[c]-len(vals[i])+kvGap))
 		}
 	}
 	return strings.TrimRight(b.String(), " ")
+}
+
+// padRight left-justifies s to width w.
+func padRight(s string, w int) string {
+	if len(s) >= w {
+		return s
+	}
+	return s + strings.Repeat(" ", w-len(s))
 }
