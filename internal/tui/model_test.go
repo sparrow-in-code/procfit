@@ -66,11 +66,14 @@ func TestModel_HostPanel(t *testing.T) {
 	if len(fr) != 12 {
 		t.Fatalf("frame height = %d, want 12 (panel steals from body)", len(fr))
 	}
-	// No panel → unchanged layout (header on line 1).
+	// No panel: status, blank separator, header — so the header is on line 2.
 	m.SetHostPanel(nil)
 	m.SetResult(res, cols)
-	if !strings.Contains(m.Frame()[1], "TARGET") {
-		t.Fatalf("without a host panel the header should be line 1, got %q", m.Frame()[1])
+	if !strings.Contains(m.Frame()[2], "TARGET") {
+		t.Fatalf("without a host panel the header should be line 2, got %q", m.Frame()[2])
+	}
+	if m.Frame()[1] != "" {
+		t.Fatalf("line 1 must be the blank separator under the status bar, got %q", m.Frame()[1])
 	}
 }
 
@@ -83,7 +86,8 @@ func TestModel_FlatViewNoIndent(t *testing.T) {
 		t.Fatal("a flat process list must not be treated as a tree")
 	}
 	// No groups => no fold marker/indent; the label follows the cursor gap.
-	if row := m.Frame()[2]; !strings.HasPrefix(row, "> proc") {
+	// Layout: status(0), blank(1), header(2), first row(3).
+	if row := m.Frame()[3]; !strings.HasPrefix(row, "> proc") {
 		t.Fatalf("flat leaf must not be indented, got %q", row)
 	}
 }
@@ -98,16 +102,16 @@ func TestModel_ExpandCollapse(t *testing.T) {
 	if len(m.rows) != 3 {
 		t.Fatalf("want 3 visible rows expanded, got %d", len(m.rows))
 	}
-	if !strings.Contains(m.Frame()[2], "[-]") {
-		t.Fatalf("expanded group should show [-]: %q", m.Frame()[2])
+	if !strings.Contains(m.Frame()[3], "[-]") { // status, blank, header, group row
+		t.Fatalf("expanded group should show [-]: %q", m.Frame()[3])
 	}
 	// Enter collapses the group under the cursor -> children hidden, marker "[+]".
 	m.Update(KeyEvent{Name: "enter"})
 	if len(m.rows) != 1 {
 		t.Fatalf("collapse should hide children, got %d rows", len(m.rows))
 	}
-	if !strings.Contains(m.Frame()[2], "[+]") {
-		t.Fatalf("collapsed group should show [+]: %q", m.Frame()[2])
+	if !strings.Contains(m.Frame()[3], "[+]") {
+		t.Fatalf("collapsed group should show [+]: %q", m.Frame()[3])
 	}
 	if m.Dirty() {
 		t.Fatal("expand/collapse is view-only; must not request a re-query")
@@ -118,8 +122,9 @@ func TestModel_ExpandCollapse(t *testing.T) {
 		t.Fatalf("expand should restore children, got %d rows", len(m.rows))
 	}
 	// Leaves render the blank (non-group) marker slot, not a caret.
-	if strings.Contains(m.Frame()[3], "[+]") || strings.Contains(m.Frame()[3], "[-]") {
-		t.Fatalf("leaf row must not show a fold marker: %q", m.Frame()[3])
+	// Layout: status(0), blank(1), header(2), group(3), first leaf(4).
+	if strings.Contains(m.Frame()[4], "[+]") || strings.Contains(m.Frame()[4], "[-]") {
+		t.Fatalf("leaf row must not show a fold marker: %q", m.Frame()[4])
 	}
 }
 
@@ -270,8 +275,8 @@ func TestModel_FoldAll(t *testing.T) {
 	if len(m.rows) != 1 {
 		t.Fatalf("fold-all should hide all children, got %d rows", len(m.rows))
 	}
-	if !strings.Contains(m.Frame()[2], "[+]") {
-		t.Fatalf("folded group should show [+]: %q", m.Frame()[2])
+	if !strings.Contains(m.Frame()[3], "[+]") { // status, blank, header, group row
+		t.Fatalf("folded group should show [+]: %q", m.Frame()[3])
 	}
 	if m.Dirty() {
 		t.Fatal("fold-all is view-only; must not request a re-query")
@@ -307,7 +312,7 @@ func TestModel_CollapseGroupsLaunchFlag(t *testing.T) {
 
 func TestModel_FrameAndScroll(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
-	m.SetSize(80, 6) // 2 chrome (status+header) + 4 body rows
+	m.SetSize(80, 6) // 3 chrome (status+blank+header) + 3 body rows
 	res, cols := sampleResult(10)
 	m.SetResult(res, cols)
 
@@ -318,12 +323,15 @@ func TestModel_FrameAndScroll(t *testing.T) {
 	if !strings.Contains(frame[0], "gen=7") {
 		t.Fatalf("status bar missing gen: %q", frame[0])
 	}
-	if !strings.Contains(frame[1], "TARGET") {
-		t.Fatalf("header missing: %q", frame[1])
+	if frame[1] != "" {
+		t.Fatalf("line 1 must be the blank separator, got %q", frame[1])
+	}
+	if !strings.Contains(frame[2], "TARGET") {
+		t.Fatalf("header missing: %q", frame[2])
 	}
 	// Cursor starts at row 0, marked with '>'.
-	if !strings.HasPrefix(frame[2], "> ") {
-		t.Fatalf("cursor not on first row: %q", frame[2])
+	if !strings.HasPrefix(frame[3], "> ") {
+		t.Fatalf("cursor not on first row: %q", frame[3])
 	}
 	// Scroll down past the visible window.
 	for i := 0; i < 8; i++ {

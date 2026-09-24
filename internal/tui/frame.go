@@ -45,25 +45,24 @@ func nearestPresetIdx(d time.Duration) int {
 	return best
 }
 
-// bodyHeight is the number of table body rows visible (excluding the status bar,
-// header, and the system panel when present).
+// bodyHeight is the number of table body rows visible, excluding the status bar,
+// the blank separator under it, the header, and the system panel when present.
 func (m *Model) bodyHeight() int {
-	h := m.height - 2 - len(m.hostPanelLines())
+	h := m.height - 3 - len(m.hostPanelLines())
 	if h < 1 {
 		return 1
 	}
 	return h
 }
 
-// hostPanelLines returns the system-metrics panel — a blank separator below the
-// status bar, the host matrix, then a blank line before the table header — or nil
-// when the view has no host metrics.
+// hostPanelLines returns the system-metrics panel — the host matrix followed by a
+// blank line before the table header — or nil when the view has no host metrics.
+// (The blank line ABOVE it comes from Frame's always-on separator.)
 func (m *Model) hostPanelLines() []string {
 	if len(m.hostLines) == 0 {
 		return nil
 	}
-	out := make([]string, 0, len(m.hostLines)+2)
-	out = append(out, "") // separator below the status bar
+	out := make([]string, 0, len(m.hostLines)+1)
 	for _, ln := range m.hostLines {
 		out = append(out, truncate(ln, m.width))
 	}
@@ -85,7 +84,7 @@ func (m *Model) Frame() []string {
 	if m.detail {
 		return m.detailFrame()
 	}
-	lines := []string{m.statusBar()}
+	lines := []string{m.statusBar(), ""}         // always a blank line under the status bar
 	lines = append(lines, m.hostPanelLines()...) // system metrics panel (host-scoped), when present
 	lines = append(lines, m.header())
 	body := m.bodyHeight()
