@@ -56,18 +56,14 @@ var profileSpecs = map[ProfileName]Profile{
 		Sort:    "pss:desc",
 	},
 	ProfileIO: {Metrics: []model.MetricID{"disk-rbps", "disk-wbps", "io-rchar", "io-wchar", "read-syscalls", "write-syscalls"}},
-	// network: lead with the no-root socket picture (counts + TCP state), keeping
-	// the eBPF net-*-bps/pps as the privileged throughput layer.
+	// network: the no-root socket picture — counts + TCP state. Per-process
+	// throughput (net-*-bps/pps) needs an eBPF or SOCK_DIAG backend that isn't
+	// built yet (PM-0526), so it is NOT in the default view (it would be a dead
+	// column); request it explicitly with --columns once a backend lands.
 	ProfileNetwork: {
-		Metrics: []model.MetricID{
-			"sock-tcp", "sock-listen", "sock-estab", "sock-udp", "sock-unix",
-			"net-rx-bps", "net-tx-bps",
-		},
-		Columns: []string{
-			"target", "pid", "sock-tcp", "sock-listen", "sock-estab", "sock-udp", "sock-unix",
-			"net-rx-bps", "net-tx-bps",
-		},
-		Sort: "sock-tcp:desc",
+		Metrics: []model.MetricID{"sock-tcp", "sock-listen", "sock-estab", "sock-udp", "sock-unix"},
+		Columns: []string{"target", "pid", "sock-tcp", "sock-listen", "sock-estab", "sock-udp", "sock-unix"},
+		Sort:    "sock-tcp:desc",
 	},
 	// power: actual consumption — real watts (RAPL/hwmon/battery) plus deep-idle
 	// residency and cpu for context. battery (below) stays the per-process drain

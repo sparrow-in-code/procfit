@@ -335,9 +335,12 @@ procfit ps --profile network --sort sock-tcp:desc
 by state. They're computed by joining each process's socket fds
 (`/proc/PID/fd → socket:[inode]`) with `/proc/net/{tcp,udp,unix}`, so a leaked
 listener or a pile of `TIME_WAIT` is obvious at a glance. The eBPF `net-*-bps`
-/`net-*-pps` throughput metrics stay the (privileged) layer on top; sockets in a
-different network namespace or of other families simply aren't counted (never a
-fabricated zero). Another user's sockets need privilege.
+/`net-*-pps` throughput metrics are declared but need a backend that isn't built
+yet (per-process bytes require eBPF or `SOCK_DIAG` netlink — `/proc` has no
+per-process traffic counters), so they are **not** in the default view; they
+render `-` until that lands (PM-0526). Sockets in a different network namespace or
+of other families simply aren't counted (never a fabricated zero); another user's
+sockets need privilege.
 
 ## Exporting to Prometheus
 
