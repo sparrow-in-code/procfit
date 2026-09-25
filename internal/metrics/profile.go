@@ -55,8 +55,20 @@ var profileSpecs = map[ProfileName]Profile{
 		Columns: []string{"target", "pid", "rss", "pss", "uss", "swap", "mem-peak", "rss-anon", "oom-score", "major-faults"},
 		Sort:    "pss:desc",
 	},
-	ProfileIO:      {Metrics: []model.MetricID{"disk-rbps", "disk-wbps", "io-rchar", "io-wchar", "read-syscalls", "write-syscalls"}},
-	ProfileNetwork: {Metrics: []model.MetricID{"net-rx-bps", "net-tx-bps", "net-rx-pps", "net-tx-pps"}},
+	ProfileIO: {Metrics: []model.MetricID{"disk-rbps", "disk-wbps", "io-rchar", "io-wchar", "read-syscalls", "write-syscalls"}},
+	// network: lead with the no-root socket picture (counts + TCP state), keeping
+	// the eBPF net-*-bps/pps as the privileged throughput layer.
+	ProfileNetwork: {
+		Metrics: []model.MetricID{
+			"sock-tcp", "sock-listen", "sock-estab", "sock-udp", "sock-unix",
+			"net-rx-bps", "net-tx-bps",
+		},
+		Columns: []string{
+			"target", "pid", "sock-tcp", "sock-listen", "sock-estab", "sock-udp", "sock-unix",
+			"net-rx-bps", "net-tx-bps",
+		},
+		Sort: "sock-tcp:desc",
+	},
 	// power: actual consumption — real watts (RAPL/hwmon/battery) plus deep-idle
 	// residency and cpu for context. battery (below) stays the per-process drain
 	// DRIVERS (wakeups/ctxsw/cpu/gpu), so the two profiles answer different

@@ -321,6 +321,24 @@ privilege). The profile also breaks resident memory into `rss-anon`/`rss-file`
 /`rss-shmem`, and shows `swap` (swapped-out), `mem-peak` (VmHWM), and `oom-score`
 (0–1000 kill-likelihood — what the kernel sacrifices first under pressure).
 
+## Per-process sockets
+
+The `network` profile shows what each process holds on the network — no eBPF, no
+root (for your own processes):
+
+```bash
+procfit ps --profile network --sort sock-tcp:desc
+```
+
+`sock-tcp`/`sock-udp`/`sock-unix` count sockets by protocol; `sock-listen`
+(server side), `sock-estab`, `sock-timewait`, and `sock-closewait` break TCP down
+by state. They're computed by joining each process's socket fds
+(`/proc/PID/fd → socket:[inode]`) with `/proc/net/{tcp,udp,unix}`, so a leaked
+listener or a pile of `TIME_WAIT` is obvious at a glance. The eBPF `net-*-bps`
+/`net-*-pps` throughput metrics stay the (privileged) layer on top; sockets in a
+different network namespace or of other families simply aren't counted (never a
+fabricated zero). Another user's sockets need privilege.
+
 ## Grouping by container (poor-man's)
 
 The `hostname` field is the process's `HOSTNAME` environment variable — which

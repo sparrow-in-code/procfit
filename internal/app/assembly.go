@@ -72,7 +72,7 @@ func newAssemblyWith(src ports.ProcessSource, clk ports.Clock) *assembly {
 	dims := query.NewDimensions()
 	resolvers := []ports.Resolver{resolve.NewUserResolver(""), resolve.NewSystemdResolver()}
 	collectors := []ports.MetricCollector{
-		procfs.NewFDCollector(""), procfs.NewGPUCollector(""), procfs.NewProcMemCollector(""),
+		procfs.NewFDCollector(""), procfs.NewSocketCollector(""), procfs.NewGPUCollector(""), procfs.NewProcMemCollector(""),
 		procfs.NewSchedstatCollector(""), procfs.NewPerfCollector(), procfs.NewWakeupsCollector(),
 		// Fallback for wakeups; runs after the eBPF collector and only fills what
 		// eBPF did not (PM-0509), so eBPF (waker attribution) stays preferred.

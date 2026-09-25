@@ -1,12 +1,28 @@
 ---
 id: PM-0525
 title: Per-process socket & network detail (no-eBPF) + richer network profile
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0501"]
 owner:
 rfc: ["§13.2", "§13"]
 ---
+
+## Status: DONE (2026-09-23)
+
+`procfs.SocketCollector` (`internal/procfs/socket.go`) reads the caller's
+`/proc/net/{tcp,tcp6,udp,udp6,unix}` once into an inode→{proto,state} map
+(`mergeNetTable`), then classifies each process's socket fds
+(`/proc/PID/fd → socket:[inode]`, `socketInode`) against it — no eBPF/root.
+Metrics (`internal/metrics/builtin_socket.go`, ScopeProcess/Cost1FD/AggSum):
+`sock-tcp`/`sock-udp`/`sock-unix` and TCP-state `sock-listen`/`sock-estab`/
+`sock-timewait`/`sock-closewait`. Bounded-concurrency per-process scan (shares the
+`maxFDScans` semaphore). Denied fd dir → unavailable, never zero. The `network`
+profile now leads with these counts (sorted by `sock-tcp`) and keeps the eBPF
+`net-*-bps/pps` as the throughput layer. Validated live (chrome 41 TCP, idea 15
+TCP/4 listening). **Limitation (noted):** reads the collector's own netns view, so
+sockets held by processes in another netns aren't classified (not wrong, just not
+counted); byte/packet throughput stays the eBPF path. Commit: (local).
 
 ## Summary
 
@@ -41,10 +57,10 @@ socket-scoped, not per-process traffic.
 
 ## Acceptance criteria
 
-- [ ] Socket inode → `/proc/net/*` join yields per-process protocol/state counts.
-- [ ] TCP state breakdown + listen-vs-connected; UDP and UNIX counts.
-- [ ] No root needed for own processes; restricted rows → unavailable, not zero.
-- [ ] `network` profile shows the socket detail; arch-neutral parsing.
+- [x] Socket inode → `/proc/net/*` join yields per-process protocol/state counts.
+- [x] TCP state breakdown + listen-vs-connected; UDP and UNIX counts.
+- [x] No root needed for own processes; restricted rows → unavailable, not zero.
+- [x] `network` profile shows the socket detail; arch-neutral parsing.
 
 ## Tests required
 
