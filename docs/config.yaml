@@ -81,10 +81,12 @@ state:
 
 # --- Per-user daemon -----------------------------------------------------------
 daemon:
-  # Engine mode: auto | embedded | required. Default: auto (use the daemon if
-  # running, else run embedded in-process).
+  # Engine mode: auto | require | never. Default: auto (intended: use the daemon
+  # if it's running, else run embedded in-process; require = error without a
+  # daemon; never = always embedded). NOTE: client auto-routing on this mode is
+  # not wired yet — ps/stat/set run embedded today; only `daemon status` connects.
   use: auto
-  # Unix socket path. Default: empty → $XDG_RUNTIME_DIR/procfit/daemon.sock.
+  # Unix socket path. Default: empty → $XDG_RUNTIME_DIR/procfit/procfit.sock.
   # socket: ""
 
 # --- Named custom views (presets) ----------------------------------------------
