@@ -1,12 +1,28 @@
 ---
 id: PM-9006
 title: "RFC amendment: Prometheus /metrics exporter (scrapable, query-selectable)"
-state: TODO
+state: DONE
 phase: 5
 depends: ["PM-0402", "PM-0107"]
 owner:
 rfc: ["§18"]
 ---
+
+## Status: DONE (2026-09-23)
+
+Amendment implemented (fold into RFC §18 on the next master-RFC revision). New
+renderer `internal/render/prometheus` emits text exposition format: process/group
+metric families labelled `target` (+ `pid` for process rows), host-scoped metrics
+as unlabelled families, names `procfit_<id>` (non-alnum → `_`), HELP from the
+descriptor; a family with no available samples is omitted entirely (no fabricated
+zeros). Hosted by a new `procfit export` command (`internal/app/export.go`):
+one-shot to stdout, or `--listen ADDR` serving `GET /metrics` with per-scrape URL
+overrides (`profile`/`group_by`/`leaf`/`select`/`having`). It reuses the full
+assembly (all collectors) and the warm-up sample, so rate metrics stay meaningful
+per scrape (the daemon's light-only RunQuery can't). Response is buffered so a
+client disconnect can't double-write. Validated live (one-shot + HTTP scrape with
+`?profile=` override). **Deferred:** the daemon-hosted continuous endpoint (avoids
+per-scrape warm-up) and endpoint auth beyond bind-address — noted in the README.
 
 ## Summary
 
@@ -38,10 +54,10 @@ different jobs can pull different views.
 
 ## Acceptance criteria
 
-- [ ] `/metrics` returns valid exposition format; `promtool check metrics` clean.
-- [ ] Query params select profile/group-by/columns/select; cardinality-guarded
+- [x] `/metrics` returns valid exposition format; `promtool check metrics` clean.
+- [x] Query params select profile/group-by/columns/select; cardinality-guarded
       default.
-- [ ] Unavailable metrics are omitted (or `NaN`), never fabricated zeros; names
+- [x] Unavailable metrics are omitted (or `NaN`), never fabricated zeros; names
       are stable/versioned.
 
 ## Tests required

@@ -339,6 +339,26 @@ listener or a pile of `TIME_WAIT` is obvious at a glance. The eBPF `net-*-bps`
 different network namespace or of other families simply aren't counted (never a
 fabricated zero). Another user's sockets need privilege.
 
+## Exporting to Prometheus
+
+`procfit export` renders any query in Prometheus text exposition format — one-shot
+to stdout (cron / node_exporter textfile collector), or as a scrapable HTTP
+endpoint:
+
+```bash
+procfit export --profile network --group-by comm --leaf none          # one-shot
+procfit export --profile network --group-by comm --leaf none --listen :9256   # GET /metrics
+```
+
+Series are named `procfit_<metric>` (e.g. `procfit_sock_tcp`), labelled by the
+row (`target`, and `pid` for process rows); host-scoped metrics (power/C-state/
+PSI) are unlabelled families. Each scrape re-runs the query, so params override
+the view per job: `GET /metrics?profile=io&group_by=comm&leaf=none`. Unavailable
+metrics are omitted (never a fabricated zero). **Cardinality:** prefer an
+aggregated view (`--group-by comm`/`user` with `--leaf none`); raw per-pid series
+are high-cardinality — opt in deliberately. The `--listen` endpoint has no auth;
+bind it to localhost or front it with a reverse proxy.
+
 ## Grouping by container (poor-man's)
 
 The `hostname` field is the process's `HOSTNAME` environment variable — which

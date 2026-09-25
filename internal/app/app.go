@@ -97,6 +97,7 @@ func commands() []command {
 	return []command{
 		{name: "ps", summary: "One-shot snapshot/table", run: cmdPS},
 		{name: "stat", summary: "Repeated append-only samples", run: cmdStat},
+		{name: "export", summary: "Export metrics in Prometheus format (one-shot or /metrics)", run: cmdExport},
 		{name: "metrics", summary: "List metrics (metrics list)", run: cmdMetrics},
 		{name: "capabilities", summary: "Explain available/missing collectors", run: cmdCapabilities},
 		{name: "config", summary: "Validate/convert/dump configuration", run: cmdConfig},
