@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/netikras/procfit/internal/metrics"
+	"github.com/netikras/procfit/internal/model"
 	"github.com/netikras/procfit/internal/procfs"
 	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/queryspec"
@@ -19,21 +20,22 @@ import (
 
 // cmdMetrics implements `procfit metrics list` (RFC §8, §13).
 func cmdMetrics(env Env, args []string) int {
-	sub := "list"
 	rest := args
-	if len(args) > 0 && args[0] == "list" {
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		if args[0] != "list" {
+			fmt.Fprintf(env.Stderr, "unknown metrics subcommand %q\n", args[0])
+			return ExitUsage
+		}
 		rest = args[1:]
-	} else if len(args) > 0 {
-		fmt.Fprintf(env.Stderr, "unknown metrics subcommand %q\n", args[0])
-		return ExitUsage
 	}
-	_ = sub
 
 	fs := flag.NewFlagSet("metrics list", flag.ContinueOnError)
 	fs.SetOutput(env.Stderr)
 	format := fs.String("format", "table", "output: table|json")
+	check := fs.Bool("check", false, "probe live availability on this host (samples once; adds an AVAIL column)")
 	setupUsage(env, fs, "metrics list", "list metrics (id, cost, unit, aggregation)",
 		"procfit metrics list                # human table of all metrics",
+		"procfit metrics list --check        # + whether each metric is available here, and why not",
 		"procfit metrics list --format json  # machine-readable metric registry")
 	if err := fs.Parse(rest); err != nil {
 		return parseExit(err)
@@ -41,11 +43,83 @@ func cmdMetrics(env Env, args []string) int {
 	reg := metrics.NewDefault()
 
 	fields := buildFieldCatalog(reg, query.NewDimensions())
+	if *check {
+		avail, err := probeMetricAvailability(reg)
+		if err != nil {
+			fmt.Fprintf(env.Stderr, "%v\n", err)
+			return ExitRuntime
+		}
+		for i := range fields {
+			if fields[i].Metric {
+				fields[i].Avail = avail[fields[i].ID]
+			}
+		}
+	}
 	if *format == "json" {
 		return dumpFieldsJSON(env, fields)
 	}
-	printFieldCatalog(env, fields)
+	printFieldCatalog(env, fields, *check)
 	return ExitOK
+}
+
+// probeMetricAvailability samples the live host once (all metrics, process
+// leaves, with the warm-up so rates resolve) and reports each metric's
+// availability: "yes", or the reason it is not — the same availability the
+// collectors compute ("unknown is not zero"), or "no-source" when nothing
+// produces it on this build.
+func probeMetricAvailability(reg *metrics.Registry) (map[string]string, error) {
+	a, err := newAssemblyFn()
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]model.MetricID, 0)
+	for _, d := range reg.All() {
+		ids = append(ids, d.ID)
+	}
+	r := queryspec.Resolved{Needed: ids, Spec: query.QuerySpec{Leaf: query.LeafProcess}}
+	in, err := a.sampleForResult(context.Background(), r, false)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(ids))
+	for _, d := range reg.All() {
+		out[string(d.ID)] = availabilityOf(d, in)
+	}
+	return out, nil
+}
+
+// availabilityOf resolves one metric's live status from a sample: "yes" if any
+// entity/host has it available, else the reason (or "no-source" when no collector
+// set it at all).
+func availabilityOf(d metrics.Descriptor, in query.Input) string {
+	if d.Scope == metrics.ScopeHost {
+		return statusStr(in.HostMetrics[d.ID])
+	}
+	var reason model.Availability
+	for i := range in.Processes {
+		mv := in.Processes[i].Metric(d.ID)
+		if mv.Present() {
+			return "yes"
+		}
+		if mv.Availability != "" && reason == "" {
+			reason = mv.Availability
+		}
+	}
+	if reason == "" {
+		return "no-source"
+	}
+	return string(reason)
+}
+
+func statusStr(v model.MetricValue) string {
+	switch {
+	case v.Present():
+		return "yes"
+	case v.Availability == "":
+		return "no-source"
+	default:
+		return string(v.Availability)
+	}
 }
 
 // fieldRow is one entry in the unified field catalog: any id usable in
@@ -61,6 +135,10 @@ type fieldRow struct {
 	Unit       string
 	Cost       int
 	Desc       string
+	// Avail is the live availability of a metric on this host ("yes" or the reason
+	// it is not, e.g. unsupported/permission_denied/no-source); set only by --check
+	// and only for metrics.
+	Avail string
 }
 
 // buildFieldCatalog merges the three registries (metrics, structural columns,
@@ -126,13 +204,31 @@ func filterableFields(reg *metrics.Registry) map[string]bool {
 	return out
 }
 
-func printFieldCatalog(env Env, fields []fieldRow) {
+func printFieldCatalog(env Env, fields []fieldRow, showAvail bool) {
 	fmt.Fprintln(env.Stdout, "USE flags: c=column  g=group-by  s=sort  f=filter")
+	if showAvail {
+		fmt.Fprintln(env.Stdout, "AVAIL: yes, or the reason unavailable here (no-source = nothing produces it on this build)")
+		fmt.Fprintf(env.Stdout, "%-22s %-4s %-16s %-4s %-18s %s\n", "ID", "USE", "UNIT", "COST", "AVAIL", "DESCRIPTION")
+		for _, r := range fields {
+			fmt.Fprintf(env.Stdout, "%-22s %-4s %-16s %-4s %-18s %s\n",
+				r.ID, useFlags(r), orDash(r.Unit), costCell(r), availCell(r), r.Desc)
+		}
+		return
+	}
 	fmt.Fprintf(env.Stdout, "%-22s %-4s %-16s %-4s %s\n", "ID", "USE", "UNIT", "COST", "DESCRIPTION")
 	for _, r := range fields {
 		fmt.Fprintf(env.Stdout, "%-22s %-4s %-16s %-4s %s\n",
 			r.ID, useFlags(r), orDash(r.Unit), costCell(r), r.Desc)
 	}
+}
+
+// availCell renders a metric's live availability, or "-" for non-metric fields
+// (the check applies to metrics only).
+func availCell(r fieldRow) string {
+	if !r.Metric || r.Avail == "" {
+		return "-"
+	}
+	return r.Avail
 }
 
 // useFlags renders the fixed-position c/g/s/f capability markers ('-' when absent).
@@ -176,6 +272,7 @@ type fieldJSON struct {
 	Metric      bool   `json:"metric"`
 	Unit        string `json:"unit,omitempty"`
 	Cost        int    `json:"cost,omitempty"`
+	Available   string `json:"available,omitempty"`
 	Description string `json:"description,omitempty"`
 }
 
@@ -184,7 +281,8 @@ func dumpFieldsJSON(env Env, fields []fieldRow) int {
 	for _, r := range fields {
 		out = append(out, fieldJSON{
 			ID: r.ID, Column: r.Column, GroupBy: r.Group, Sortable: r.Sortable,
-			Filterable: r.Filterable, Metric: r.Metric, Unit: r.Unit, Cost: r.Cost, Description: r.Desc,
+			Filterable: r.Filterable, Metric: r.Metric, Unit: r.Unit, Cost: r.Cost,
+			Available: r.Avail, Description: r.Desc,
 		})
 	}
 	enc := json.NewEncoder(env.Stdout)

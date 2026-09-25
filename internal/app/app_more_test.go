@@ -36,6 +36,43 @@ func TestMetricsList(t *testing.T) {
 	}
 }
 
+func TestMetricsCheck_ReportsAvailability(t *testing.T) {
+	_, restore := fakeAssembly(t, []ports.ProcStat{stat(1, "init", 50, 0, 4096)})
+	defer restore()
+
+	var out, errb bytes.Buffer
+	// `--check` without the `list` subcommand must work (leading flag, not a subcmd).
+	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"metrics", "--check"}); code != ExitOK {
+		t.Fatalf("metrics --check exit %d: %s", code, errb.String())
+	}
+	got := out.String()
+	if !strings.Contains(got, "AVAIL") {
+		t.Fatalf("expected an AVAIL column:\n%s", got)
+	}
+	if !rowHasStatus(got, "rss", "yes") { // a plain gauge is available on the fake host
+		t.Fatalf("rss should report available:\n%s", got)
+	}
+	// JSON carries the availability too.
+	out.Reset()
+	if code := run(Env{Stdout: &out, Stderr: &errb}, []string{"metrics", "list", "--check", "--format", "json"}); code != ExitOK {
+		t.Fatalf("metrics --check json exit %d: %s", code, errb.String())
+	}
+	if !strings.Contains(out.String(), `"available"`) {
+		t.Fatalf("json should include an available field:\n%s", out.String())
+	}
+}
+
+// rowHasStatus reports whether the catalog line for metric id contains status.
+func rowHasStatus(catalog, id, status string) bool {
+	for _, line := range strings.Split(catalog, "\n") {
+		f := strings.Fields(line)
+		if len(f) > 0 && f[0] == id && strings.Contains(line, status) {
+			return true
+		}
+	}
+	return false
+}
+
 func TestCapabilities(t *testing.T) {
 	_, restore := fakeAssembly(t, []ports.ProcStat{stat(1, "a", 1, 0, 1)})
 	defer restore()

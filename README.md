@@ -243,6 +243,13 @@ wchan    cgsf  -                -     kernel symbol a blocked task sleeps in …
 cgroup   -g-f  -                -     control-group path (cgroup v2)
 ```
 
+Add **`--check`** to probe *this host* — it samples once and adds an **AVAIL**
+column telling you whether each metric is actually available here, and if not,
+why (`unsupported`, `permission_denied`, `disabled`, `no-source` = nothing on this
+build produces it, …). That's the per-metric complement to `procfit capabilities`
+(which reports collectors): e.g. `cycles → permission_denied` (perf paranoid),
+`net-rx-bps → disabled` (no throughput backend), `runq-delay → yes`.
+
 **GPU** is another invisible drain. `gpu` (per-process engine utilization %) and
 `gpu-mem` come from the vendor-neutral DRM fdinfo ABI (`/proc/PID/fdinfo`), so one
 path covers Intel (i915/xe), AMD (amdgpu), and ARM DRM drivers — no vendor tools:
