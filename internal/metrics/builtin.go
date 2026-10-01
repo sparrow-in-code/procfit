@@ -42,5 +42,7 @@ var builtinLight = []Descriptor{
 	{ID: "pnice", Unit: UnitInteger, Scope: ScopeProcess, Kind: KindGauge, Cost: Cost0Light, Collector: "proc", Aggregation: AggMixed,
 		Description: "Observed process nice value"},
 	{ID: "age", Unit: UnitDuration, Scope: ScopeProcess, Kind: KindGauge, Cost: Cost0Light, Collector: "proc", Aggregation: AggMax,
-		Description: "Process age derived from start time"},
+		Description: "Uptime: how long the process (or thread, under --leaf thread) has been alive, from start time"},
+	{ID: "cpu-time", Unit: UnitDuration, Scope: ScopeProcess, Kind: KindGauge, Cost: Cost0Light, Collector: "proc", Aggregation: AggSum,
+		Description: "Cumulative CPU time consumed (user+system), seconds; per-process or per-thread under --leaf thread"},
 }

@@ -117,14 +117,32 @@ var gaugeSpecs = map[model.MetricID]gaugeSpec{
 		return float64(p.Nice), model.Available, model.Exact
 	}},
 	"age": {get: func(p ports.ProcStat, s sysctx) (float64, model.Availability, model.Quality) {
-		if s.bootUnix == 0 || s.hz == 0 {
-			return 0, model.Unsupported, ""
-		}
-		startWall := float64(s.bootUnix) + float64(p.StartTicks)/s.hz
-		age := s.wallNow.Sub(time.Unix(int64(startWall), 0)).Seconds()
-		if age < 0 {
-			age = 0
-		}
-		return age, model.Available, model.Derived
+		return ageSeconds(p.StartTicks, s)
 	}},
+	// cpu-time: cumulative CPU seconds the entity has consumed (user+system).
+	"cpu-time": {get: func(p ports.ProcStat, s sysctx) (float64, model.Availability, model.Quality) {
+		return cpuTimeSeconds(p.UTimeTicks+p.STimeTicks, s)
+	}},
+}
+
+// ageSeconds converts a start-time (clock ticks since boot) into wall-clock age in
+// seconds, shared by the process and thread gauges.
+func ageSeconds(startTicks uint64, s sysctx) (float64, model.Availability, model.Quality) {
+	if s.bootUnix == 0 || s.hz == 0 {
+		return 0, model.Unsupported, ""
+	}
+	startWall := float64(s.bootUnix) + float64(startTicks)/s.hz
+	age := s.wallNow.Sub(time.Unix(int64(startWall), 0)).Seconds()
+	if age < 0 {
+		age = 0
+	}
+	return age, model.Available, model.Derived
+}
+
+// cpuTimeSeconds converts cumulative CPU ticks into seconds.
+func cpuTimeSeconds(ticks uint64, s sysctx) (float64, model.Availability, model.Quality) {
+	if s.hz == 0 {
+		return 0, model.Unsupported, ""
+	}
+	return float64(ticks) / s.hz, model.Available, model.Exact
 }

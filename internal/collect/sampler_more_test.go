@@ -69,6 +69,46 @@ func TestSampler_AgeUnsupportedWithoutBootTime(t *testing.T) {
 	}
 }
 
+func TestSampler_CPUTimeAndAge(t *testing.T) {
+	clk := testutil.NewFakeClock(time.Unix(1_600_000_100, 0))
+	// utime+stime = 120 ticks @hz100 => 1.2s cpu-time; start 50 ticks, boot
+	// 1_600_000_000 => ~100s age. Both are gauges: available on the first sample.
+	src := testutil.NewFakeSource([]ports.ProcStat{stat(10, 50, 100, 20, 4096)})
+	s := NewSampler(src, clk)
+	snap, err := s.Sample(context.Background(), []model.MetricID{"cpu-time", "age"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := snap.Processes[0]
+	if v, ok := p.Metric("cpu-time").Get(); !ok || v < 1.19 || v > 1.21 {
+		t.Fatalf("cpu-time = (%v,%v), want ~1.2s on first sample", v, ok)
+	}
+	if v, ok := p.Metric("age").Get(); !ok || v < 99 || v > 101 {
+		t.Fatalf("age = (%v,%v), want ~100s", v, ok)
+	}
+}
+
+func TestSampler_ThreadCPUTimeAndAge(t *testing.T) {
+	clk := testutil.NewFakeClock(time.Unix(1_600_000_100, 0))
+	st := stat(10, 50, 0, 0, 4096)
+	st.Threads = []ports.ThreadStat{
+		{TID: 11, StartTicks: 50, Comm: "worker", UTimeTicks: 30, STimeTicks: 10}, // 40 ticks => 0.4s
+	}
+	src := testutil.NewFakeSource([]ports.ProcStat{st})
+	s := NewSampler(src, clk)
+	snap, err := s.Sample(context.Background(), []model.MetricID{"cpu-time", "age"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	th := snap.Processes[0].Threads[0]
+	if v, ok := th.Metrics["cpu-time"].Get(); !ok || v < 0.39 || v > 0.41 {
+		t.Fatalf("thread cpu-time = (%v,%v), want ~0.4s (per-thread gauge)", v, ok)
+	}
+	if v, ok := th.Metrics["age"].Get(); !ok || v < 99 || v > 101 {
+		t.Fatalf("thread age = (%v,%v), want ~100s from its own start time", v, ok)
+	}
+}
+
 func TestSampler_UnknownMetricDisabled(t *testing.T) {
 	clk := testutil.NewFakeClock(time.Unix(1_600_000_100, 0))
 	src := testutil.NewFakeSource([]ports.ProcStat{stat(10, 50, 0, 0, 4096)})

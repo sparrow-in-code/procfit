@@ -127,7 +127,26 @@ var threadCounters = map[model.MetricID]func(ports.ThreadStat) uint64{
 	"cpu-system": func(t ports.ThreadStat) uint64 { return t.STimeTicks },
 }
 
+// threadGauges extracts absolute per-thread values (cumulative CPU time, age) —
+// unlike the cpu-family rates, these are meaningful at thread scope and need no
+// prior sample.
+var threadGauges = map[model.MetricID]func(ports.ThreadStat, sysctx) (float64, model.Availability, model.Quality){
+	"cpu-time": func(t ports.ThreadStat, s sysctx) (float64, model.Availability, model.Quality) {
+		return cpuTimeSeconds(t.UTimeTicks+t.STimeTicks, s)
+	},
+	"age": func(t ports.ThreadStat, s sysctx) (float64, model.Availability, model.Quality) {
+		return ageSeconds(t.StartTicks, s)
+	},
+}
+
 func threadMetric(id model.MetricID, cur, prev ports.ThreadStat, hadPrev bool, elapsedSec float64, sc sysctx) model.MetricValue {
+	if g, ok := threadGauges[id]; ok {
+		v, avail, q := g(cur, sc)
+		if avail != model.Available {
+			return model.Unavailable[float64](avail, "thread")
+		}
+		return model.NewValue(v, q, "thread")
+	}
 	get, ok := threadCounters[id]
 	if !ok {
 		return model.Unavailable[float64](model.Disabled, "thread")
