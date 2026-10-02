@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/netikras/procfit/internal/metrics"
 	"github.com/netikras/procfit/internal/model"
@@ -124,18 +125,35 @@ func humanCount(c float64) string {
 	return trimNum(v) + suffixes[i]
 }
 
+// humanDuration renders whole seconds as a full, lossless d/h/m/s breakdown
+// (e.g. 2d12h45m4s) — from the largest non-zero unit down to the last non-zero
+// one, keeping intermediate zeros (like Go's Duration). No rounding: the value is
+// exact to the second.
 func humanDuration(sec float64) string {
 	s := int64(sec)
-	switch {
-	case s < 60:
-		return fmt.Sprintf("%ds", s)
-	case s < 3600:
-		return fmt.Sprintf("%dm", s/60)
-	case s < 86400:
-		return fmt.Sprintf("%dh", s/3600)
-	default:
-		return fmt.Sprintf("%dd", s/86400)
+	if s <= 0 {
+		return "0s"
 	}
+	parts := []struct {
+		v int64
+		u string
+	}{
+		{s / 86400, "d"}, {s / 3600 % 24, "h"}, {s / 60 % 60, "m"}, {s % 60, "s"},
+	}
+	first, last := -1, -1
+	for i, p := range parts {
+		if p.v != 0 {
+			if first < 0 {
+				first = i
+			}
+			last = i
+		}
+	}
+	var b strings.Builder
+	for i := first; i <= last; i++ {
+		fmt.Fprintf(&b, "%d%s", parts[i].v, parts[i].u)
+	}
+	return b.String()
 }
 
 // trimNum renders with one decimal below 10, otherwise integer, for compact

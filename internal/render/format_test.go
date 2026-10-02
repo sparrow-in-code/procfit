@@ -85,6 +85,11 @@ func TestFormatUnits(t *testing.T) {
 		{metrics.UnitDuration, 120, "2m"},
 		{metrics.UnitDuration, 7200, "2h"},
 		{metrics.UnitDuration, 172800, "2d"},
+		{metrics.UnitDuration, 3661, "1h1m1s"},    // full breakdown, no rounding
+		{metrics.UnitDuration, 90061, "1d1h1m1s"}, // 2d12h45m4s style
+		{metrics.UnitDuration, 90000, "1d1h"},     // trailing zero units dropped
+		{metrics.UnitDuration, 86404, "1d0h0m4s"}, // intermediate zeros kept
+		{metrics.UnitDuration, 0, "0s"},
 		{metrics.UnitInteger, 10, "10"},
 	}
 	for _, c := range cases {
