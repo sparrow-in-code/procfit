@@ -47,7 +47,7 @@ leaf: process
 # A profile is a named metric set PLUS a default view (its own columns/sort/
 # group-by/having may apply unless you override them).
 # Built-in: none light process memory io network power battery sysload pressure
-#           perf all
+#           system perf all
 metrics:
   # Default profile. Default: light.
   profile: light

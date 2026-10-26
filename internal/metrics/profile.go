@@ -48,7 +48,13 @@ type Profile struct {
 // profileSpecs maps explicit profiles to their metrics + view defaults. Profiles
 // whose membership is derived (none/all/light) are handled in Resolve.
 var profileSpecs = map[ProfileName]Profile{
-	ProfileProcess: {Metrics: []model.MetricID{"cpu", "rss", "vsz", "threads", "pnice", "pstate"}},
+	// process: the classic per-process view, now with cumulative cpu-time and
+	// uptime (age). pstate is a column, not a metric, so it lives in Columns —
+	// listing it in Metrics was silently dropped and the state never showed.
+	ProfileProcess: {
+		Metrics: []model.MetricID{"cpu", "cpu-time", "age", "rss", "vsz", "threads", "pnice"},
+		Columns: []string{"target", "pid", "pstate", "cpu", "cpu-time", "age", "rss", "vsz", "threads", "pnice"},
+	},
 	// memory: what a process actually costs — proportional/unique set size split
 	// out from shared, plus swap, peak, the anon/file breakdown and OOM risk.
 	ProfileMemory: {
@@ -62,15 +68,23 @@ var profileSpecs = map[ProfileName]Profile{
 	// built yet (PM-0526), so it is NOT in the default view (it would be a dead
 	// column); request it explicitly with --columns once a backend lands.
 	ProfileNetwork: {
-		Metrics: []model.MetricID{"sock-tcp", "sock-listen", "sock-estab", "sock-udp", "sock-unix"},
-		Columns: []string{"target", "pid", "sock-tcp", "sock-listen", "sock-estab", "sock-udp", "sock-unix"},
-		Sort:    "sock-tcp:desc",
+		Metrics: []model.MetricID{
+			"sock-tcp", "sock-listen", "sock-estab", "sock-timewait", "sock-closewait", "sock-udp", "sock-unix",
+		},
+		Columns: []string{
+			"target", "pid", "sock-tcp", "sock-listen", "sock-estab", "sock-timewait", "sock-closewait",
+			"sock-udp", "sock-unix",
+		},
+		Sort: "sock-tcp:desc",
 	},
 	// power: actual consumption — real watts (RAPL/hwmon/battery) plus deep-idle
 	// residency and cpu for context. battery (below) stays the per-process drain
 	// DRIVERS (wakeups/ctxsw/cpu/gpu), so the two profiles answer different
 	// questions: how much is drawn vs what is causing the draw.
-	ProfilePower: {Metrics: []model.MetricID{"power-pkg", "power-core", "power-dram", "power-system", "cstate-deep-residency", "cpu"}},
+	ProfilePower: {Metrics: []model.MetricID{
+		"power-pkg", "power-core", "power-uncore", "power-dram", "power-system",
+		"cstate-deep-residency", "temp-cpu", "temp-max", "cpu",
+	}},
 	// battery: what actually drains a laptop. It pairs the whole-system draw
 	// (power-system watts, from the battery sensor) and the deep-idle context
 	// (cstate-deep-residency — low residency is the drain signature) with the
@@ -78,8 +92,8 @@ var profileSpecs = map[ProfileName]Profile{
 	// (eBPF/procfs) are the real churn signal — a process can be ~0% cpu yet keep
 	// the package out of deep C-states; ctxsw-voluntary is the light no-root proxy.
 	ProfileBattery: {Metrics: []model.MetricID{
-		"battery-state", "battery-pct", "battery-time-left", "power-system", "temp-cpu",
-		"cstate-deep-residency", "cpu", "cpu-normalized",
+		"battery-state", "battery-pct", "battery-time-left", "battery-charge-left", "battery-energy-left",
+		"power-system", "temp-cpu", "cstate-deep-residency", "cpu", "cpu-normalized",
 		"wakeups", "timer-wakeups", "ctxsw-voluntary", "gpu", "gpu-mem",
 	}},
 	// sysload: decompose load average — state + the blocking cause (wchan), CPU use,

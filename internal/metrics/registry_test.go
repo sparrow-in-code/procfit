@@ -125,6 +125,26 @@ func TestKnownProfilesMatchesSpecs(t *testing.T) {
 	}
 }
 
+// Resolve silently skips unknown ids (so compiled-out metrics don't break a
+// profile), which would also hide a typo. Guard it: every profile metric must be
+// a registered built-in, and a profile's explicit columns must not name a host
+// metric (those render in the system panel, never as a column).
+func TestProfilesReferenceRealMetrics(t *testing.T) {
+	r := NewDefault()
+	for name, p := range profileSpecs {
+		for _, id := range p.Metrics {
+			if !r.Has(string(id)) {
+				t.Errorf("profile %q references unknown metric %q", name, id)
+			}
+		}
+		for _, col := range p.Columns {
+			if d, ok := r.Get(col); ok && d.Scope == ScopeHost {
+				t.Errorf("profile %q lists host metric %q as a column (it belongs in Metrics)", name, col)
+			}
+		}
+	}
+}
+
 func TestResolveSelection(t *testing.T) {
 	r := NewDefault()
 	// none + explicit adds
