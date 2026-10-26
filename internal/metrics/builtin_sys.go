@@ -11,6 +11,8 @@ var builtinSys = []Descriptor{
 	hostGauge("load-1", UnitRatio, "loadavg", "host load average over 1 minute (/proc/loadavg)"),
 	hostGauge("load-5", UnitRatio, "loadavg", "host load average over 5 minutes"),
 	hostGauge("load-15", UnitRatio, "loadavg", "host load average over 15 minutes"),
+	hostGauge("battery-state", UnitEnum, "battery",
+		"battery state: charging/discharging/full/not-charging/missing/unknown (mixed if batteries disagree)"),
 	hostGauge("battery-pct", UnitPercent, "battery", "battery charge level % (all batteries combined)"),
 	hostGauge("battery-time-left", UnitDuration, "battery",
 		"battery time left: to empty while discharging, to full while charging"),

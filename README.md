@@ -341,6 +341,7 @@ procfit ps --profile system    # load, PSI, battery, power, deep idle, temps + a
 | Metric | Meaning | Source |
 |---|---|---|
 | `load-1` / `load-5` / `load-15` | load average | `/proc/loadavg` |
+| `battery-state` | `charging` / `discharging` / `full` / `not-charging` / `missing` (empty bay) / `unknown`; `mixed` if batteries disagree (a discharging or charging battery wins over idle/full ones) | `power_supply` `status`/`present` |
 | `battery-pct` | charge level, all batteries combined | `power_supply` |
 | `battery-time-left` | time to empty (discharging) or to full (charging) | charge/current or energy/power |
 | `battery-charge-left` | remaining charge, mAh (batteries reporting `charge_now`) | `power_supply` |
@@ -350,7 +351,11 @@ procfit ps --profile system    # load, PSI, battery, power, deep idle, temps + a
 | `temp-<chip>-<label>` | **one metric per detected sensor**, e.g. `temp-coretemp-package-id-0`, `temp-nvme-temp1` | discovered at startup |
 
 Batteries report either charge (mAh) or energy (Wh); whichever your driver lacks
-shows `-`. Per-sensor temperature ids vary by machine — `procfit metrics --check`
+shows `-`. `battery-state` puts the rest in context — `battery-time-left` is *to
+empty* when discharging and *to full* when charging. Text output shows the state's
+label; JSON carries both the stable numeric code and a `label`, and Prometheus
+exports the code (0 unknown, 1 charging, 2 discharging, 3 not-charging, 4 full,
+5 missing, 6 mixed). Per-sensor temperature ids vary by machine — `procfit metrics --check`
 lists the ones on yours, and you can add any with `--metric temp-<sensor>`. The
 `sysload`/`pressure` profiles now include the load averages, and `battery` adds
 `battery-pct`, `battery-time-left`, and `temp-cpu`.

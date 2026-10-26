@@ -27,7 +27,9 @@ func NewBatteryCollector(root string) *BatteryCollector {
 // ID names the source.
 func (c *BatteryCollector) ID() string { return "battery" }
 
-var batteryIDs = []model.MetricID{"battery-pct", "battery-time-left", "battery-charge-left", "battery-energy-left"}
+var batteryIDs = []model.MetricID{
+	"battery-state", "battery-pct", "battery-time-left", "battery-charge-left", "battery-energy-left",
+}
 
 // Metrics lists the produced ids.
 func (c *BatteryCollector) Metrics() []model.MetricID { return batteryIDs }
@@ -42,15 +44,25 @@ type batTotals struct {
 	capSum                              float64 // sum of capacity % (fallback level)
 	capOk                               bool
 	charging, discharging               bool
+	states                              []model.BatteryState // per installed battery
+	missing                             int                  // battery slots with present=0
 }
 
 // CollectHost reads every battery and derives the combined metrics.
 func (c *BatteryCollector) CollectHost(_ context.Context) map[model.MetricID]model.MetricValue {
 	t, ok := c.readAll()
 	if !ok {
-		return allUnavailable(batteryIDs, model.Unsupported, "battery")
+		out := allUnavailable(batteryIDs, model.Unsupported, "battery")
+		if t.missing > 0 { // a slot exists but the battery is pulled
+			out["battery-state"] = stateValue(model.BatteryMissing)
+		}
+		return out
 	}
 	return t.metrics()
+}
+
+func stateValue(s model.BatteryState) model.MetricValue {
+	return model.NewValue(float64(s), model.Exact, "battery")
 }
 
 func (c *BatteryCollector) readAll() (batTotals, bool) {
@@ -65,6 +77,10 @@ func (c *BatteryCollector) readAll() (batTotals, bool) {
 		if readTrimFile(filepath.Join(dir, "type")) != "Battery" {
 			continue
 		}
+		if readTrimFile(filepath.Join(dir, "present")) == "0" {
+			t.missing++ // empty bay: no readings to fold in
+			continue
+		}
 		t.add(dir)
 	}
 	return t, t.n > 0
@@ -73,6 +89,7 @@ func (c *BatteryCollector) readAll() (batTotals, bool) {
 // add folds one battery directory into the totals.
 func (t *batTotals) add(dir string) {
 	t.n++
+	t.states = append(t.states, model.BatteryStateFromStatus(readTrimFile(filepath.Join(dir, "status"))))
 	t.chargeOk = addField(&t.chargeNow, dir, "charge_now", t.chargeOk)
 	t.chargeOk = addField(&t.chargeFull, dir, "charge_full", t.chargeOk)
 	t.currentOk = addField(&t.current, dir, "current_now", t.currentOk)
@@ -102,6 +119,7 @@ func addField(sum *float64, dir, name string, ok bool) bool {
 // metrics converts the totals into metric values.
 func (t batTotals) metrics() map[model.MetricID]model.MetricValue {
 	out := map[model.MetricID]model.MetricValue{
+		"battery-state":       stateValue(t.state()),
 		"battery-pct":         t.level(),
 		"battery-time-left":   t.timeLeft(),
 		"battery-charge-left": unavailable("battery"),
@@ -114,6 +132,30 @@ func (t batTotals) metrics() map[model.MetricID]model.MetricValue {
 		out["battery-energy-left"] = model.NewValue(t.energyNow/1e6, model.Exact, "battery") // µWh → Wh
 	}
 	return out
+}
+
+// state combines the installed batteries' states: the shared one if they all
+// agree, otherwise mixed — with one exception: a discharging battery (or a
+// charging one) dominates idle/full ones, since that's what the time-left and
+// draw figures describe.
+func (t batTotals) state() model.BatteryState {
+	if len(t.states) == 0 {
+		return model.BatteryUnknown
+	}
+	first, same := t.states[0], true
+	for _, s := range t.states[1:] {
+		same = same && s == first
+	}
+	switch {
+	case same:
+		return first
+	case t.discharging && !t.charging:
+		return model.BatteryDischarging
+	case t.charging && !t.discharging:
+		return model.BatteryCharging
+	default:
+		return model.BatteryMixed
+	}
 }
 
 // level is now/full across batteries (charge or energy), else the mean capacity %.

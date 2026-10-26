@@ -22,6 +22,21 @@ func TestFormatMetric_Unavailable(t *testing.T) {
 	}
 }
 
+func TestFormatMetric_EnumLabel(t *testing.T) {
+	d, ok := metrics.NewDefault().Get("battery-state")
+	if !ok {
+		t.Fatal("battery-state should be registered")
+	}
+	v := model.NewValue(float64(model.BatteryDischarging), model.Exact, "battery")
+	// Both human and raw text show the label, not the numeric code.
+	if got := FormatMetric(d, v); got != "discharging" {
+		t.Fatalf("human = %q, want discharging", got)
+	}
+	if got := FormatMetricRaw(d, v); got != "discharging" {
+		t.Fatalf("raw = %q, want discharging", got)
+	}
+}
+
 func TestFormatMetricRaw(t *testing.T) {
 	cases := []struct {
 		unit metrics.Unit

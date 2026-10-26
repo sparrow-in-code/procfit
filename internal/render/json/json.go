@@ -39,11 +39,14 @@ type jsonRow struct {
 }
 
 type jsonValue struct {
-	Value        *float64 `json:"value"`
-	Unit         string   `json:"unit"`
-	Availability string   `json:"availability"`
-	Quality      string   `json:"quality,omitempty"`
-	Source       string   `json:"source,omitempty"`
+	Value *float64 `json:"value"`
+	// Label is the human label of an enum metric's code (e.g. battery-state
+	// "charging"); the numeric value stays the stable machine form.
+	Label        string `json:"label,omitempty"`
+	Unit         string `json:"unit"`
+	Availability string `json:"availability"`
+	Quality      string `json:"quality,omitempty"`
+	Source       string `json:"source,omitempty"`
 }
 
 // Render writes the result as JSON.
@@ -98,6 +101,9 @@ func convertMetrics(m map[model.MetricID]model.MetricValue, reg *metrics.Registr
 		if v.Present() {
 			val := v.V
 			jv.Value = &val
+			if unit == string(metrics.UnitEnum) {
+				jv.Label, _ = model.EnumLabel(id, val)
+			}
 		}
 		out[string(id)] = jv
 	}

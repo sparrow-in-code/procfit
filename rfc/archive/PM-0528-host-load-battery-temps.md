@@ -34,6 +34,18 @@ charge-or-energy, and temperatures (curated + every detected sensor).
 - Profiles: new `system` (whole-machine dashboard); `sysload`/`pressure` gain
   `load-*`; `battery` gains `battery-pct`, `battery-time-left`, `temp-cpu`.
 
+## Update: battery-state
+
+`battery-state` (host, `UnitEnum`): charging/discharging/full/not-charging/
+missing/unknown, `mixed` when batteries disagree (a discharging or charging one
+wins over idle/full ones). Metric values stay numeric — the state is a stable
+code (`model.BatteryState`, append-only mapping) rendered as its label in text
+output via `model.EnumLabel` (a per-enum-metric label table, so adding an enum
+metric is one entry); JSON adds `label` next to the code; Prometheus exports the
+code. `present=0` bays report `missing`; no battery hardware → unavailable. Added
+to the `battery` and `system` profiles. Tests: `TestBatteryCollector_State`,
+`TestBatteryStateLabelsAndStatus`, `TestFormatMetric_EnumLabel`.
+
 ## Tests
 
 Fixture sysfs/procfs trees under `t.TempDir()` only: `TestLoadAvgCollector`,

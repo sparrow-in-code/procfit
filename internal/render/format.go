@@ -23,7 +23,19 @@ func FormatMetric(desc metrics.Descriptor, v model.MetricValue) string {
 	if !v.Present() {
 		return placeholder(v.Availability)
 	}
+	if label, ok := enumLabel(desc, v.V); ok {
+		return label
+	}
 	return formatUnit(desc.Unit, v.V)
+}
+
+// enumLabel renders an enum metric (e.g. battery-state) as its label in both
+// human and raw text output; machine formats (JSON/Prometheus/CSV) keep the code.
+func enumLabel(desc metrics.Descriptor, code float64) (string, bool) {
+	if desc.Unit != metrics.UnitEnum {
+		return "", false
+	}
+	return model.EnumLabel(desc.ID, code)
 }
 
 // TruncateCell shortens s to at most w display cells (runes), marking a cut with
@@ -51,6 +63,9 @@ func FormatMetricRaw(desc metrics.Descriptor, v model.MetricValue) string {
 	}
 	if !v.Present() {
 		return placeholder(v.Availability)
+	}
+	if label, ok := enumLabel(desc, v.V); ok {
+		return label
 	}
 	switch desc.Unit {
 	case metrics.UnitBytes, metrics.UnitBytesPerSec, metrics.UnitCount, metrics.UnitPerSec, metrics.UnitInteger,

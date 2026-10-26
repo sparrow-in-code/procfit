@@ -112,6 +112,61 @@ func TestBatteryCollector_TwoBatteriesAndFallbacks(t *testing.T) {
 	}
 }
 
+func TestBatteryCollector_State(t *testing.T) {
+	state := func(hm map[model.MetricID]model.MetricValue) model.BatteryState {
+		t.Helper()
+		v := hm["battery-state"]
+		if !v.Present() {
+			t.Fatalf("battery-state should be present, got %+v", v)
+		}
+		return model.BatteryState(v.V)
+	}
+	collect := func(root string) map[model.MetricID]model.MetricValue {
+		return NewBatteryCollector(root).CollectHost(context.Background())
+	}
+
+	for status, want := range map[string]model.BatteryState{
+		"Charging": model.BatteryCharging, "Discharging": model.BatteryDischarging,
+		"Full": model.BatteryFull, "Not charging": model.BatteryNotCharging, "Unknown": model.BatteryUnknown,
+	} {
+		root := t.TempDir()
+		writeBat(t, root, "BAT0", map[string]string{"type": "Battery", "status": status, "capacity": "50"})
+		if got := state(collect(root)); got != want {
+			t.Fatalf("status %q → %v, want %v", status, got, want)
+		}
+	}
+
+	// Two batteries: one discharging + one full → discharging dominates.
+	dom := t.TempDir()
+	writeBat(t, dom, "BAT0", map[string]string{"type": "Battery", "status": "Discharging", "capacity": "40"})
+	writeBat(t, dom, "BAT1", map[string]string{"type": "Battery", "status": "Full", "capacity": "100"})
+	if got := state(collect(dom)); got != model.BatteryDischarging {
+		t.Fatalf("discharging+full → %v, want discharging", got)
+	}
+	// Charging + discharging at once → mixed.
+	mix := t.TempDir()
+	writeBat(t, mix, "BAT0", map[string]string{"type": "Battery", "status": "Charging", "capacity": "40"})
+	writeBat(t, mix, "BAT1", map[string]string{"type": "Battery", "status": "Discharging", "capacity": "60"})
+	if got := state(collect(mix)); got != model.BatteryMixed {
+		t.Fatalf("charging+discharging → %v, want mixed", got)
+	}
+
+	// Empty battery bay (present=0) → missing; the other battery metrics stay unavailable.
+	bay := t.TempDir()
+	writeBat(t, bay, "BAT0", map[string]string{"type": "Battery", "present": "0"})
+	hm := collect(bay)
+	if got := state(hm); got != model.BatteryMissing {
+		t.Fatalf("present=0 → %v, want missing", got)
+	}
+	if v := hm["battery-pct"]; v.Present() {
+		t.Fatalf("missing battery: battery-pct must be unavailable, got %+v", v)
+	}
+	// No battery at all → state unavailable (not "missing": there's no slot).
+	if v := collect(t.TempDir())["battery-state"]; v.Present() {
+		t.Fatalf("no battery hardware: state must be unavailable, got %+v", v)
+	}
+}
+
 func TestTempCollector_HwmonSensors(t *testing.T) {
 	root := t.TempDir()
 	hw := filepath.Join(root, "class/hwmon")

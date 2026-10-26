@@ -78,7 +78,7 @@ var profileSpecs = map[ProfileName]Profile{
 	// (eBPF/procfs) are the real churn signal — a process can be ~0% cpu yet keep
 	// the package out of deep C-states; ctxsw-voluntary is the light no-root proxy.
 	ProfileBattery: {Metrics: []model.MetricID{
-		"battery-pct", "battery-time-left", "power-system", "temp-cpu",
+		"battery-state", "battery-pct", "battery-time-left", "power-system", "temp-cpu",
 		"cstate-deep-residency", "cpu", "cpu-normalized",
 		"wakeups", "timer-wakeups", "ctxsw-voluntary", "gpu", "gpu-mem",
 	}},
@@ -105,7 +105,7 @@ var profileSpecs = map[ProfileName]Profile{
 	ProfileSystem: {
 		Metrics: []model.MetricID{
 			"load-1", "load-5", "load-15", "psi-cpu", "psi-io", "psi-mem",
-			"battery-pct", "battery-time-left", "battery-charge-left", "battery-energy-left",
+			"battery-state", "battery-pct", "battery-time-left", "battery-charge-left", "battery-energy-left",
 			"power-system", "power-pkg", "cstate-deep-residency", "temp-cpu", "temp-max", "cpu",
 		},
 		Columns: []string{"target", "pid", "pt", "cpu"},
