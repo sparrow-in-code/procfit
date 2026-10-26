@@ -328,6 +328,33 @@ privilege). The profile also breaks resident memory into `rss-anon`/`rss-file`
 /`rss-shmem`, and shows `swap` (swapped-out), `mem-peak` (VmHWM), and `oom-score`
 (0–1000 kill-likelihood — what the kernel sacrifices first under pressure).
 
+## Whole-machine readouts (load, battery, temperatures)
+
+Some things only exist host-wide, so they live in the **system section** above the
+process table (CLI and TUI), under `host` in JSON, and as unlabelled Prometheus
+families — never as per-process columns:
+
+```bash
+procfit ps --profile system    # load, PSI, battery, power, deep idle, temps + a plain process table
+```
+
+| Metric | Meaning | Source |
+|---|---|---|
+| `load-1` / `load-5` / `load-15` | load average | `/proc/loadavg` |
+| `battery-pct` | charge level, all batteries combined | `power_supply` |
+| `battery-time-left` | time to empty (discharging) or to full (charging) | charge/current or energy/power |
+| `battery-charge-left` | remaining charge, mAh (batteries reporting `charge_now`) | `power_supply` |
+| `battery-energy-left` | remaining energy, Wh (batteries reporting `energy_now`) | `power_supply` |
+| `power-system` | whole-system draw, W (already existed) | battery sensor |
+| `temp-cpu` / `temp-max` | hottest CPU sensor / hottest sensor overall, °C | hwmon, else thermal zones |
+| `temp-<chip>-<label>` | **one metric per detected sensor**, e.g. `temp-coretemp-package-id-0`, `temp-nvme-temp1` | discovered at startup |
+
+Batteries report either charge (mAh) or energy (Wh); whichever your driver lacks
+shows `-`. Per-sensor temperature ids vary by machine — `procfit metrics --check`
+lists the ones on yours, and you can add any with `--metric temp-<sensor>`. The
+`sysload`/`pressure` profiles now include the load averages, and `battery` adds
+`battery-pct`, `battery-time-left`, and `temp-cpu`.
+
 ## Per-process sockets
 
 The `network` profile shows what each process holds on the network — no eBPF, no

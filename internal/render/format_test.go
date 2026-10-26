@@ -90,6 +90,9 @@ func TestFormatUnits(t *testing.T) {
 		{metrics.UnitDuration, 90000, "1d1h"},     // trailing zero units dropped
 		{metrics.UnitDuration, 86404, "1d0h0m4s"}, // intermediate zeros kept
 		{metrics.UnitDuration, 0, "0s"},
+		{metrics.UnitCelsius, 61.25, "61.2"},
+		{metrics.UnitMilliAmpHours, 2499.6, "2500"},
+		{metrics.UnitWattHours, 30.04, "30.0"},
 		{metrics.UnitInteger, 10, "10"},
 	}
 	for _, c := range cases {

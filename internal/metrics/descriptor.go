@@ -23,6 +23,9 @@ const (
 	UnitInteger       Unit = "integer"
 	UnitEnum          Unit = "enum"
 	UnitWatts         Unit = "watts" // power draw in watts
+	UnitCelsius       Unit = "celsius"
+	UnitMilliAmpHours Unit = "mAh" // battery charge
+	UnitWattHours     Unit = "Wh"  // battery energy
 )
 
 // Scope tags where a metric's value is accounted, so aggregation can deduplicate

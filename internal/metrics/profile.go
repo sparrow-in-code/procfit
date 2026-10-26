@@ -22,6 +22,7 @@ const (
 	ProfileBattery  ProfileName = "battery"
 	ProfileSysload  ProfileName = "sysload"
 	ProfilePressure ProfileName = "pressure"
+	ProfileSystem   ProfileName = "system"
 	ProfilePerf     ProfileName = "perf"
 	ProfileAll      ProfileName = "all"
 )
@@ -29,7 +30,7 @@ const (
 // KnownProfiles lists the built-in profile names.
 var KnownProfiles = []ProfileName{
 	ProfileNone, ProfileLight, ProfileProcess, ProfileMemory, ProfileIO,
-	ProfileNetwork, ProfilePower, ProfileBattery, ProfileSysload, ProfilePressure, ProfilePerf, ProfileAll,
+	ProfileNetwork, ProfilePower, ProfileBattery, ProfileSysload, ProfilePressure, ProfileSystem, ProfilePerf, ProfileAll,
 }
 
 // Profile is a named convenience bundle: the metrics it selects plus optional
@@ -77,14 +78,15 @@ var profileSpecs = map[ProfileName]Profile{
 	// (eBPF/procfs) are the real churn signal — a process can be ~0% cpu yet keep
 	// the package out of deep C-states; ctxsw-voluntary is the light no-root proxy.
 	ProfileBattery: {Metrics: []model.MetricID{
-		"power-system", "cstate-deep-residency", "cpu", "cpu-normalized",
+		"battery-pct", "battery-time-left", "power-system", "temp-cpu",
+		"cstate-deep-residency", "cpu", "cpu-normalized",
 		"wakeups", "timer-wakeups", "ctxsw-voluntary", "gpu", "gpu-mem",
 	}},
 	// sysload: decompose load average — state + the blocking cause (wchan), CPU use,
 	// CPU-wait (runq), I/O-wait (blkio), preemption churn, page-in thrash. Sorted by
 	// runq-delay so the CPU-starved tasks surface first.
 	ProfileSysload: {
-		Metrics: []model.MetricID{"cpu", "runq-delay", "blkio-delay", "ctxsw-involuntary", "major-faults"},
+		Metrics: []model.MetricID{"load-1", "load-5", "load-15", "cpu", "runq-delay", "blkio-delay", "ctxsw-involuntary", "major-faults"},
 		Columns: []string{"target", "pid", "pstate", "wchan", "cpu", "runq-delay", "blkio-delay", "ctxsw-involuntary", "major-faults"},
 		Sort:    "runq-delay:desc",
 	},
@@ -93,9 +95,21 @@ var profileSpecs = map[ProfileName]Profile{
 	// stall %) alongside each process's own R/D thread counts (its runnable and
 	// I/O-wait contribution to load), sorted by the uninterruptible count.
 	ProfilePressure: {
-		Metrics: []model.MetricID{"psi-cpu", "psi-io", "psi-mem", "threads-running", "threads-uninterruptible"},
-		Columns: []string{"target", "pid", "pstate", "threads-running", "threads-uninterruptible", "psi-cpu", "psi-io", "psi-mem"},
+		Metrics: []model.MetricID{"load-1", "load-5", "load-15", "psi-cpu", "psi-io", "psi-mem", "threads-running", "threads-uninterruptible"},
+		Columns: []string{"target", "pid", "pstate", "threads-running", "threads-uninterruptible"},
 		Sort:    "threads-uninterruptible:desc",
+	},
+	// system: the whole-machine dashboard — load, pressure, battery, power, deep
+	// idle and temperatures, all in the system section above a plain process
+	// table (per-sensor temps can be added with --metric temp-<sensor>).
+	ProfileSystem: {
+		Metrics: []model.MetricID{
+			"load-1", "load-5", "load-15", "psi-cpu", "psi-io", "psi-mem",
+			"battery-pct", "battery-time-left", "battery-charge-left", "battery-energy-left",
+			"power-system", "power-pkg", "cstate-deep-residency", "temp-cpu", "temp-max", "cpu",
+		},
+		Columns: []string{"target", "pid", "pt", "cpu"},
+		Sort:    "cpu:desc",
 	},
 }
 

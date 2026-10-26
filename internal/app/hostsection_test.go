@@ -2,12 +2,16 @@ package app
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/netikras/procfit/internal/metrics"
 	"github.com/netikras/procfit/internal/model"
 	"github.com/netikras/procfit/internal/ports"
+	"github.com/netikras/procfit/internal/procfs"
 	"github.com/netikras/procfit/internal/query"
 	"github.com/netikras/procfit/internal/testutil"
 )
@@ -108,6 +112,30 @@ func (f fakeHostColl) ID() string                { return "fake" }
 func (f fakeHostColl) Metrics() []model.MetricID { return []model.MetricID{f.id} }
 func (f fakeHostColl) CollectHost(context.Context) map[model.MetricID]model.MetricValue {
 	return map[model.MetricID]model.MetricValue{f.id: f.val}
+}
+
+func TestRegisterTempSensors(t *testing.T) {
+	a := hostAsm(t)
+	root := t.TempDir() // fixture sysfs, never the host
+	if err := os.MkdirAll(filepath.Join(root, "class/hwmon/hwmon0"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for f, v := range map[string]string{"name": "k10temp", "temp1_input": "50000", "temp1_label": "Tctl"} {
+		if err := os.WriteFile(filepath.Join(root, "class/hwmon/hwmon0", f), []byte(v), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	sensors := procfs.NewTempCollector(root).Sensors()
+	registerTempSensors(a.reg, sensors)
+	d, ok := a.reg.Get("temp-k10temp-tctl")
+	if !ok {
+		t.Fatal("discovered sensor should be registered as a metric")
+	}
+	if d.Scope != metrics.ScopeHost || d.Unit != metrics.UnitCelsius {
+		t.Fatalf("sensor descriptor wrong: %+v", d)
+	}
+	// Re-registering (or a collision) must not panic or fail.
+	registerTempSensors(a.reg, sensors)
 }
 
 func TestCollectHost_OnlyRunsRequested(t *testing.T) {

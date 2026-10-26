@@ -81,12 +81,25 @@ func newAssemblyWith(src ports.ProcessSource, clk ports.Clock) *assembly {
 	}
 	// Host-scoped collectors produce whole-machine metrics read once per sample
 	// (never per process) and rendered in their own section.
+	temps := procfs.NewTempCollector("")
+	registerTempSensors(reg, temps.Sensors())
 	hostCollectors := []ports.HostCollector{
 		procfs.NewCstateCollector(""), procfs.NewPowerCollector(""), procfs.NewPSICollector(""),
+		procfs.NewLoadAvgCollector(""), procfs.NewBatteryCollector(""), temps,
 	}
 	return &assembly{
 		reg: reg, dims: dims, src: src, clk: clk, engine: query.NewEngine(reg, dims),
 		resolvers: resolvers, collectors: collectors, hostCollectors: hostCollectors, wait: time.After,
+	}
+}
+
+// registerTempSensors adds a descriptor for each temperature sensor detected on
+// this host, so per-sensor temps are first-class metrics (catalog, --columns,
+// --check, JSON, Prometheus). A sensor id colliding with an existing metric is
+// skipped rather than failing startup.
+func registerTempSensors(reg *metrics.Registry, sensors []procfs.TempSensor) {
+	for _, s := range sensors {
+		_ = reg.Register(metrics.TempSensorDescriptor(s.ID, s.Description()))
 	}
 }
 
