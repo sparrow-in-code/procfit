@@ -117,10 +117,11 @@ func (s *hwmonSource) Read() ([]ports.PowerReading, bool) {
 	return out, true
 }
 
-// batterySource reads /sys/class/power_supply/*/ for a battery's power draw:
+// batterySource reads /sys/class/power_supply/*/ for battery power draw:
 // power_now (microwatts), else voltage_now × current_now. This is the
 // vendor/arch-neutral whole-system draw on any laptop (Intel/AMD/ARM), valid on
-// discharge.
+// discharge. With several batteries the draws are summed (an idle battery adds
+// ~0); empty bays (present=0) are skipped.
 type batterySource struct{ root string }
 
 func (s *batterySource) ID() string { return "battery" }
@@ -131,28 +132,39 @@ func (s *batterySource) Read() ([]ports.PowerReading, bool) {
 	if err != nil {
 		return nil, false
 	}
+	var total uint64
+	found, readable := false, false
 	for _, e := range entries {
 		dir := filepath.Join(base, e.Name())
-		if readTrimFile(filepath.Join(dir, "type")) != "Battery" {
+		if readTrimFile(filepath.Join(dir, "type")) != "Battery" ||
+			readTrimFile(filepath.Join(dir, "present")) == "0" {
 			continue
 		}
+		found = true
 		if uw, ok := batteryMicrowatts(dir); ok {
-			return []ports.PowerReading{{Domain: "system", Value: uw, Kind: ports.InstantPower, Avail: model.Available}}, true
+			total += uw
+			readable = true
 		}
-		// A battery is present but its power is not readable right now (e.g. full/AC).
+	}
+	if !found {
+		return nil, false
+	}
+	if !readable {
+		// Batteries present but none readable right now (e.g. full/AC).
 		return []ports.PowerReading{{Domain: "system", Kind: ports.InstantPower, Avail: model.WarmingUp}}, true
 	}
-	return nil, false
+	return []ports.PowerReading{{Domain: "system", Value: total, Kind: ports.InstantPower, Avail: model.Available}}, true
 }
 
-// batteryMicrowatts returns the battery's instantaneous draw in microwatts, from
-// power_now or voltage_now(µV) × current_now(µA).
+// batteryMicrowatts returns a battery's instantaneous draw in microwatts, from
+// power_now or voltage_now(µV) × current_now(µA). The magnitude is used because
+// some drivers report a negative value while discharging.
 func batteryMicrowatts(dir string) (uint64, bool) {
-	if uw, ok := readUintFile(filepath.Join(dir, "power_now")); ok {
+	if uw, ok := readMagnitude(filepath.Join(dir, "power_now")); ok {
 		return uw, true
 	}
 	uv, okv := readUintFile(filepath.Join(dir, "voltage_now"))
-	ua, okc := readUintFile(filepath.Join(dir, "current_now"))
+	ua, okc := readMagnitude(filepath.Join(dir, "current_now"))
 	if okv && okc {
 		// mV × mA = µW (1e-3 V × 1e-3 A = 1e-6 W).
 		return (uv / 1000) * (ua / 1000), true

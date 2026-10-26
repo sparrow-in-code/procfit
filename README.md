@@ -351,7 +351,12 @@ procfit ps --profile system    # load, PSI, battery, power, deep idle, temps + a
 | `temp-<chip>-<label>` | **one metric per detected sensor**, e.g. `temp-coretemp-package-id-0`, `temp-nvme-temp1` | discovered at startup |
 
 Batteries report either charge (mAh) or energy (Wh); whichever your driver lacks
-shows `-`. `battery-state` puts the rest in context — `battery-time-left` is *to
+shows `-`. With **several batteries**, readings are combined: level is total
+now ÷ total full (capacity-weighted), charge/energy and `power-system` are summed,
+time-left is total remaining ÷ total draw, and empty bays are skipped. If one
+battery charges while another discharges, `battery-state` is `mixed` and
+time-left shows `-` (no single meaningful figure). Drivers that report a negative
+current/power while discharging are handled (only the magnitude is used). `battery-state` puts the rest in context — `battery-time-left` is *to
 empty* when discharging and *to full* when charging. Text output shows the state's
 label; JSON carries both the stable numeric code and a `label`, and Prometheus
 exports the code (0 unknown, 1 charging, 2 discharging, 3 not-charging, 4 full,

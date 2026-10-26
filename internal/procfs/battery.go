@@ -92,10 +92,10 @@ func (t *batTotals) add(dir string) {
 	t.states = append(t.states, model.BatteryStateFromStatus(readTrimFile(filepath.Join(dir, "status"))))
 	t.chargeOk = addField(&t.chargeNow, dir, "charge_now", t.chargeOk)
 	t.chargeOk = addField(&t.chargeFull, dir, "charge_full", t.chargeOk)
-	t.currentOk = addField(&t.current, dir, "current_now", t.currentOk)
+	t.currentOk = addMagnitude(&t.current, dir, "current_now", t.currentOk)
 	t.energyOk = addField(&t.energyNow, dir, "energy_now", t.energyOk)
 	t.energyOk = addField(&t.energyFull, dir, "energy_full", t.energyOk)
-	t.pwOk = addField(&t.power, dir, "power_now", t.pwOk)
+	t.pwOk = addMagnitude(&t.power, dir, "power_now", t.pwOk)
 	t.capOk = addField(&t.capSum, dir, "capacity", t.capOk)
 	switch readTrimFile(filepath.Join(dir, "status")) {
 	case "Charging":
@@ -114,6 +114,30 @@ func addField(sum *float64, dir, name string, ok bool) bool {
 	}
 	*sum += float64(v)
 	return ok
+}
+
+// addMagnitude is addField for rate fields (current_now, power_now) whose sign
+// is driver-specific: some drivers report a negative value while discharging.
+// Direction comes from `status`, so only the magnitude is summed.
+func addMagnitude(sum *float64, dir, name string, ok bool) bool {
+	v, present := readMagnitude(filepath.Join(dir, name))
+	if !present {
+		return false
+	}
+	*sum += float64(v)
+	return ok
+}
+
+// readMagnitude reads a signed sysfs integer and returns its absolute value.
+func readMagnitude(path string) (uint64, bool) {
+	n, ok := readIntFile(path)
+	if !ok {
+		return 0, false
+	}
+	if n < 0 {
+		n = -n
+	}
+	return uint64(n), true
 }
 
 // metrics converts the totals into metric values.
@@ -173,10 +197,16 @@ func (t batTotals) level() model.MetricValue {
 
 // timeLeft is seconds to empty (discharging) or to full (charging), from the
 // remaining (or missing) charge over the current draw — charge/current or
-// energy/power, whichever pair the driver reports. Full/idle/zero draw → unavailable.
+// energy/power, whichever pair the driver reports. Full/idle/zero draw →
+// unavailable. When one battery charges while another discharges the combined
+// figure has no meaning (the summed rates mix directions), so it is unavailable
+// too rather than a misleading time-to-full.
 func (t batTotals) timeLeft() model.MetricValue {
 	if !t.charging && !t.discharging {
 		return model.Unavailable[float64](model.WarmingUp, "battery") // full / not charging
+	}
+	if t.charging && t.discharging {
+		return unavailable("battery") // mixed directions: no single time-left
 	}
 	var have, rate float64
 	switch {

@@ -46,6 +46,19 @@ code. `present=0` bays report `missing`; no battery hardware → unavailable. Ad
 to the `battery` and `system` profiles. Tests: `TestBatteryCollector_State`,
 `TestBatteryStateLabelsAndStatus`, `TestFormatMetric_EnumLabel`.
 
+## Update: multi-battery fixes
+
+- `power-system` (`batterySource`) now sums the draw of every installed battery
+  (was: first battery only, so an idle BAT0 listed first hid a discharging BAT1);
+  `present=0` bays skipped.
+- `battery-time-left` is unavailable when batteries charge and discharge at once
+  (`mixed`) — the summed rates mix directions, so no figure is meaningful.
+- `current_now` / `power_now` are read as signed and used by magnitude
+  (`readMagnitude`): some drivers report negative values while discharging, which
+  previously failed the unsigned parse and blanked time-left/power.
+Tests: `TestBatterySource_SumsAllBatteries`,
+`TestBatteryCollector_MixedDirectionsNoTimeLeft`, `TestBatteryCollector_NegativeRates`.
+
 ## Tests
 
 Fixture sysfs/procfs trees under `t.TempDir()` only: `TestLoadAvgCollector`,

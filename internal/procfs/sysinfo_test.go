@@ -167,6 +167,62 @@ func TestBatteryCollector_State(t *testing.T) {
 	}
 }
 
+// Gap 1: power-system must sum every battery's draw, not take the first one.
+func TestBatterySource_SumsAllBatteries(t *testing.T) {
+	root := t.TempDir()
+	writeBat(t, root, "BAT0", map[string]string{"type": "Battery", "status": "Full", "power_now": "0"})
+	writeBat(t, root, "BAT1", map[string]string{"type": "Battery", "status": "Discharging", "power_now": "12000000"})
+	writeBat(t, root, "BAT2", map[string]string{"type": "Battery", "present": "0", "power_now": "99000000"}) // empty bay: ignored
+	readings, ok := (&batterySource{root: root}).Read()
+	if !ok || len(readings) != 1 {
+		t.Fatalf("expected one system reading, got %v ok=%v", readings, ok)
+	}
+	if readings[0].Avail != model.Available || readings[0].Value != 12000000 {
+		t.Fatalf("power-system should be BAT0+BAT1 = 12 W, got %+v", readings[0])
+	}
+}
+
+// Gap 2: one battery charging while another discharges → no single time-left.
+func TestBatteryCollector_MixedDirectionsNoTimeLeft(t *testing.T) {
+	root := t.TempDir()
+	writeBat(t, root, "BAT0", map[string]string{"type": "Battery", "status": "Charging",
+		"charge_now": "1000000", "charge_full": "2000000", "current_now": "500000"})
+	writeBat(t, root, "BAT1", map[string]string{"type": "Battery", "status": "Discharging",
+		"charge_now": "3000000", "charge_full": "4000000", "current_now": "800000"})
+	hm := NewBatteryCollector(root).CollectHost(context.Background())
+	if v := hm["battery-time-left"]; v.Present() {
+		t.Fatalf("mixed charge/discharge must not report a time-left, got %+v", v)
+	}
+	if model.BatteryState(hm["battery-state"].V) != model.BatteryMixed {
+		t.Fatalf("state should be mixed, got %+v", hm["battery-state"])
+	}
+	// The other combined values are still meaningful.
+	if v := hm["battery-pct"]; !v.Present() || !near(v.V, 66.67) {
+		t.Fatalf("battery-pct = %+v, want ~66.67", v)
+	}
+}
+
+// Gap 3: drivers that report a negative current/power while discharging.
+func TestBatteryCollector_NegativeRates(t *testing.T) {
+	root := t.TempDir()
+	writeBat(t, root, "BAT0", map[string]string{"type": "Battery", "status": "Discharging",
+		"charge_now": "2500000", "charge_full": "5000000", "current_now": "-1000000"})
+	if v := NewBatteryCollector(root).CollectHost(context.Background())["battery-time-left"]; !v.Present() || !near(v.V, 9000) {
+		t.Fatalf("negative current_now should still give 9000s to empty, got %+v", v)
+	}
+	// Energy-style with negative power_now: both the time-left and power-system work.
+	eroot := t.TempDir()
+	writeBat(t, eroot, "BAT0", map[string]string{"type": "Battery", "status": "Discharging",
+		"energy_now": "30000000", "energy_full": "60000000", "power_now": "-15000000"})
+	if v := NewBatteryCollector(eroot).CollectHost(context.Background())["battery-time-left"]; !v.Present() || !near(v.V, 7200) {
+		t.Fatalf("negative power_now should give 7200s to empty, got %+v", v)
+	}
+	readings, _ := (&batterySource{root: eroot}).Read()
+	if len(readings) != 1 || readings[0].Value != 15000000 {
+		t.Fatalf("power-system should use |power_now| = 15 W, got %v", readings)
+	}
+}
+
 func TestTempCollector_HwmonSensors(t *testing.T) {
 	root := t.TempDir()
 	hw := filepath.Join(root, "class/hwmon")
