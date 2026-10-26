@@ -50,7 +50,7 @@ func (m *Model) helpEntries() []helpEntry {
 		{"t", "cycle the leaf mode (process/thread/none)"},
 		{"s / S", "cycle sort column / toggle asc↔desc"},
 		{"/  or  f", "filter — one word=target substring; +space=column filter w/ operator autosuggest (Tab/Enter autofill)"},
-		{"+", "column picker — type to filter, Enter toggles a column on/off, Esc closes"},
+		{"+", "column picker — type to filter, Enter toggles on/off ([system] items go to the system panel), Esc closes"},
 		{"-", "quick-drop the rightmost column"},
 		{"u", "toggle human units (K/M/G) vs raw"},
 		{"i", "inspect the selected row (identity + history)"},

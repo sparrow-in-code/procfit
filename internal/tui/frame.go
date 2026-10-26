@@ -218,6 +218,9 @@ func (m *Model) CLIString() string {
 	if m.flags.Columns != "" {
 		parts = append(parts, "--columns", m.flags.Columns)
 	}
+	for _, o := range m.flags.MetricOverrides { // system metrics toggled via `+`
+		parts = append(parts, "--metric", o)
+	}
 	if m.flags.Select != "" {
 		parts = append(parts, "--select", quoteArg(m.flags.Select))
 	}

@@ -209,6 +209,48 @@ func TestModel_ColumnPicker(t *testing.T) {
 	}
 }
 
+func TestModel_ColumnPickerSystemMetrics(t *testing.T) {
+	m := NewModel(queryspec.Flags{})
+	m.SetSize(120, 24)
+	m.SetColumnChoices([]ColumnChoice{
+		{ID: "cpu", Desc: "cpu %"},
+		{ID: "load-1", Desc: "load average 1m", System: true},
+	})
+	res, cols := sampleResult(2) // target, pt, cpu
+	m.SetResult(res, cols)
+
+	m.Update(KeyEvent{Rune: '+'})
+	for _, r := range "load" {
+		m.Update(KeyEvent{Rune: r})
+	}
+	if !strings.Contains(strings.Join(m.Frame(), "\n"), "[system]") {
+		t.Fatal("host metrics should be listed and tagged [system] in the picker")
+	}
+	// Enter on a system metric adds a metric override, NOT a table column.
+	m.Update(KeyEvent{Name: "enter"})
+	if m.flags.Columns != "" {
+		t.Fatalf("a system metric must not become a column, got columns %q", m.flags.Columns)
+	}
+	if len(m.flags.MetricOverrides) != 1 || m.flags.MetricOverrides[0] != "+load-1" {
+		t.Fatalf("expected override +load-1, got %v", m.flags.MetricOverrides)
+	}
+	if !strings.Contains(m.CLIString(), "--metric +load-1") {
+		t.Fatalf("CLI reproduction should carry the override: %q", m.CLIString())
+	}
+
+	// Once the panel shows it, it is checked; toggling again removes it (and the
+	// override list is replaced, not appended).
+	res.HostMetrics = map[model.MetricID]model.MetricValue{"load-1": model.NewValue(0.5, model.Exact, "t")}
+	m.SetResult(res, cols)
+	if !m.shownColumns()["load-1"] {
+		t.Fatal("a host metric in the panel should show as [x]")
+	}
+	m.Update(KeyEvent{Name: "enter"})
+	if len(m.flags.MetricOverrides) != 1 || m.flags.MetricOverrides[0] != "-load-1" {
+		t.Fatalf("toggle off should leave a single -load-1, got %v", m.flags.MetricOverrides)
+	}
+}
+
 func TestModel_ColumnPickerRenderNavRemove(t *testing.T) {
 	m := NewModel(queryspec.Flags{})
 	m.SetSize(100, 8) // short screen exercises scroll

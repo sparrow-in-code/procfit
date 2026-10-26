@@ -11,6 +11,10 @@ import (
 type ColumnChoice struct {
 	ID   string
 	Desc string
+	// System marks a host-scoped metric (load, battery, temps, power…): it is not
+	// a table column but an entry in the system panel. Toggling it adds/removes a
+	// metric override instead of a column.
+	System bool
 }
 
 // openColumnPicker opens the interactive column picker (`+`): a type-to-filter
@@ -76,20 +80,53 @@ func (m *Model) toggleHighlightedColumn() {
 	if m.colCursor < 0 || m.colCursor >= len(filtered) {
 		return
 	}
-	id := filtered[m.colCursor].ID
-	if m.shownColumns()[id] {
-		m.removeColumn(id)
-	} else {
-		m.appendColumn(id)
+	c := filtered[m.colCursor]
+	switch {
+	case c.System:
+		m.toggleSystemMetric(c.ID)
+	case m.shownColumns()[c.ID]:
+		m.removeColumn(c.ID)
+	default:
+		m.appendColumn(c.ID)
 	}
 }
 
+// shownColumns marks what the picker shows as [x]: displayed table columns plus
+// host metrics currently in the system panel.
 func (m *Model) shownColumns() map[string]bool {
 	shown := make(map[string]bool, len(m.cols))
 	for _, c := range m.cols {
 		shown[c.ID] = true
 	}
+	if m.result != nil {
+		for id := range m.result.HostMetrics {
+			shown[string(id)] = true
+		}
+	}
 	return shown
+}
+
+// toggleSystemMetric adds or removes a host metric from the system panel via a
+// metric override (the TUI equivalent of --metric +id / -id). Any earlier
+// override for the same id is replaced, so the list never grows on repeated
+// toggles.
+func (m *Model) toggleSystemMetric(id string) {
+	on := !m.shownColumns()[id]
+	kept := make([]string, 0, len(m.flags.MetricOverrides)+1)
+	for _, o := range m.flags.MetricOverrides {
+		if strings.TrimLeft(o, "+-") != id {
+			kept = append(kept, o)
+		}
+	}
+	if on {
+		kept = append(kept, "+"+id)
+		m.status = "added system metric: " + id
+	} else {
+		kept = append(kept, "-"+id)
+		m.status = "removed system metric: " + id
+	}
+	m.flags.MetricOverrides = kept
+	m.dirty = true
 }
 
 // currentColumnIDs materializes the displayed columns as an explicit id list, so
@@ -193,7 +230,11 @@ func (m *Model) colPickerFrame() []string {
 		if idx == m.colCursor {
 			cursor = "> "
 		}
-		lines = append(lines, truncate(cursor+mark+" "+pad(c.ID, 18, false)+" "+c.Desc, m.width))
+		desc := c.Desc
+		if c.System {
+			desc = "[system] " + desc // shown in the system panel, not as a column
+		}
+		lines = append(lines, truncate(cursor+mark+" "+pad(c.ID, 18, false)+" "+desc, m.width))
 	}
 	return lines
 }

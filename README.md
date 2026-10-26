@@ -94,7 +94,7 @@ on a short terminal; `?`/`Esc`/`q` closes). The tables below are that keymap.
 | `g` | cycle grouping — the built-in presets **plus any displayed column that is a dimension** (e.g. `wchan`, `pstate`, `user`, `hostname`), so you can group by what's on screen |
 | `s` / `S` | cycle the sort column / toggle ascending↔descending |
 | `/` or `f` | filter (see below) |
-| `+` | **column picker** — a type-to-filter list of every column with its description; `↑↓` move, `Enter` toggles a column on/off (stays open to enable several), `Esc` closes. No restart |
+| `+` | **column picker** — a type-to-filter list of every column with its description; `↑↓` move, `Enter` toggles a column on/off (stays open to enable several), `Esc` closes. No restart. Whole-machine metrics (load, battery, temps, power, PSI) are listed too, tagged `[system]` — toggling one adds/removes it in the **system panel** above the table, not as a column |
 | `-` | quick-drop the rightmost column |
 | `u` | toggle human units (K/M/G) vs raw bytes |
 | `[` / `]` | faster / slower refresh interval (start value via `--interval`, e.g. `procfit tui --interval 2s`) |

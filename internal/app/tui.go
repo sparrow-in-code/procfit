@@ -120,10 +120,11 @@ func (a *assembly) tuiHostPanel(res *query.Result) []string {
 func (a *assembly) addableColumns() []tui.ColumnChoice {
 	out := make([]tui.ColumnChoice, 0)
 	for _, d := range a.reg.All() {
-		if d.Scope == metrics.ScopeHost {
-			continue // host metrics are whole-machine, not per-process columns
-		}
-		out = append(out, tui.ColumnChoice{ID: string(d.ID), Desc: d.Description})
+		// Host metrics are offered too, flagged System: toggling one adds it to
+		// the system panel (a metric override), never as a table column.
+		out = append(out, tui.ColumnChoice{
+			ID: string(d.ID), Desc: d.Description, System: d.Scope == metrics.ScopeHost,
+		})
 	}
 	for _, c := range render.StructuralColumns() {
 		out = append(out, tui.ColumnChoice{ID: c.ID, Desc: c.Desc})
